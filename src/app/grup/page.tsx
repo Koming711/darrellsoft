@@ -100,17 +100,36 @@ interface ResponsGrup {
   daftarPaketMultiAkun?: { id: string; name: string; monthlyPrice: number; maxAccounts: number; isPopular: boolean; features: string }[]
 }
 
-const MENU_IZIN = [
-  { id: 'pembukaan', label: 'Dashboard / Beranda' },
-  { id: 'master-customer', label: 'Customer' },
-  { id: 'master-barang', label: 'Produk / Barang' },
-  { id: 'invoice', label: 'Invoice & Pembayaran' },
-  { id: 'biaya', label: 'Kas / Bank & Biaya' },
-  { id: 'potong-kertas', label: 'Potong Kertas' },
-  { id: 'hitung-cetakan', label: 'Hitung Cetakan' },
-  { id: 'stock-bahan', label: 'Stok Bahan' },
-  { id: 'laporan', label: 'Laporan' },
+// Daftar LENGKAP hak akses menu (RBAC) yang dapat diatur Owner kepada anggota
+// grup — selaras seluruh menu sidebar aplikasi. `grup` = seksi untuk pengelompokan
+// tampilan. Harus SINKRON dengan GRUP_MENU_IZIN di src/lib/server-auth.ts.
+const MENU_IZIN: { id: string; label: string; grup: string }[] = [
+  { id: 'pembukaan', label: 'Dashboard / Beranda', grup: 'Beranda' },
+  { id: 'potong-kertas', label: 'Potong Kertas', grup: 'Hitung Produksi' },
+  { id: 'hitung-cetakan', label: 'Hitung Cetakan', grup: 'Hitung Produksi' },
+  { id: 'hitung-finishing', label: 'Hitung Finishing', grup: 'Hitung Produksi' },
+  { id: 'hitung-ongkos-cetak', label: 'Hitung Ongkos Cetak', grup: 'Hitung Produksi' },
+  { id: 'hitung-harga-kertas', label: 'Hitung Harga Kertas', grup: 'Hitung Produksi' },
+  { id: 'invoice', label: 'Invoice', grup: 'Dokumen' },
+  { id: 'surat-jalan', label: 'Surat Jalan', grup: 'Dokumen' },
+  { id: 'purchase-order', label: 'Purchase Order', grup: 'Dokumen' },
+  { id: 'master-customer', label: 'Master Customer', grup: 'Dokumen' },
+  { id: 'master-barang', label: 'Master Barang', grup: 'Dokumen' },
+  { id: 'biaya', label: 'Biaya Operasional (Kas / Bank)', grup: 'Keuangan & Laporan' },
+  { id: 'laporan', label: 'Laporan Penjualan & Laba Rugi', grup: 'Keuangan & Laporan' },
+  { id: 'hutang-dagang', label: 'Hutang Dagang', grup: 'Keuangan & Laporan' },
+  { id: 'piutang-dagang', label: 'Piutang Dagang', grup: 'Keuangan & Laporan' },
+  { id: 'master-harga-kertas', label: 'Master Harga Kertas', grup: 'Master Cetak' },
+  { id: 'daftar-kategori', label: 'Daftar Kategori', grup: 'Master Cetak' },
+  { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak', grup: 'Master Cetak' },
+  { id: 'master-finishing', label: 'Master Finishing', grup: 'Master Cetak' },
+  { id: 'master-toko-pemasok', label: 'Master Toko Pemasok', grup: 'Master Cetak' },
+  { id: 'stock-bahan', label: 'Stock Bahan', grup: 'Master Cetak' },
+  { id: 'pengaturan', label: 'Pengaturan', grup: 'Lainnya' },
 ]
+
+// Urutan seksi utk pengelompokan tampilan hak akses
+const IZIN_GRUP_ORDER = ['Beranda', 'Hitung Produksi', 'Dokumen', 'Keuangan & Laporan', 'Master Cetak', 'Lainnya']
 
 const PESAN_KUOTA_PENUH =
   'Kuota akun Anda sudah penuh. Hapus atau keluarkan anggota yang tidak digunakan, atau pilih paket dengan kuota lebih besar.'
@@ -223,6 +242,21 @@ function GrupContent() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengeluarkan anggota')
     }
+  }
+
+  // ===== Halaman penuh "Tambah Anggota" (bukan dialog kecil — permintaan owner):
+  // muncul menggantikan isi grup dengan form lengkap + hak akses menu LENGKAP.
+  if (dlgTambah) {
+    return (
+      <HalamanTambahAnggota
+        sisa={grup.sisa}
+        onBatal={() => setDlgTambah(false)}
+        onDone={() => {
+          setDlgTambah(false)
+          load({ silent: true })
+        }}
+      />
+    )
   }
 
   return (
@@ -341,14 +375,6 @@ function GrupContent() {
       {tab === 'langganan' && (
         <KartuLangganan grup={grup} lang={lang} />
       )}
-
-      {/* ===== Dialog tambah anggota ===== */}
-      <DialogTambahAnggota
-        open={dlgTambah}
-        onOpenChange={setDlgTambah}
-        sisa={grup.sisa}
-        onDone={() => load({ silent: true })}
-      />
 
       {/* ===== Dialog edit anggota ===== */}
       <DialogEditAnggota
@@ -730,15 +756,17 @@ function KartuLangganan({ grup, lang }: { grup: GrupInfo; lang: { label: string;
   )
 }
 
-// ===== Dialog tambah anggota =====
-function DialogTambahAnggota({
-  open, onOpenChange, sisa, onDone,
+// ===== Halaman penuh "Tambah Anggota" =====
+// Klik "Tambah Anggota" membuka HALAMAN anggota (bukan dialog kecil — permintaan
+// owner) dengan form lengkap dan hak akses menu LENGKAP dikelompokkan per seksi.
+function HalamanTambahAnggota({
+  sisa, onBatal, onDone,
 }: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
   sisa: number
+  onBatal: () => void
   onDone: () => void
 }) {
+  const router = useRouter()
   const [namaLengkap, setNama] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -750,7 +778,18 @@ function DialogTambahAnggota({
   const toggleIzin = (id: string) =>
     setIzin((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
+  const pilihSemua = () => setIzin(MENU_IZIN.map((m) => m.id))
+  const hapusSemua = () => setIzin([])
+
+  const kembali = () => {
+    startNavigation()
+    router.push('/grup')
+    onBatal()
+  }
+
   const simpan = async () => {
+    if (!namaLengkap.trim()) { toast.error('Nama lengkap wajib diisi.'); return }
+    if (!username.trim()) { toast.error('Username wajib diisi.'); return }
     setSaving(true)
     try {
       const res = await authFetch('/api/grup/anggota', {
@@ -760,7 +799,6 @@ function DialogTambahAnggota({
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Gagal menambah anggota')
-      onOpenChange(false)
       onDone()
       if (json.sandiAwal) {
         toast.success(`Anggota ditambahkan. Kata sandi awal: ${json.sandiAwal}`, {
@@ -779,66 +817,142 @@ function DialogTambahAnggota({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Tambah Anggota Grup</DialogTitle>
-          <DialogDescription>
-            Sisa kuota: {sisa} akun. Anggota mendapat akun login sendiri dan bekerja pada data perusahaan yang sama.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="t-nama">Nama Lengkap *</Label>
-            <Input id="t-nama" value={namaLengkap} onChange={(e) => setNama(e.target.value)} maxLength={120} placeholder="cth. Budi Susanto" data-testid="tambah-nama" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="t-username">Username *</Label>
-              <Input id="t-username" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={40} placeholder="cth. budi" data-testid="tambah-username" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-hp">Nomor HP</Label>
-              <Input id="t-hp" value={nomorHP} onChange={(e) => setNomorHP(e.target.value)} maxLength={25} placeholder="08…" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="t-email">Email</Label>
-            <Input id="t-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} placeholder="opsional" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Peran</Label>
-            <select
-              value={peran}
-              onChange={(e) => setPeran(e.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              aria-label="Peran anggota"
-            >
-              <option value="staf">Staf</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Hak Akses Menu (RBAC)</Label>
-            <div className="grid max-h-44 gap-1.5 overflow-y-auto rounded-lg border p-3 sm:grid-cols-2">
-              {MENU_IZIN.map((m) => (
-                <label key={m.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <Checkbox checked={izin.includes(m.id)} onCheckedChange={() => toggleIzin(m.id)} />
-                  {m.label}
-                </label>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">Tanpa pilihan = anggota belum dapat mengakses menu data sampai Owner mengaturnya.</p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button onClick={simpan} disabled={saving} className="min-h-[44px] bg-emerald-600 hover:bg-emerald-700" data-testid="tambah-simpan">
-            {saving ? 'Menyimpan…' : 'Tambah Anggota'}
+    <div className="space-y-4 md:space-y-6" data-testid="halaman-tambah-anggota">
+      {/* Header halaman */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={kembali}
+            className="mb-2 min-h-[36px]"
+            data-testid="tambah-kembali"
+          >
+            ← Kembali ke Grup Saya
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <h1 className="text-xl font-extrabold tracking-tight md:text-2xl">Tambah Anggota Grup</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sisa kuota: <span className="font-semibold text-foreground">{sisa}</span> akun.
+            Anggota mendapat akun login sendiri dan bekerja pada data perusahaan yang sama.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* ===== Kolom kiri: data anggota ===== */}
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Data Anggota</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="t-nama">Nama Lengkap *</Label>
+              <Input id="t-nama" value={namaLengkap} onChange={(e) => setNama(e.target.value)} maxLength={120} placeholder="cth. Budi Susanto" data-testid="tambah-nama" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="t-username">Username *</Label>
+                <Input id="t-username" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={40} placeholder="cth. budi" data-testid="tambah-username" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="t-hp">Nomor HP</Label>
+                <Input id="t-hp" value={nomorHP} onChange={(e) => setNomorHP(e.target.value)} maxLength={25} placeholder="08…" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="t-email">Email</Label>
+              <Input id="t-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} placeholder="opsional" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Peran</Label>
+              <select
+                value={peran}
+                onChange={(e) => setPeran(e.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                aria-label="Peran anggota"
+              >
+                <option value="staf">Staf</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+              Jika kata sandi tidak diisi, sistem membuat kata sandi otomatis dan
+              menampilkannya SEKALI setelah anggota tersimpan.
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ===== Kolom kanan: hak akses menu LENGKAP ===== */}
+        <Card className="rounded-2xl">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2 pb-3">
+            <div>
+              <CardTitle className="text-base">Hak Akses Menu (RBAC)</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Daftar lengkap semua menu aplikasi — centang menu yang boleh dibuka anggota.
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <Button type="button" size="sm" variant="outline" className="h-8" onClick={pilihSemua} data-testid="izin-pilih-semua">
+                Pilih Semua
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-8" onClick={hapusSemua} data-testid="izin-hapus-semua">
+                Hapus Semua
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-lg border p-3" data-testid="daftar-hak-akses">
+              {IZIN_GRUP_ORDER.map((namaGrup) => {
+                const items = MENU_IZIN.filter((m) => m.grup === namaGrup)
+                if (items.length === 0) return null
+                const semuaTerpilih = items.every((m) => izin.includes(m.id))
+                return (
+                  <div key={namaGrup}>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{namaGrup}</p>
+                      <button
+                        type="button"
+                        className="text-[10px] font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+                        onClick={() => {
+                          if (semuaTerpilih) {
+                            setIzin((prev) => prev.filter((x) => !items.some((m) => m.id === x)))
+                          } else {
+                            setIzin((prev) => [...new Set([...prev, ...items.map((m) => m.id)])])
+                          }
+                        }}
+                      >
+                        {semuaTerpilih ? 'Kosongkan seksi' : 'Pilih seksi'}
+                      </button>
+                    </div>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {items.map((m) => (
+                        <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-accent/40">
+                          <Checkbox checked={izin.includes(m.id)} onCheckedChange={() => toggleIzin(m.id)} data-testid={`izin-${m.id}`} />
+                          <span className="min-w-0 truncate">{m.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {izin.length} dari {MENU_IZIN.length} menu dipilih. Tanpa pilihan = anggota belum dapat mengakses menu data sampai Owner mengaturnya.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tombol aksi */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={kembali} disabled={saving} className="min-h-[44px]">
+          Batal
+        </Button>
+        <Button onClick={simpan} disabled={saving} className="min-h-[44px] bg-emerald-600 hover:bg-emerald-700" data-testid="tambah-simpan">
+          {saving ? 'Menyimpan…' : 'Simpan Anggota Baru'}
+        </Button>
+      </div>
+    </div>
   )
 }
 

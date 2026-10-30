@@ -56,6 +56,24 @@ export async function GET(request: NextRequest) {
         db.subscriptionInvoice.findMany({ select: { userId: true, status: true, dueDate: true } }),
       ])
 
+    // Resolusi userId → NAMA AKUN (Pengguna.namaLengkap / CalonPembeli.nama)
+    // untuk daftar pembayaran — kotak "Pembayaran Terakhir Disetujui" menampilkan
+    // NAMA AKUN (bukan nomor tagihan) sesuai permintaan owner.
+    const paymentUserIds = [...new Set([...pendingPayments, ...recentPayments].map((p) => p.userId))]
+    const [penggunaRows, calonRows] = await Promise.all([
+      db.pengguna.findMany({
+        where: { id: { in: paymentUserIds } },
+        select: { id: true, namaLengkap: true, username: true },
+      }),
+      db.calonPembeli.findMany({
+        where: { id: { in: paymentUserIds } },
+        select: { id: true, nama: true, username: true },
+      }),
+    ])
+    const akunById = new Map<string, string>()
+    for (const u of penggunaRows) akunById.set(u.id, u.namaLengkap || u.username || 'Akun')
+    for (const c of calonRows) akunById.set(c.id, c.nama || c.username || 'Akun')
+
     // Hitung status turunan per langganan
     const statusCounts: Record<string, number> = {
       [SUB_STATUS.BELUM_AKTIF]: 0,
@@ -103,6 +121,7 @@ export async function GET(request: NextRequest) {
       })),
       pendingPaymentList: pendingPayments.slice(0, 10).map((p) => ({
         id: p.id,
+        akun: akunById.get(p.userId) ?? '—',
         invoiceNumber: p.invoice.invoiceNumber,
         planName: p.invoice.planName,
         amount: p.amount,
@@ -111,7 +130,7 @@ export async function GET(request: NextRequest) {
       })),
       recentApproved: recentPayments.map((p) => ({
         id: p.id,
-        invoiceNumber: p.invoice.invoiceNumber,
+        akun: akunById.get(p.userId) ?? '—',
         planName: p.invoice.planName,
         amount: p.amount,
         reviewedAt: p.reviewedAt,

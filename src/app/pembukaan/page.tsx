@@ -28,6 +28,7 @@ import {
   HandCoins,
   Coins,
   Building2,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -129,8 +130,64 @@ const ROLE_LABEL: Record<string, string> = {
   superadmin: 'Super Admin',
   admin: 'Admin',
   manager: 'Manajer',
+  owner: 'Owner',
   user: 'User',
   demo: 'Demo',
+}
+
+// Nama peran grup perusahaan (Owner / Admin / Staf) — dipakai badge beranda
+// menggantikan label generik "User" agar identitas peran terlihat jelas.
+const GRUP_PERAN_LABEL: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  staf: 'Staf',
+}
+
+/**
+ * Motivasi usaha harian — berganti OTOMATIS setiap hari (indeks = hari ke-n
+ * dalam tahun, deterministik: semua pengguna melihat kutipan yang sama pada
+ * hari yang sama, dan berbeda setiap hari).
+ */
+const MOTIVASI_HARIAN: { teks: string; sumber: string }[] = [
+  { teks: 'Usaha besar dimulai dari pekerjaan kecil yang dikerjakan konsisten setiap hari.', sumber: 'Semangat hari ini' },
+  { teks: 'Pelanggan yang puas adalah iklan termahal yang tidak perlu Anda bayar.', sumber: 'Pelayanan prima' },
+  { teks: 'Kualitas cetakan hari ini adalah reputasi toko Anda esok hari.', sumber: 'Jaga kualitas' },
+  { teks: 'Catat setiap rupiah — usaha yang terukur tumbuh lebih cepat.', sumber: 'Kelola keuangan' },
+  { teks: 'Tidak ada usaha yang gagal, yang ada hanya usaha yang berhenti mencoba.', sumber: 'Pantang menyerah' },
+  { teks: 'Pesanan kecil dikerjakan sungguh-sungguh akan membawa pesanan besar.', sumber: 'Setia pada yang kecil' },
+  { teks: 'Waktu produksi yang tepat adalah janji yang ditepati — itu modal kepercayaan.', sumber: 'Tepat waktu' },
+  { teks: 'Bersainglah dengan kualitas, bukan hanya harga. Kualitas membuat pelanggan kembali.', sumber: 'Nilai lebih' },
+  { teks: 'Tim yang hebat menghasilkan cetakan yang hebat. Rawat tim Anda.', sumber: 'Kerja sama' },
+  { teks: 'Hari yang sulit di usaha adalah pelatihan terbaik untuk pemilik usaha.', sumber: 'Terus belajar' },
+  { teks: 'Kejujuran dalam harga dan waktu adalah alasan pelanggan pulang lagi.', sumber: 'Amanah' },
+  { teks: 'Setiap order yang masuk adalah amanah — selesaikan sebaik mungkin.', sumber: 'Amanah' },
+  { teks: 'Keuntungan lahir dari kebiasaan baik: hemat, rapi, dan tepat waktu.', sumber: 'Kebiasaan baik' },
+  { teks: 'Mesin bisa dibeli, tapi kepercayaan pelanggan harus dibangun bertahun-tahun.', sumber: 'Bangun kepercayaan' },
+  { teks: 'Pemilik usaha sukses bukan yang tak pernah rugi, tapi yang pandai belajar dari kerugian.', sumber: 'Belajar dari rugi' },
+  { teks: 'Cek stok bahan hari ini, agar besok produksi tidak berhenti.', sumber: 'Siapkan stok' },
+  { teks: 'Sukses adalah jumlah dari usaha kecil yang diulang setiap hari.', sumber: 'Konsisten' },
+  { teks: 'Pelanggan tidak peduli seberapa besar toko Anda, mereka peduli seberapa besar perhatian Anda.', sumber: 'Perhatian penuh' },
+  { teks: 'Rapikan meja kerja, rapikan pembukuan — ketertusan kecil membawa hasil besar.', sumber: 'Teratur' },
+  { teks: 'Jangan tunggu sempurna untuk memulai, mulailah agar menjadi sempurna.', sumber: 'Mulai sekarang' },
+  { teks: 'Inovasi kecil di produk Anda hari ini membedakan Anda dari pesaing besok.', sumber: 'Berinovasi' },
+  { teks: 'Sapa pelanggan dengan nama mereka — itu jasa gratis yang nilainya mahal.', sumber: 'Sahabat pelanggan' },
+  { teks: 'Usaha yang jujur mungkin naik lambat, tapi tidak akan pernah jatuh cepat.', sumber: 'Jujur & tabah' },
+  { teks: 'Target hari ini lebih berharga daripada alasan untuk menundanya.', sumber: 'Fokus target' },
+  { teks: 'Karyawan yang dihargai akan menjaga mesin dan pelanggan seperti miliknya.', sumber: 'Hargai tim' },
+  { teks: 'Rekening yang sehat dimulai dari kebiasaan memisahkan uang usaha dan pribadi.', sumber: 'Pisah kas' },
+  { teks: 'Setiap cetakan yang keluar adalah nama Anda yang ikut tercetak.', sumber: 'Bangun nama baik' },
+  { teks: 'Tertawa dengan pelanggan hari ini, mudah-mudahan dibesarkan besok.', sumber: 'Ramah' },
+  { teks: 'Kecepatan melayani adalah senjata usaha cetak yang sering dilupakan.', sumber: 'Cepat tanggap' },
+  { teks: 'Niat baik + kerja keras + doa = rezeki yang tidak akan tertukar.', sumber: 'Rezeki halal' },
+  { teks: 'Hari terbaik untuk memperbaiki usaha Anda adalah hari ini.', sumber: 'Memperbaiki diri' },
+  { teks: 'Buku kas yang rapi membuat tidur pemilik usaha lebih nyenyak.', sumber: 'Pembukuan rapi' },
+]
+
+function motivasiHariIni(): { teks: string; sumber: string } {
+  const now = new Date()
+  const awalTahun = new Date(now.getFullYear(), 0, 1)
+  const hariKe = Math.floor((now.getTime() - awalTahun.getTime()) / 86400000)
+  return MOTIVASI_HARIAN[hariKe % MOTIVASI_HARIAN.length]
 }
 
 const TYPE_LABEL: Record<'REGULER' | 'DP', string> = {
@@ -288,6 +345,9 @@ export default function PembukaanPage() {
   const maxCust = s?.topCustomers[0]?.total ?? 0
   const maxItem = s?.topItems[0]?.total ?? 0
 
+  // Motivasi usaha harian — deterministik per tanggal (berubah tiap hari)
+  const motivasi = motivasiHariIni()
+
   return (
     <DashboardLayout title="Beranda">
       <div className="space-y-5 md:space-y-6">
@@ -304,11 +364,23 @@ export default function PembukaanPage() {
                   variant="outline"
                   className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900"
                 >
-                  {ROLE_LABEL[s.user.role] ?? s.user.role}
+                  {/* Nama role: peran grup perusahaan (Owner/Admin/Staf) bila anggota
+                      grup, selain itu label role akun (Super Admin/Admin/Manajer/…) */}
+                  {(s.grupRingkas && GRUP_PERAN_LABEL[s.grupRingkas.peran]) || ROLE_LABEL[s.user.role] || s.user.role}
                 </Badge>
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+            {/* Motivasi usaha harian — berganti otomatis setiap hari */}
+            <div
+              className="mt-2 inline-flex max-w-full items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 dark:border-amber-900 dark:bg-amber-950/30"
+              data-testid="motivasi-harian"
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+              <p className="min-w-0 text-[11px] font-medium text-amber-800 sm:text-xs dark:text-amber-300">
+                {motivasi.teks}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button

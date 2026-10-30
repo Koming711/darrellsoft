@@ -132,6 +132,27 @@ export async function POST(request: NextRequest) {
       create: { userId, key, value: value || '' },
     })
 
+    // Nama Grup = Nama Perusahaan (permintaan owner): setiap kali Owner
+    // menyimpan "company_name" (popup Data Perusahaan / halaman Pengaturan),
+    // nama grup perusahaannya ikut diperbarui agar identik.
+    if (key === 'company_name' && String(value || '').trim()) {
+      try {
+        const anggota = await db.grupAnggota.findFirst({
+          where: { memberId: userId, status: { not: 'keluar' }, peran: 'owner' },
+          select: { grupId: true },
+        })
+        if (anggota) {
+          await db.grup.update({
+            where: { id: anggota.grupId },
+            data: { nama: String(value).trim().slice(0, 120) },
+          })
+        }
+      } catch (e) {
+        // Sinkronisasi nama grup bersifat pelengkap — jangan gagalkan penyimpanan setting
+        console.error('Sync company_name -> grup.nama error:', e)
+      }
+    }
+
     // Return same shape as Setting (id, key, value, createdAt, updatedAt) for client compatibility
     return NextResponse.json({
       id: userSetting.id,

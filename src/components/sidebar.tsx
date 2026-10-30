@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './theme-toggle'
@@ -113,91 +113,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'laporan_penjualan' as TranslationKey,
-    href: '/laporan/penjualan',
-    icon: TrendingUp,
-    featureId: 'laporan',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'laporan_rugi_laba' as TranslationKey,
-    href: '/laporan/rugi-laba',
-    icon: PieChart,
-    featureId: 'laporan',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'hutang_dagang' as TranslationKey,
-    href: '/hutang-dagang',
-    icon: HandCoins,
-    featureId: 'hutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'piutang_dagang' as TranslationKey,
-    href: '/piutang-dagang',
-    icon: Coins,
-    featureId: 'piutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'paket_saya' as TranslationKey,
-    href: '/langganan-saya',
-    icon: PackageCheck,
-    featureId: 'langganan-saya',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'grup_saya' as TranslationKey,
-    href: '/grup',
-    icon: Users,
-    featureId: 'grup-saya',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'pilih_paket' as TranslationKey,
-    href: '/pilih-paket',
-    icon: PackageOpen,
-    featureId: 'pilih-paket',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'panel_admin' as TranslationKey,
-    href: '/panel-admin',
-    icon: LayoutDashboard,
-    featureId: 'panel-admin',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'biaya_operasional' as TranslationKey,
-    href: '/biaya-operasional',
-    icon: Wallet,
-    featureId: 'biaya',
-    section: 'biaya',
-  },
-  {
-    titleKey: 'hitung_finishing' as TranslationKey,
-    href: '/hitung-finishing',
-    icon: Paintbrush,
-    featureId: 'hitung-finishing',
-    section: 'biaya_produksi',
-  },
-  {
-    titleKey: 'hitung_ongkos_cetak' as TranslationKey,
-    href: '/hitung-ongkos-cetak',
-    icon: Printer,
-    featureId: 'hitung-ongkos-cetak',
-    section: 'biaya_produksi',
-  },
-  {
-    titleKey: 'hitung_harga_kertas' as TranslationKey,
-    href: '/hitung-harga-kertas',
-    icon: FileStack,
-    featureId: 'hitung-harga-kertas',
-    section: 'biaya_produksi',
-  },
-
-  {
     titleKey: 'master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
     icon: Tags,
@@ -240,6 +155,84 @@ const menuItems = [
     section: 'master_cetakan',
   },
   {
+    titleKey: 'laporan_penjualan' as TranslationKey,
+    href: '/laporan/penjualan',
+    icon: TrendingUp,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'laporan_rugi_laba' as TranslationKey,
+    href: '/laporan/rugi-laba',
+    icon: PieChart,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'hutang_dagang' as TranslationKey,
+    href: '/hutang-dagang',
+    icon: HandCoins,
+    featureId: 'hutang-dagang',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'piutang_dagang' as TranslationKey,
+    href: '/piutang-dagang',
+    icon: Coins,
+    featureId: 'piutang-dagang',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'biaya_operasional' as TranslationKey,
+    href: '/biaya-operasional',
+    icon: Wallet,
+    featureId: 'biaya',
+    section: 'biaya',
+  },
+  {
+    titleKey: 'hitung_finishing' as TranslationKey,
+    href: '/hitung-finishing',
+    icon: Paintbrush,
+    featureId: 'hitung-finishing',
+    section: 'biaya_produksi',
+  },
+  {
+    titleKey: 'hitung_ongkos_cetak' as TranslationKey,
+    href: '/hitung-ongkos-cetak',
+    icon: Printer,
+    featureId: 'hitung-ongkos-cetak',
+    section: 'biaya_produksi',
+  },
+  {
+    titleKey: 'hitung_harga_kertas' as TranslationKey,
+    href: '/hitung-harga-kertas',
+    icon: FileStack,
+    featureId: 'hitung-harga-kertas',
+    section: 'biaya_produksi',
+  },
+
+  {
+    titleKey: 'paket_saya' as TranslationKey,
+    href: '/langganan-saya',
+    icon: PackageCheck,
+    featureId: 'langganan-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'grup_saya' as TranslationKey,
+    href: '/grup',
+    icon: Users,
+    featureId: 'grup-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'pilih_paket' as TranslationKey,
+    href: '/pilih-paket',
+    icon: PackageOpen,
+    featureId: 'pilih-paket',
+    section: 'langganan',
+  },
+  {
     titleKey: 'hak_akses' as TranslationKey,
     href: '/administrasi/hak-akses',
     icon: ShieldCheck,
@@ -251,6 +244,13 @@ const menuItems = [
     href: '/administrasi/pengguna',
     icon: UserCog,
     featureId: 'pengguna',
+    section: 'administrasi',
+  },
+  {
+    titleKey: 'panel_admin' as TranslationKey,
+    href: '/panel-admin',
+    icon: LayoutDashboard,
+    featureId: 'panel-admin',
     section: 'administrasi',
   },
   {
@@ -312,10 +312,60 @@ interface SidebarProps {
   permVersion?: number
 }
 
+// localStorage key — posisi scroll sidebar bertahan ANTAR SESI:
+// scroll ke menu yang dituju → tutup/buka browser (atau reload) → posisi tetap.
+const SIDEBAR_SCROLL_KEY = 'ds_sidebar_scroll'
+
+function loadSavedSidebarScroll(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const v = Number(localStorage.getItem(SIDEBAR_SCROLL_KEY) || '0')
+    return Number.isFinite(v) && v > 0 ? v : 0
+  } catch {
+    return 0
+  }
+}
+
 export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, permVersion }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useLanguage()
+  const navRef = useRef<HTMLElement>(null)
+
+  // Pulihkan posisi scroll sidebar saat sidebar dibuka lagi (mount / route change)
+  // — posisi terakhir tersimpan di localStorage sehingga tetap sama.
+  useEffect(() => {
+    const restore = () => {
+      const nav = navRef.current
+      if (!nav) return
+      const saved = loadSavedSidebarScroll()
+      if (saved > 0 && nav.scrollHeight > saved) {
+        nav.scrollTop = saved
+      }
+    }
+    restore()
+    const t1 = window.setTimeout(restore, 50)
+    const t2 = window.setTimeout(restore, 200)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [pathname])
+
+  // Lacak posisi scroll terus-menerus agar tersimpan saat sidebar ditutup/dibuka
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const handleScroll = () => {
+      try {
+        localStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollTop))
+      } catch {
+        /* storage penuh / private mode — abaikan */
+      }
+    }
+    nav.addEventListener('scroll', handleScroll, { passive: true })
+    return () => nav.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const isActive = (href: string) => {
     if (href === '/potong-kertas') {
@@ -385,7 +435,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-4 space-y-0.5 w-full hide-scrollbar">
+        <nav ref={navRef} className="flex-1 overflow-y-auto overflow-x-hidden pb-4 space-y-0.5 w-full hide-scrollbar">
           {/* Logo - Icon Only */}
           <div className="flex flex-col items-center mb-3 mt-2">
             <img

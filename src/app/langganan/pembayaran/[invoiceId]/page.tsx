@@ -198,6 +198,25 @@ function PembayaranContent() {
       : invoice.amount
     : 0
 
+  // Polling otomatis: selama tagihan belum selesai, periksa status tiap 10 detik.
+  // Begitu admin MENYETUJUI pembayaran, halaman otomatis berpindah ke
+  // langkah 4 (Verifikasi) tanpa perlu reload manual (permintaan owner).
+  useEffect(() => {
+    if (!authReady || !invoiceId) return
+    const status = invoice?.status
+    const selesai = status === 'disetujui' || status === 'kedaluwarsa' || status === 'dibatalkan'
+    if (selesai) return
+    const t = window.setInterval(() => {
+      void loadInvoice()
+    }, 10000)
+    return () => window.clearInterval(t)
+  }, [authReady, invoiceId, invoice?.status, loadInvoice])
+
+  // Langkah indikator: 3 = Pembayaran, 4 = Verifikasi (pembayaran disetujui admin),
+  // 5 = Selesai (langganan aktif & pengguna melanjutkan ke aplikasi).
+  const langkahIndikator =
+    invoice?.status === 'disetujui' ? 4 : 3
+
   const clearProof = useCallback(() => {
     setProofFile(null)
     setProofPreviewUrl((prev) => {
@@ -294,7 +313,7 @@ function PembayaranContent() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        <StepIndicator step={3} className="mx-auto mb-8 max-w-3xl" />
+        <StepIndicator step={langkahIndikator} className="mx-auto mb-8 max-w-3xl" />
 
         {invoiceError && (
           <Alert variant="destructive" className="mx-auto max-w-xl">

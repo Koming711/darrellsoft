@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
@@ -36,6 +36,7 @@ import {
   ReceiptText,
   Maximize2,
   Undo2,
+  TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -78,6 +79,8 @@ import { useDokuproStore } from '@/lib/store'
 import type { InvoiceData, CompanyInfo } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import {
+  RiwayatFilterCard,
+  RiwayatPeriodFilter,
   riwayatDateRange,
   type RiwayatPeriod,
 } from '@/components/dokupro/riwayat-period-filter'
@@ -133,9 +136,20 @@ function parseDocInfo(entry: HistoryEntry) {
     const referensiInvoiceNomor = parsed.referensiInvoiceNomor || ''
     const isPelunasan = entry.docType === 'invoice-pelunasan'
     const uangCapek = parsed.uangCapek || 0
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, batal, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek, itemCount }
+    // Profit: Total (termasuk PPN) − HPP (snapshot modal per item); fallback
+    // uangCapek (profit dari referensi hitung cetakan) untuk invoice lama tanpa
+    // snapshot modal. Selaras rumus Laba Kotor di beranda & laporan rugi-laba.
+    // Pelunasan & invoice batal tidak dihitung (profit sudah dihitung di invoice induk).
+    const typedItems = items as { qty?: number; modal?: number }[]
+    const adaModal = typedItems.some((it) => it.modal != null && it.modal > 0)
+    const hpp = typedItems.reduce(
+      (sum: number, it) => sum + (it.modal != null && it.modal > 0 ? (it.qty ?? 0) * (it.modal ?? 0) : 0),
+      0
+    )
+    const profit = isPelunasan || batal ? 0 : adaModal ? Math.max(0, totalHarga - hpp) : uangCapek
+    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, batal, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek, itemCount, profit }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, batal: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0, itemCount: 0 }
+    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, batal: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0, itemCount: 0, profit: 0 }
   }
 }
 
@@ -999,13 +1013,76 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const dpInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice' && matchesFilters(e)), [allHistory, matchesFilters])
   const pelunasanInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice-pelunasan' && matchesFilters(e)), [allHistory, matchesFilters])
 
-  // Daftar gabungan (invoice + invoice pelunasan) — satu tabel, terbaru di atas
+  // Daftar gabungan (invoice + invoice pelunasan) — terbaru di atas
   const combinedList = useMemo(
     () => [...dpInvoices, ...pelunasanInvoices].sort(
       (a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
     ),
     [dpInvoices, pelunasanInvoices]
   )
+
+  // ===== Tabel BERGRUP: invoice DP + transaksi pelunasannya dalam SATU grup
+  // (permintaan owner: riwayat DP dan pelunasan dibuat grup di tabel).
+  const groupedRows = useMemo(() => {
+    const byParent = new Map<string, HistoryEntry[]>()
+    const orphan: HistoryEntry[] = []
+    for (const p of pelunasanInvoices) {
+      const ref = parseDocInfo(p).referensiInvoiceNomor
+      const parent = ref ? dpInvoices.find((i) => i.nomor === ref) : undefined
+      if (parent) {
+        const arr = byParent.get(parent.id) ?? []
+        arr.push(p)
+        byParent.set(parent.id, arr)
+      } else {
+        orphan.push(p)
+      }
+    }
+    for (const arr of byParent.values()) {
+      arr.sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || ''))
+    }
+    const urut = [...dpInvoices].sort(
+      (a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+    )
+    const rows = urut.map((inv) => ({ entry: inv, children: byParent.get(inv.id) ?? [] }))
+    const orphans = orphan.sort(
+      (a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.createdAt || '').localeCompare(a.createdAt || '')
+    )
+    for (const o of orphans) rows.push({ entry: o, children: [] })
+    return rows
+  }, [dpInvoices, pelunasanInvoices])
+
+  // ===== Kotak total: Total Invoice & Total Profit (gaya beranda) =====
+  // Selaras beranda: hanya docType 'invoice' non-batal yang dihitung —
+  // pelunasan tidak dihitung dua kali (profit sudah milik invoice induk).
+  const riwayatTotals = useMemo(() => {
+    let totalInvoice = 0
+    let totalProfit = 0
+    let jumlahInvoice = 0
+    for (const e of dpInvoices) {
+      const info = parseDocInfo(e)
+      if (info.batal) continue
+      jumlahInvoice++
+      totalInvoice += info.totalHarga
+      totalProfit += info.profit
+    }
+    return { totalInvoice, totalProfit, jumlahInvoice }
+  }, [dpInvoices])
+
+  // Ringkasan daftar terfilter (subjudul header, gaya Riwayat Invoice)
+  const listSummary = useMemo(() => {
+    return { count: riwayatTotals.jumlahInvoice, total: riwayatTotals.totalInvoice }
+  }, [riwayatTotals])
+
+  const filtersActive = statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || period !== 'all'
+
+  const resetFilters = () => {
+    setPeriod('all')
+    setStatusFilter('all')
+    setDateFrom('')
+    setDateTo('')
+    setSearchInput('')
+    setSearchQuery('')
+  }
 
   // === Data tab Riwayat Pembayaran (gaya payment-history) ===
   // Daftar Invoice DP (dengan sisa tagihan) + Transaksi Pelunasan + Total Piutang.
@@ -1086,25 +1163,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
       .reduce((acc, r) => acc + r.sisa, 0)
     return { dpRows, settlementRows, totalPiutang }
   }, [allHistory])
-
-  // Ringkasan daftar terfilter (subjudul header, gaya Riwayat Invoice)
-  const listSummary = useMemo(() => {
-    let total = 0
-    for (const entry of combinedList) {
-      total += parseDocInfo(entry).totalHarga
-    }
-    return { count: combinedList.length, total }
-  }, [combinedList])
-
-  const filtersActive = statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim()
-
-  const resetFilters = () => {
-    setStatusFilter('all')
-    setDateFrom('')
-    setDateTo('')
-    setSearchInput('')
-    setSearchQuery('')
-  }
 
   // Export Excel — unduh daftar invoice terfilter (mengikuti filter aktif)
   const handleExportExcel = async () => {
@@ -1302,55 +1360,86 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
         {/* ================= TAB: RIWAYAT INVOICE ================= */}
         {activeTab === 'invoice' && (
           <>
-            {/* Filter bar — selalu tampil: Cari | Status | Dari | Sampai */}
-            <div className="flex flex-wrap gap-2 items-center">
-              <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
-                <Input
-                  id="riwayat-invoice-search"
-                  type="search"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Cari nomor / pelanggan…"
-                  aria-label="Cari invoice"
-                  className="pl-9 min-h-[44px]"
-                />
+            {/* ===== Filter: periode (cari per bulan) + pencarian + status ===== */}
+            <RiwayatFilterCard>
+              <RiwayatPeriodFilter
+                period={period}
+                onChangePeriod={setPeriod}
+                from={dateFrom}
+                to={dateTo}
+                onFromChange={setDateFrom}
+                onToChange={setDateTo}
+                month={month}
+                onMonthChange={setMonth}
+                year={year}
+                onYearChange={setYear}
+                idPrefix="riwayat-invoice"
+                rightSlot={
+                  <div className="relative w-full sm:w-56">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" aria-hidden="true" />
+                    <Input
+                      id="riwayat-invoice-search"
+                      type="search"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Cari nomor / pelanggan…"
+                      aria-label="Cari invoice"
+                      className="pl-9 min-h-[44px]"
+                    />
+                  </div>
+                }
+              />
+              <div className="flex flex-wrap gap-2 items-center">
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
+                  <SelectTrigger aria-label="Filter status invoice" className="w-full sm:w-40 min-h-[44px]">
+                    <SelectValue placeholder="Semua Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="lunas">Lunas</SelectItem>
+                    <SelectItem value="belum">Belum Lunas</SelectItem>
+                    <SelectItem value="batal">Batal</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filtersActive && (
+                  <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
+                    <X className="h-3.5 w-3.5" /> Reset
+                  </Button>
+                )}
               </div>
-              <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
-                <SelectTrigger aria-label="Filter status invoice" className="w-full sm:w-40 min-h-[44px]">
-                  <SelectValue placeholder="Semua Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="lunas">Lunas</SelectItem>
-                  <SelectItem value="belum">Belum Lunas</SelectItem>
-                  <SelectItem value="batal">Batal</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                aria-label="Dari tanggal"
-                title="Dari tanggal"
-                className="w-full sm:w-40 min-h-[44px]"
-              />
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                aria-label="Sampai tanggal"
-                title="Sampai tanggal"
-                className="w-full sm:w-40 min-h-[44px]"
-              />
-              {filtersActive && (
-                <Button variant="ghost" className="text-xs text-muted-foreground h-10" onClick={resetFilters}>
-                  <X className="h-3.5 w-3.5" /> Reset
-                </Button>
-              )}
-            </div>
+            </RiwayatFilterCard>
 
-            {/* Daftar — satu tabel gabungan (invoice + pelunasan), klik baris → Detail */}
+            {/* ===== Kotak total: Total Invoice & Total Profit (gaya beranda) ===== */}
+            {!loading && hasResults && (
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="kotak-total-invoice">
+                  <CardContent className="p-4 md:p-5">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <ReceiptText className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-medium">Total Invoice</p>
+                    </div>
+                    <p className="text-base md:text-2xl font-bold mt-2 text-stone-900 dark:text-zinc-100">
+                      {formatRupiah(riwayatTotals.totalInvoice)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">{riwayatTotals.jumlahInvoice} invoice terfilter</p>
+                  </CardContent>
+                </Card>
+                <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="kotak-total-profit">
+                  <CardContent className="p-4 md:p-5">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <p className="text-xs font-medium">Total Profit</p>
+                    </div>
+                    <p className="text-base md:text-2xl font-bold mt-2 text-emerald-700 dark:text-emerald-400">
+                      {formatRupiah(riwayatTotals.totalProfit)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">profit dari invoice terfilter</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Daftar — tabel bergrup (invoice DP + pelunasannya), klik baris → Detail */}
             {loading ? (
               <>
                 <div className="hidden md:block rounded-xl border border-stone-200 bg-white p-4 space-y-3">
@@ -1365,12 +1454,12 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                 <ReceiptText className="h-10 w-10 text-stone-300 mx-auto mb-2" />
                 <p className="text-sm font-medium">{filtersActive ? 'Tidak ada invoice yang cocok' : 'Belum ada invoice'}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {filtersActive ? 'Ubah kata kunci atau filter pencarian.' : 'Buat invoice pertama Anda dengan tombol "+ Buat Invoice".'}
+                  {filtersActive ? 'Ubah kata kunci, periode, atau filter pencarian.' : 'Buat invoice pertama Anda dengan tombol "+ Buat Invoice".'}
                 </p>
               </div>
             ) : (
               <>
-                {/* Desktop table — klik baris → Detail Invoice */}
+                {/* Desktop table — bergrup: baris invoice DP diikuti baris pelunasannya */}
                 <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
                   <div className="max-h-96 overflow-y-auto scrollbar-thin">
                     <Table>
@@ -1382,37 +1471,79 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center">Jumlah Item</TableHead>
                           <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Profit</TableHead>
                           <TableHead className="w-10"><span className="sr-only">Buka detail</span></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {combinedList.slice(0, 100).map((entry) => {
+                        {groupedRows.slice(0, 100).map((group) => {
+                          const entry = group.entry
                           const info = parseDocInfo(entry)
                           const st = getInvoiceStatus(info)
                           return (
-                            <TableRow
-                              key={entry.id}
-                              tabIndex={0}
-                              onClick={() => onOpenDetail(entry.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  onOpenDetail(entry.id)
-                                }
-                              }}
-                              aria-label={`Buka invoice ${entry.nomor || ''}`}
-                              className="cursor-pointer"
-                            >
-                              <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
-                              <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
-                              <TableCell className="max-w-48 truncate">{entry.pihakKedua || '-'}</TableCell>
-                              <TableCell><StatusBadge status={st} /></TableCell>
-                              <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
-                              <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
-                              <TableCell>
-                                <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
-                              </TableCell>
-                            </TableRow>
+                            <Fragment key={entry.id}>
+                              <TableRow
+                                tabIndex={0}
+                                onClick={() => onOpenDetail(entry.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    onOpenDetail(entry.id)
+                                  }
+                                }}
+                                aria-label={`Buka invoice ${entry.nomor || ''}`}
+                                className="cursor-pointer"
+                              >
+                                <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
+                                <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
+                                <TableCell className="max-w-48 truncate">{entry.pihakKedua || '-'}</TableCell>
+                                <TableCell><StatusBadge status={st} /></TableCell>
+                                <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
+                                <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
+                                <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums text-emerald-700">
+                                  {info.isPelunasan ? '—' : formatRupiah(info.profit)}
+                                </TableCell>
+                                <TableCell>
+                                  <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
+                                </TableCell>
+                              </TableRow>
+                              {group.children.map((child) => {
+                                const cInfo = parseDocInfo(child)
+                                const cSt = getInvoiceStatus(cInfo)
+                                return (
+                                  <TableRow
+                                    key={child.id}
+                                    tabIndex={0}
+                                    onClick={() => onOpenDetail(child.id)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault()
+                                        onOpenDetail(child.id)
+                                      }
+                                    }}
+                                    aria-label={`Buka pelunasan ${child.nomor || ''}`}
+                                    className="cursor-pointer bg-emerald-50/40 dark:bg-emerald-950/20"
+                                  >
+                                    <TableCell className="whitespace-nowrap pl-6">
+                                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                                        {child.nomor || '-'} <TypeBadge type="PEL" />
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap text-muted-foreground">{child.tanggal ? formatTanggalShort(child.tanggal) : '-'}</TableCell>
+                                    <TableCell className="max-w-48 truncate text-muted-foreground">{child.pihakKedua || '-'}</TableCell>
+                                    <TableCell><StatusBadge status={cSt} /></TableCell>
+                                    <TableCell className="text-center tabular-nums text-muted-foreground">—</TableCell>
+                                    <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                                      {formatRupiah(cInfo.totalHarga)}
+                                    </TableCell>
+                                    <TableCell className="text-right whitespace-nowrap text-muted-foreground">—</TableCell>
+                                    <TableCell>
+                                      <ChevronRight className="h-4 w-4 text-stone-300" aria-hidden="true" />
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })}
+                            </Fragment>
                           )
                         })}
                       </TableBody>
@@ -1420,34 +1551,68 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                   </div>
                 </div>
 
-                {/* Mobile cards — klik kartu → Detail Invoice */}
+                {/* Mobile cards — bergrup: kartu invoice DP + sub-kartu pelunasannya */}
                 <div className="md:hidden space-y-3">
-                  {combinedList.slice(0, 100).map((entry) => {
+                  {groupedRows.slice(0, 100).map((group) => {
+                    const entry = group.entry
                     const info = parseDocInfo(entry)
                     const st = getInvoiceStatus(info)
                     return (
-                      <button
-                        key={entry.id}
-                        onClick={() => onOpenDetail(entry.id)}
-                        aria-label={`Buka invoice ${entry.nomor || ''}`}
-                        className="w-full text-left"
-                      >
-                        <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2 transition-colors active:bg-stone-50 hover:border-stone-300">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate">{entry.nomor || '-'}</p>
-                              <p className="text-xs text-muted-foreground truncate">{entry.pihakKedua || '-'}</p>
+                      <div key={entry.id} className="space-y-1.5">
+                        <button
+                          onClick={() => onOpenDetail(entry.id)}
+                          aria-label={`Buka invoice ${entry.nomor || ''}`}
+                          className="w-full text-left"
+                        >
+                          <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-2 transition-colors active:bg-stone-50 hover:border-stone-300">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate">{entry.nomor || '-'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{entry.pihakKedua || '-'}</p>
+                              </div>
+                              <StatusBadge status={st} />
                             </div>
-                            <StatusBadge status={st} />
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                              <span className="text-muted-foreground">
+                                {entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · {info.itemCount || 0} item
+                              </span>
+                              <span className="font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-muted-foreground">Profit</span>
+                              <span className="font-semibold whitespace-nowrap text-emerald-700">{info.isPelunasan ? '—' : formatRupiah(info.profit)}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between gap-2 text-sm">
-                            <span className="text-muted-foreground">
-                              {entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'} · {info.itemCount || 0} item
-                            </span>
-                            <span className="font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</span>
-                          </div>
-                        </div>
-                      </button>
+                        </button>
+                        {group.children.map((child) => {
+                          const cInfo = parseDocInfo(child)
+                          const cSt = getInvoiceStatus(cInfo)
+                          return (
+                            <button
+                              key={child.id}
+                              onClick={() => onOpenDetail(child.id)}
+                              aria-label={`Buka pelunasan ${child.nomor || ''}`}
+                              className="w-full text-left"
+                            >
+                              <div className="ml-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 space-y-1.5 transition-colors active:bg-stone-50 dark:border-emerald-900 dark:bg-emerald-950/20">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <p className="text-xs font-semibold truncate text-muted-foreground">{child.nomor || '-'}</p>
+                                    <TypeBadge type="PEL" />
+                                  </div>
+                                  <StatusBadge status={cSt} />
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="text-muted-foreground">
+                                    {child.tanggal ? formatTanggalShort(child.tanggal) : '-'}
+                                  </span>
+                                  <span className="font-semibold whitespace-nowrap text-emerald-700">{formatRupiah(cInfo.totalHarga)}</span>
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
                     )
                   })}
                 </div>
@@ -1456,7 +1621,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
           </>
         )}
 
-        {/* ================= TAB: RIWAYAT PEMBAYARAN ================= */}
+                {/* ================= TAB: RIWAYAT PEMBAYARAN ================= */}
         {/* Gaya payment-history: strip Total Piutang + Daftar Invoice DP + Transaksi Pelunasan */}
         {activeTab === 'pembayaran' && (
           loading ? (

@@ -440,6 +440,15 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   const subtotal = invoice.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (invoice.ppn / 100);
   const total = subtotal + ppnAmount;
+  // Profit: total (termasuk PPN) − HPP (snapshot modal per item). Fallback invoice
+  // tanpa snapshot modal → pakai uangCapek (profit dari referensi hitung cetakan).
+  // Selaras rumus Laba Kotor di beranda & laporan rugi-laba.
+  const adaModal = invoice.items.some((it) => it.modal != null && it.modal > 0);
+  const hppItems = invoice.items.reduce(
+    (sum, it) => sum + (it.modal != null && it.modal > 0 ? it.qty * it.modal : 0),
+    0
+  );
+  const profit = adaModal ? Math.max(0, total - hppItems) : invoice.uangCapek || 0;
   // DP: NOMINAL (Rp) adalah acuan utama — customer membayar sejumlah uang
   // (mis. "DP dulu 500rb"), persen hanyalah turunannya. Fallback: dihitung
   // dari persen (kompatibilitas data lama yang belum menyimpan dpAmount).
@@ -818,12 +827,14 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               </div>
             </div>
           )}
-          {/* Blok input Profit dihapus (permintaan owner) — nilai profit dari
-              referensi tetap tersimpan di data (uangCapek), hanya tidak
-              ditampilkan/diedit di form ini. */}
+          {/* Profit ditampilkan sebagai informasi (bukan input) — nilai dari
+              snapshot modal per item, fallback uangCapek dari referensi. */}
           <div className="mt-3 rounded-lg bg-emerald-50 p-3 space-y-1">
             <p className="text-sm text-emerald-800">
               Total: <span className="font-bold">{formatRupiah(total)}</span>
+            </p>
+            <p className="text-sm text-emerald-800" data-testid="informasi-profit">
+              Profit: <span className="font-bold">{formatRupiah(profit)}</span>
             </p>
             {(dpAmount > 0) && (
               <>

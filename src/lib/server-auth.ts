@@ -157,15 +157,34 @@ export async function canAccessRecord(user: ServerUser | null, recordUserId: str
 
 /** Daftar menu yang boleh diatur Owner kepada anggota grup (RBAC). */
 export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
+  // Beranda
   { id: 'pembukaan', label: 'Dashboard / Beranda' },
-  { id: 'master-customer', label: 'Customer' },
-  { id: 'master-barang', label: 'Produk / Barang' },
-  { id: 'invoice', label: 'Invoice & Pembayaran' },
-  { id: 'biaya', label: 'Kas / Bank & Biaya' },
+  // Hitung (produksi)
   { id: 'potong-kertas', label: 'Potong Kertas' },
   { id: 'hitung-cetakan', label: 'Hitung Cetakan' },
-  { id: 'stock-bahan', label: 'Stok Bahan' },
-  { id: 'laporan', label: 'Laporan' },
+  { id: 'hitung-finishing', label: 'Hitung Finishing' },
+  { id: 'hitung-ongkos-cetak', label: 'Hitung Ongkos Cetak' },
+  { id: 'hitung-harga-kertas', label: 'Hitung Harga Kertas' },
+  // Dokumen
+  { id: 'invoice', label: 'Invoice' },
+  { id: 'surat-jalan', label: 'Surat Jalan' },
+  { id: 'purchase-order', label: 'Purchase Order' },
+  { id: 'master-customer', label: 'Master Customer' },
+  { id: 'master-barang', label: 'Master Barang' },
+  // Keuangan & laporan
+  { id: 'biaya', label: 'Biaya Operasional (Kas / Bank)' },
+  { id: 'laporan', label: 'Laporan Penjualan & Laba Rugi' },
+  { id: 'hutang-dagang', label: 'Hutang Dagang' },
+  { id: 'piutang-dagang', label: 'Piutang Dagang' },
+  // Master cetak
+  { id: 'master-harga-kertas', label: 'Master Harga Kertas' },
+  { id: 'daftar-kategori', label: 'Daftar Kategori' },
+  { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak' },
+  { id: 'master-finishing', label: 'Master Finishing' },
+  { id: 'master-toko-pemasok', label: 'Master Toko Pemasok' },
+  { id: 'stock-bahan', label: 'Stock Bahan' },
+  // Lainnya
+  { id: 'pengaturan', label: 'Pengaturan' },
 ]
 
 /**

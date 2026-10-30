@@ -50,6 +50,29 @@ const SIDEBAR_BORDER = 'rgba(255,255,255,0.12)'
 // doesn't jump back to the top when a menu item is clicked.
 let savedSidebarScroll = 0
 
+// localStorage key — posisi scroll sidebar bertahan ANTAR SESI:
+// scroll ke menu yang dituju → tutup/buka browser (atau reload) → posisi tetap.
+const SIDEBAR_SCROLL_KEY = 'ds_sidebar_scroll'
+
+function loadSavedSidebarScroll(): number {
+  if (savedSidebarScroll > 0) return savedSidebarScroll
+  if (typeof window === 'undefined') return 0
+  try {
+    const v = Number(localStorage.getItem(SIDEBAR_SCROLL_KEY) || '0')
+    return Number.isFinite(v) && v > 0 ? v : 0
+  } catch {
+    return 0
+  }
+}
+
+function persistSidebarScroll(v: number) {
+  try {
+    localStorage.setItem(SIDEBAR_SCROLL_KEY, String(v))
+  } catch {
+    /* storage penuh / private mode — abaikan */
+  }
+}
+
 // Menu items — icon semantik sesuai nama menu (sinkron dengan sidebar mobile)
 const menuItems = [
   {
@@ -109,90 +132,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'laporan_penjualan' as TranslationKey,
-    href: '/laporan/penjualan',
-    icon: TrendingUp,
-    featureId: 'laporan',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'laporan_rugi_laba' as TranslationKey,
-    href: '/laporan/rugi-laba',
-    icon: PieChart,
-    featureId: 'laporan',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'hutang_dagang' as TranslationKey,
-    href: '/hutang-dagang',
-    icon: HandCoins,
-    featureId: 'hutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'piutang_dagang' as TranslationKey,
-    href: '/piutang-dagang',
-    icon: Coins,
-    featureId: 'piutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'paket_saya' as TranslationKey,
-    href: '/langganan-saya',
-    icon: PackageCheck,
-    featureId: 'langganan-saya',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'grup_saya' as TranslationKey,
-    href: '/grup',
-    icon: Users,
-    featureId: 'grup-saya',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'pilih_paket' as TranslationKey,
-    href: '/pilih-paket',
-    icon: PackageOpen,
-    featureId: 'pilih-paket',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'panel_admin' as TranslationKey,
-    href: '/panel-admin',
-    icon: LayoutDashboard,
-    featureId: 'panel-admin',
-    section: 'langganan',
-  },
-  {
-    titleKey: 'biaya_operasional' as TranslationKey,
-    href: '/biaya-operasional',
-    icon: Wallet,
-    featureId: 'biaya',
-    section: 'biaya',
-  },
-  {
-    titleKey: 'hitung_finishing' as TranslationKey,
-    href: '/hitung-finishing',
-    icon: Paintbrush,
-    featureId: 'hitung-finishing',
-    section: 'biaya_produksi',
-  },
-  {
-    titleKey: 'hitung_ongkos_cetak' as TranslationKey,
-    href: '/hitung-ongkos-cetak',
-    icon: Printer,
-    featureId: 'hitung-ongkos-cetak',
-    section: 'biaya_produksi',
-  },
-  {
-    titleKey: 'hitung_harga_kertas' as TranslationKey,
-    href: '/hitung-harga-kertas',
-    icon: FileStack,
-    featureId: 'hitung-harga-kertas',
-    section: 'biaya_produksi',
-  },
-  {
     titleKey: 'master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
     icon: Tags,
@@ -235,6 +174,83 @@ const menuItems = [
     section: 'master_cetakan',
   },
   {
+    titleKey: 'laporan_penjualan' as TranslationKey,
+    href: '/laporan/penjualan',
+    icon: TrendingUp,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'laporan_rugi_laba' as TranslationKey,
+    href: '/laporan/rugi-laba',
+    icon: PieChart,
+    featureId: 'laporan',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'hutang_dagang' as TranslationKey,
+    href: '/hutang-dagang',
+    icon: HandCoins,
+    featureId: 'hutang-dagang',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'piutang_dagang' as TranslationKey,
+    href: '/piutang-dagang',
+    icon: Coins,
+    featureId: 'piutang-dagang',
+    section: 'laporan',
+  },
+  {
+    titleKey: 'biaya_operasional' as TranslationKey,
+    href: '/biaya-operasional',
+    icon: Wallet,
+    featureId: 'biaya',
+    section: 'biaya',
+  },
+  {
+    titleKey: 'hitung_finishing' as TranslationKey,
+    href: '/hitung-finishing',
+    icon: Paintbrush,
+    featureId: 'hitung-finishing',
+    section: 'biaya_produksi',
+  },
+  {
+    titleKey: 'hitung_ongkos_cetak' as TranslationKey,
+    href: '/hitung-ongkos-cetak',
+    icon: Printer,
+    featureId: 'hitung-ongkos-cetak',
+    section: 'biaya_produksi',
+  },
+  {
+    titleKey: 'hitung_harga_kertas' as TranslationKey,
+    href: '/hitung-harga-kertas',
+    icon: FileStack,
+    featureId: 'hitung-harga-kertas',
+    section: 'biaya_produksi',
+  },
+  {
+    titleKey: 'paket_saya' as TranslationKey,
+    href: '/langganan-saya',
+    icon: PackageCheck,
+    featureId: 'langganan-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'grup_saya' as TranslationKey,
+    href: '/grup',
+    icon: Users,
+    featureId: 'grup-saya',
+    section: 'langganan',
+  },
+  {
+    titleKey: 'pilih_paket' as TranslationKey,
+    href: '/pilih-paket',
+    icon: PackageOpen,
+    featureId: 'pilih-paket',
+    section: 'langganan',
+  },
+  {
     titleKey: 'hak_akses' as TranslationKey,
     href: '/administrasi/hak-akses',
     icon: ShieldCheck,
@@ -249,6 +265,13 @@ const menuItems = [
     section: 'administrasi',
   },
   {
+    titleKey: 'panel_admin' as TranslationKey,
+    href: '/panel-admin',
+    icon: LayoutDashboard,
+    featureId: 'panel-admin',
+    section: 'administrasi',
+  },
+  {
     titleKey: 'pengaturan' as TranslationKey,
     href: '/administrasi/pengaturan',
     icon: Settings,
@@ -259,15 +282,17 @@ const menuItems = [
 
 // Section rendering order with their i18n label keys (using dedicated section_* keys for
 // proper ID/EN translations of the UPPERCASE sidebar section headers).
+// Urutan (permintaan owner): Dokumen → Master Cetak → Laporan → Operasional →
+// Hitung Produksi → Langganan → Administrasi (termasuk Panel Admin) → Setting.
 const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
   { key: undefined, labelKey: 'section_beranda' as TranslationKey },
-  { key: 'langganan', labelKey: 'section_langganan' as TranslationKey },
   { key: 'hitung_biaya_produksi', labelKey: 'section_total_cost_calc' as TranslationKey },
   { key: 'dokumen', labelKey: 'section_documents' as TranslationKey },
+  { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
   { key: 'laporan', labelKey: 'section_laporan' as TranslationKey },
   { key: 'biaya', labelKey: 'section_expenses' as TranslationKey },
   { key: 'biaya_produksi', labelKey: 'section_production_cost' as TranslationKey },
-  { key: 'master_cetakan', labelKey: 'section_print_master' as TranslationKey },
+  { key: 'langganan', labelKey: 'section_langganan' as TranslationKey },
   { key: 'administrasi', labelKey: 'section_administration' as TranslationKey },
   { key: 'setting', labelKey: 'section_setting' as TranslationKey },
 ]
@@ -315,6 +340,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
   // Without this, clicking a menu item re-mounts the <nav> with scrollTop=0,
   // making the sidebar jump back to the top (Next.js resets scroll on nav).
   useEffect(() => {
+    savedSidebarScroll = loadSavedSidebarScroll()
     if (!navRef.current || savedSidebarScroll <= 0) return
 
     let cancelled = false
@@ -360,6 +386,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     const handleScroll = () => {
       if (isRestoringRef.current) return
       savedSidebarScroll = nav.scrollTop
+      persistSidebarScroll(savedSidebarScroll)
     }
     nav.addEventListener('scroll', handleScroll, { passive: true })
     return () => nav.removeEventListener('scroll', handleScroll)
