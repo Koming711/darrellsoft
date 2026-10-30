@@ -9,6 +9,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggalShort } from '@/lib/format'
+import { hasProfitAccess } from '@/lib/permissions'
 import { notifyDataChange } from '@/lib/data-sync'
 import { cn } from '@/lib/utils'
 import {
@@ -936,6 +937,10 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [backupLoading, setBackupLoading] = useState<string | null>(null)
   const [exportLoading, setExportLoading] = useState(false)
 
+  // Izin grup: anggota tanpa centangan "Profit (Laba Invoice)" tidak melihat profit
+  const [bisaLihatProfit, setBisaLihatProfit] = useState(true)
+  useEffect(() => { setBisaLihatProfit(hasProfitAccess()) }, [])
+
   // Cari dengan debounce 300ms (gaya Riwayat Invoice: ketik → otomatis difilter)
   useEffect(() => {
     const t = setTimeout(() => setSearchQuery(searchInput.trim()), 300)
@@ -1411,7 +1416,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
 
             {/* ===== Kotak total: Total Invoice & Total Profit (gaya beranda) ===== */}
             {!loading && hasResults && (
-              <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <div className={cn('grid gap-3 md:gap-4', bisaLihatProfit ? 'grid-cols-2' : 'grid-cols-1')}>
                 <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="kotak-total-invoice">
                   <CardContent className="p-4 md:p-5">
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -1424,6 +1429,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                     <p className="text-[11px] text-muted-foreground mt-1">{riwayatTotals.jumlahInvoice} invoice terfilter</p>
                   </CardContent>
                 </Card>
+                {bisaLihatProfit && (
                 <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="kotak-total-profit">
                   <CardContent className="p-4 md:p-5">
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -1436,6 +1442,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                     <p className="text-[11px] text-muted-foreground mt-1">profit dari invoice terfilter</p>
                   </CardContent>
                 </Card>
+                )}
               </div>
             )}
 
@@ -1471,7 +1478,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center">Jumlah Item</TableHead>
                           <TableHead className="text-right">Total</TableHead>
-                          <TableHead className="text-right">Profit</TableHead>
+                          {bisaLihatProfit && <TableHead className="text-right">Profit</TableHead>}
                           <TableHead className="w-10"><span className="sr-only">Buka detail</span></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1500,9 +1507,11 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                 <TableCell><StatusBadge status={st} /></TableCell>
                                 <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
                                 <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
+                                {bisaLihatProfit && (
                                 <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums text-emerald-700">
                                   {info.isPelunasan ? '—' : formatRupiah(info.profit)}
                                 </TableCell>
+                                )}
                                 <TableCell>
                                   <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
                                 </TableCell>
@@ -1536,7 +1545,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                     <TableCell className="text-right whitespace-nowrap text-muted-foreground">
                                       {formatRupiah(cInfo.totalHarga)}
                                     </TableCell>
-                                    <TableCell className="text-right whitespace-nowrap text-muted-foreground">—</TableCell>
+                                    {bisaLihatProfit && <TableCell className="text-right whitespace-nowrap text-muted-foreground">—</TableCell>}
                                     <TableCell>
                                       <ChevronRight className="h-4 w-4 text-stone-300" aria-hidden="true" />
                                     </TableCell>
@@ -1578,10 +1587,12 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                               </span>
                               <span className="font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</span>
                             </div>
+                            {bisaLihatProfit && (
                             <div className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-muted-foreground">Profit</span>
                               <span className="font-semibold whitespace-nowrap text-emerald-700">{info.isPelunasan ? '—' : formatRupiah(info.profit)}</span>
                             </div>
+                            )}
                           </div>
                         </button>
                         {group.children.map((child) => {

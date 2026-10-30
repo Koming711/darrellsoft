@@ -126,10 +126,14 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
   { id: 'master-toko-pemasok', label: 'Master Toko Pemasok', grup: 'Master Cetak' },
   { id: 'stock-bahan', label: 'Stock Bahan', grup: 'Master Cetak' },
   { id: 'pengaturan', label: 'Pengaturan', grup: 'Lainnya' },
+  // Data sensitif — bila TIDAK dicentang, anggota tidak melihat profit
+  // (kolom & kotak Total Profit di riwayat invoice, baris Profit di editor,
+  // kotak Laba Kotor di beranda). SINKRON dengan GRUP_MENU_IZIN server.
+  { id: 'profit', label: 'Profit (Laba Invoice)', grup: 'Data Sensitif' },
 ]
 
 // Urutan seksi utk pengelompokan tampilan hak akses
-const IZIN_GRUP_ORDER = ['Beranda', 'Hitung Produksi', 'Dokumen', 'Keuangan & Laporan', 'Master Cetak', 'Lainnya']
+const IZIN_GRUP_ORDER = ['Beranda', 'Hitung Produksi', 'Dokumen', 'Keuangan & Laporan', 'Master Cetak', 'Lainnya', 'Data Sensitif']
 
 const PESAN_KUOTA_PENUH =
   'Kuota akun Anda sudah penuh. Hapus atau keluarkan anggota yang tidak digunakan, atau pilih paket dengan kuota lebih besar.'

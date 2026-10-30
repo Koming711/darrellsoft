@@ -141,6 +141,20 @@ export function setGrupInfo(info: GrupInfoKlien | null): void {
   }
 }
 
+/**
+ * Apakah user boleh MELIHAT PROFIT (laba) — kontrol izin grup 'profit'.
+ * - Anggota grup (peran admin/staf) → sesuai centangan "Profit (Laba Invoice)"
+ *   yang diatur Owner di halaman Tambah/Edit Anggota.
+ * - Bukan anggota grup, Owner grup, atau admin sistem → selalu boleh (perilaku lama).
+ * Memengaruhi: kolom & kotak Total Profit di riwayat invoice, baris Profit di
+ * kotak Informasi Tambahan editor invoice, dan kotak Laba Kotor di beranda.
+ */
+export function hasProfitAccess(): boolean {
+  const grup = getGrupInfo()
+  if (grup && grup.peran !== 'owner') return grup.izin.includes('profit')
+  return true
+}
+
 /** Map pathname to feature ID for permission checking */
 export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/dashboard') return 'dashboard'

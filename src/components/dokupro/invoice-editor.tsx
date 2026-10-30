@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
+import { hasProfitAccess } from '@/lib/permissions';
 import { ItemsFields, type BarangOption } from './items-fields';
 import type { BarangFormSavedItem } from '@/components/views/barang-form-dialog';
 import { CustomerFormDialog, type CustomerFormSavedCustomer } from '@/components/views/customer-form-dialog';
@@ -79,6 +80,9 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
 
   // Daftar barang milik customer terpilih (Master Barang per pelanggan)
   const [barangList, setBarangList] = useState<BarangOption[]>([]);
+  // Izin grup: anggota tanpa centangan "Profit (Laba Invoice)" tidak melihat baris Profit
+  const [bisaLihatProfit, setBisaLihatProfit] = useState(true);
+  useEffect(() => { setBisaLihatProfit(hasProfitAccess()); }, []);
   // id customer yang cocok dengan nama "Kepada Yth" (null = belum memilih).
   const [matchedCustomerId, setMatchedCustomerId] = useState<string | null>(null);
   // Nama customer sebelumnya — untuk mendeteksi perubahan customer
@@ -833,9 +837,11 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
             <p className="text-sm text-emerald-800">
               Total: <span className="font-bold">{formatRupiah(total)}</span>
             </p>
-            <p className="text-sm text-emerald-800" data-testid="informasi-profit">
-              Profit: <span className="font-bold">{formatRupiah(profit)}</span>
-            </p>
+            {bisaLihatProfit && (
+              <p className="text-sm text-emerald-800" data-testid="informasi-profit">
+                Profit: <span className="font-bold">{formatRupiah(profit)}</span>
+              </p>
+            )}
             {(dpAmount > 0) && (
               <>
                 <p className="text-sm text-emerald-800">

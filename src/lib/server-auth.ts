@@ -185,6 +185,10 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'stock-bahan', label: 'Stock Bahan' },
   // Lainnya
   { id: 'pengaturan', label: 'Pengaturan' },
+  // Data sensitif — bila TIDAK dicentang, anggota tidak melihat profit
+  // (kolom & kotak Total Profit di riwayat invoice, baris Profit di editor,
+  // kotak Laba Kotor di beranda).
+  { id: 'profit', label: 'Profit (Laba Invoice)' },
 ]
 
 /**

@@ -45,6 +45,7 @@ import {
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { authFetch } from '@/lib/auth-fetch'
 import { formatRupiah } from '@/lib/format'
+import { hasProfitAccess } from '@/lib/permissions'
 import { startNavigation } from '@/components/navigation-progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -294,6 +295,9 @@ export default function PembukaanPage() {
   const [data, setData] = useState<BerandaData | null>(null)
   const [loading, setLoading] = useState(true)
   const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly')
+  // Izin grup: anggota tanpa centangan "Profit (Laba Invoice)" tidak melihat Laba Kotor
+  const [bisaLihatProfit, setBisaLihatProfit] = useState(true)
+  useEffect(() => { setBisaLihatProfit(hasProfitAccess()) }, [])
 
   const refresh = useCallback(() => {
     setLoading(true)
@@ -403,7 +407,7 @@ export default function PembukaanPage() {
         </div>
 
         {/* ===== Kartu ringkasan keuangan ===== */}
-        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 gap-3 md:gap-4 ${bisaLihatProfit ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
           {/* Penjualan bulan ini */}
           <Card className="p-0 gap-0 dark:border-zinc-800">
             <CardContent className="p-4 md:p-5">
@@ -466,7 +470,8 @@ export default function PembukaanPage() {
             </Card>
           </button>
 
-          {/* Laba kotor */}
+          {/* Laba kotor — disembunyikan utk anggota grup tanpa izin 'profit' */}
+          {bisaLihatProfit && (
           <button className="text-left" onClick={() => navigate('/laporan/rugi-laba')} aria-label="Buka Laporan Rugi Laba">
             <Card className="p-0 gap-0 h-full transition-colors hover:border-emerald-300 dark:border-zinc-800 dark:hover:border-emerald-800">
               <CardContent className="p-4 md:p-5">
@@ -487,6 +492,7 @@ export default function PembukaanPage() {
               </CardContent>
             </Card>
           </button>
+          )}
         </div>
 
         {/* ===== Grup Perusahaan (owner & anggota grup) =====
@@ -776,14 +782,16 @@ export default function PembukaanPage() {
         <section aria-label="Operasional">
           <p className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-zinc-500 font-semibold mb-2">Operasional</p>
           <div className={`grid grid-cols-2 ${canSeeFinance ? 'lg:grid-cols-4' : ''} gap-3`}>
-            <OpsCard
-              loading={loading}
-              icon={TrendingUp}
-              label="Laba Kotor"
-              value={formatRupiah(s?.cards.margin ?? 0)}
-              hint="bulan ini"
-              onClick={() => navigate('/laporan/rugi-laba')}
-            />
+            {bisaLihatProfit && (
+              <OpsCard
+                loading={loading}
+                icon={TrendingUp}
+                label="Laba Kotor"
+                value={formatRupiah(s?.cards.margin ?? 0)}
+                hint="bulan ini"
+                onClick={() => navigate('/laporan/rugi-laba')}
+              />
+            )}
             {canSeeFinance && (
               <>
                 <OpsCard
@@ -1029,7 +1037,9 @@ export default function PembukaanPage() {
             <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/invoice')} />
             {canSeeFinance && (
               <>
-                <QuickLink icon={TrendingUp} title="Laba Kotor" desc="Laporan rugi laba" onClick={() => navigate('/laporan/rugi-laba')} />
+                {bisaLihatProfit && (
+                  <QuickLink icon={TrendingUp} title="Laba Kotor" desc="Laporan rugi laba" onClick={() => navigate('/laporan/rugi-laba')} />
+                )}
                 <QuickLink icon={HandCoins} title="Hutang Dagang" desc="Tagihan PO ke pemasok" onClick={() => navigate('/hutang-dagang')} />
                 <QuickLink icon={Coins} title="Piutang Dagang" desc="Sisa pembayaran pelanggan" onClick={() => navigate('/piutang-dagang')} />
                 <QuickLink icon={ClipboardList} title="Purchase Order" desc="Pesan barang ke supplier" onClick={() => navigate('/purchase-order')} />
