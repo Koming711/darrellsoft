@@ -15711,3 +15711,18 @@ Work Log:
 
 Stage Summary:
 - Perintah "tambahkan master barang + ganti Master Harga Kertas jadi Master Bahan" DIBATALKAN — sidebar kembali ke kondisi sebelumnya. Perubahan "Kategori" tetap berlaku.
+---
+Task ID: grup-rbac-langganan-edit-halaman
+Agent: Z.ai Code (main)
+Task: (1) Hak Akses Menu (RBAC) di halaman Tambah Anggota Grup ditambah item "Langganan". (2) Edit anggota di kotak Anggota Grup jangan popup — buat halaman penuh seperti Tambah Anggota.
+
+Work Log:
+- RBAC LANGGANAN: MENU_IZIN (grup/page.tsx) + GRUP_MENU_IZIN (server-auth.ts) ditambah { id: 'langganan-saya', label: 'Langganan' } (seksi Lainnya; counter "X dari 24 menu" otomatis). Gating DIAKTIFKAN: permissions.ts — anggota grup (admin/staf) mengikuti izin Owner utk fitur langganan-saya (owner & non-grup tetap selalu); sidebar.tsx (2 titik: menu + bottom-nav) & sidebar-desktop.tsx — 'langganan-saya' dikeluarkan dari daftar bypass anggota. PATCH/POST izin otomatis menerima id baru via validIzin (validIds = GRUP_MENU_IZIN).
+- EDIT ANGGOTA → HALAMAN PENUH: DialogEditAnggota (popup) DIHAPUS, diganti HalamanEditAnggota — pola & tampilan sama dgn HalamanTambahAnggota: tombol "← Kembali ke Grup Saya", judul "Edit Anggota Grup" + @username & status, kartu Data Anggota (nama, username read-only, HP, email, peran) + kartu Hak Akses Menu (RBAC) dgn Pilih/Hapus Semua + per-seksi + counter, tombol Batal/Simpan Perchahan (PATCH /api/grup/anggota/[id]). Parent merender halaman saat editTarget terisi (key=target.id); Reset Kata Sandi tetap dialog kecil.
+- BUG DITEMUKAN+DIPERBAIKI: PATCH 500 utk anggota dgn memberId menggantung (residu uji lama "Budi Anggota Uji" — record Pengguna sudah terhapus, baris GrupAnggota tersisa) karena tx.pengguna.update P2025. Hardened: cek keberadaan akun dulu; data GrupAnggota tetap tersimpan. Baris anggota kotor dihapus via API.
+- UJI API (curl): DELETE anggota kotor 200; POST editsuji1 (izin []) 201; PATCH izin+HP 200 setelah hardening; izin tersimpan ["langganan-saya"]; DELETE ujimobile1 & editsuji1 200 — kuota kembali 1/5.
+- E2E (agent-browser): Owner lina desktop 1280 — form Tambah: checkbox "Langganan" tampil, counter "0 dari 24"; klik Edit → HALAMAN PENUH (testid halaman-edit-anggota) dgn data terisi otomatis, username disabled, RBAC dikelompokkan 7 seksi; centang Langganan + Simpan → toast "Perubahan anggota tersimpan" + balik ke daftar. Anggota editsuji1 (LOGIN ASLI): izin [] → menu Langganan TIDAK tampil; setelah Owner centang & simpan → re-login → menu tampil (label "Paket Saya"). Mobile 390: halaman edit tampil tanpa scroll horizontal, RBAC lengkap. Console & page errors bersih; lint 6 file bersih.
+- CATATAN: anggota grup LAMA (izin tersimpan) tidak otomatis dapat menu Langganan — Owner perlu mencentangnya sekali di Hak Akses. Guard API data langganan (/api/subscription/my) TIDAK ditambahkan (dipakai banner global) — gating level menu/sidebar.
+
+Stage Summary:
+- Hak Akses Menu kini punya item "Langganan" — Owner mengontrol apakah anggota grup melihat menu Langganan (Paket Saya). Edit anggota kini halaman penuh yang sama nyamannya dengan Tambah Anggota (bukan popup kecil). Bonus: PATCH edit tidak lagi 500 untuk anggota dengan akun yang sudah terhapus.
