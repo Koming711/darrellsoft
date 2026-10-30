@@ -15681,3 +15681,20 @@ Work Log:
 
 Stage Summary:
 - Label menu sidebar untuk Daftar Kategori kini "Kategori" (desktop + mobile, ID/EN). Judul halaman, hak akses, dan URL tidak berubah.
+---
+Task ID: sidebar-master-barang-bahan
+Agent: Z.ai Code (main)
+Task: Sidebar — tambahkan menu "Master Barang" dan ganti tulisan "Master Harga Kertas" jadi "Master Bahan".
+
+Work Log:
+- TEMUAN: menu /master-barang SEBENARNYA sudah ada di sidebar tapi berlabel "Harga per Customer" (i18n master_barang) — padahal Dashboard (QuickLink "Master Barang", desc "Harga standar & HPP"), Hak Akses RBAC (grup/page.tsx + server-auth.ts), dan API guard (requireGroupMenu 'master-barang') semuanya menamai fitur ini "Master Barang". Jadi "tambahkan master barang" = tampilkan menu itu dgn nama benar.
+- PERUBAHAN i18n (sidebar-only, judul halaman tidak disentuh):
+  a) master_barang: id 'Harga per Customer' → 'Master Barang', en 'Price per Customer' → 'Item Master' (key dipakai hanya sidebar — 2 kemunculan EN diganti, sekensi duplikat key di seksi backup ikut disinkronkan); short_barang (bottom-nav): 'Hg/Cust' → 'Barang'.
+  b) Key BARU menu_master_bahan: id 'Master Bahan', en 'Material Master' — karena master_harga_kertas juga dipakai judul halaman (tetap "Master Harga Kertas", pola sama dgn tugas Kategori).
+  c) sidebar.tsx & sidebar-desktop.tsx: item /master-harga-kertas ganti titleKey ke menu_master_bahan.
+- LINT: 3 file bersih.
+- E2E (agent-browser, login owner lina): desktop 1280 — sidebar /master-barang "Master Barang", /master-harga-kertas "Master Bahan", /daftar-kategori tetap "Kategori"; judul halaman /master-barang tetap "Harga per Customer" & /master-harga-kertas tetap "Master Harga Kertas"; mobile 390 — drawer "Master Barang" + bottom-nav pendek "Barang", "Master Bahan"; console & page errors bersih.
+- CATATAN: sesi paralel sempat commit (3dac547) di tengah pekerjaan — tidak konflik, file tugas tidak tersentuh. Perubahan belum di-deploy.
+
+Stage Summary:
+- Menu sidebar kini konsisten menampilkan "Master Barang" (halaman harga barang per customer — selaras dgn Dashboard, RBAC, dan API) dan "Master Bahan" (Master Harga Kertas). URL, judul halaman, hak akses, dan RBAC tidak berubah.
