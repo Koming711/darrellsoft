@@ -132,7 +132,7 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_harga_kertas' as TranslationKey,
+    titleKey: 'menu_master_harga_kertas' as TranslationKey,
     href: '/master-harga-kertas',
     icon: Tags,
     featureId: 'master-harga-kertas',
