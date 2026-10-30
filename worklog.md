@@ -15558,3 +15558,22 @@ Work Log:
 
 Stage Summary:
 - Seluruh 18 item perbaikan massal TERVERIFIKASI ulang dan berfungsi; satu-satunya perbaikan = restart dev server yang mati. Aplikasi siap dipakai (belum deploy).
+---
+Task ID: rbac-profit
+Agent: Z.ai Code (main)
+Task: Halaman Tambah Anggota Grup — tambahkan pilihan "Profit" di Hak Akses Menu (RBAC); dicentang → profit muncul, tidak dicentang → profit tidak muncul.
+
+Work Log:
+- RBAC CLIENT+SERVER: seksi baru "DATA SENSITIF" berisi centangan "Profit (Laba Invoice)" (id izin: profit) di HalamanTambahAnggota & DialogEditAnggota (MENU_IZIN kini 23 item; counter & Pilih Semua ikut otomatis). GRUP_MENU_IZIN (server-auth.ts) + 'profit' → POST/PATCH /api/grup/anggota menerima & memvalidasi izin tsb (uji PATCH owner: sukses, checkbox edit tercentang).
+- HELPER: hasProfitAccess() di permissions.ts — anggota grup (peran admin/staf) melihat profit hanya bila Owner mencentang 'profit'; owner grup / bukan anggota / admin sistem selalu melihat (tanpa regresi).
+- VISIBILITAS PROFIT (ikuti izin):
+  a) Riwayat invoice (/invoice): kotak Total Profit + kolom Profit (thead, sel INV, sel "—" PEL, kartu mobile) disembunyikan; grid total jadi 1 kolom penuh utk Total Invoice.
+  b) Editor invoice: baris "Profit:" di kotak Informasi Tambahan disembunyikan.
+  c) Beranda (/pembukaan): kotak Laba Kotor (grid ringkasan atas + strip Operasional + QuickLink Menu Pintas) disembunyikan.
+- E2E (agent-browser, desktop 1280 + mobile 390): owner buka Tambah Anggota → DATA SENSITIF/Profit tampil (23 menu); buat anggota uji izin=[pembukaan,invoice] (tanpa profit) → anggota: riwayat TANPA kotak Total Profit & kolom Profit, editor TANPA baris Profit, beranda TANPA Laba Kotor (invoice uji dibuat via API utk verifikasi kolom); PATCH owner menambah 'profit' → anggota reload: semua profit kembali tampil; kotak Laba Kotor & kolom Profit admin non-grup TIDAK berubah; mobile tanpa scroll horizontal; console 0 error.
+- CLEANUP: invoice uji di-purge, anggota uji dihapus (grup kembali 2/5), localStorage uji dinetralkan.
+- CATATAN: kontrol bersifat visibilitas UI (data HPP tetap dikirim ke klien yang punya izin menu invoice — dipakai editor); profit riwayat tetap tidak dihitung ulang server-side.
+- Lint bersih (6 file). TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Izin "Profit (Laba Invoice)" kini tersedia di Hak Akses Menu (RBAC) Tambah/Edit Anggota Grup; centangan Owner mengendalikan tampil-tidaknya seluruh tampilan profit (riwayat invoice, editor, beranda) bagi anggota grup. Commit 078f9d9 (6 file, +67/−18). Deployment menunggu instruksi user.
