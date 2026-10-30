@@ -15638,3 +15638,19 @@ Work Log:
 
 Stage Summary:
 - Username kini per-namespace: setiap grup punya ruang nama sendiri (unik di dalam grup-nya saja, termasuk username Owner-nya), terpisah dari ruang nama pengelola (Kelola Pengguna/pendaftaran). Owner tidak lagi terblokir username yang kebetulan dipakai di Kelola Pengguna atau grup lain. Login tetap aman — akun dipilih lewat password; sandi salah tetap ditolak.
+---
+Task ID: deploy-vercel-prod
+Agent: Z.ai Code (main)
+Task: Deploy aplikasi Darrellsoft ke www.darrellsoft.com (Vercel production) atas permintaan user dengan token Vercel.
+
+Work Log:
+- KONTEKS: seluruh fitur terakhir (grup owner-only, password akun anggota, namespace username grup vs pengelola) baru ada di lokal — produksi masih build lama: tabel GrupAnggota BELUM ada di Supabase, Grup kosong, dan constraint lama Pengguna_username_key (unique global) masih terpasang.
+- IDENTIFIKASI: token valid (akun koming711 / team_QBdS4SJeRhBe19sMKMlDvqsj); project Vercel "darrellsoft" (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) dengan domain www.darrellsoft.com (primary) + darrellsoft.com (301→www) + darrellsoft.vercel.app; DATABASE_URL produksi = Supabase pooler ap-southeast-1 (dikonfirmasi benar DB live via session keys di tabel Setting & harga fallback DEFAULT_PLANS yang sama persis dengan live /api/plans).
+- BACKUP: seluruh 47 tabel produksi didump ke JSON (/home/z/backups/supabase-backup-1793329977074.json, 1136 baris) sebelum migrasi.
+- MIGRASI DB (prisma db push ke Supabase, session pooler 5432): provider schema di-swap sqlite→postgresql via scripts/prepare-build.js; push pertama gagal (Prisma mencoba DROP INDEX Pengguna_username_key yang menopang CONSTRAINT) → constraint lama dihapus manual (ALTER TABLE ... DROP CONSTRAINT) lalu push ulang sukses 2.67s. Hasil terverifikasi: constraint unique global username HILANG, diganti Pengguna_grupId_username_key (per-grup) + Pengguna_username_idx + Pengguna_grupId_idx; tabel GrupAnggota dibuat lengkap; unique index Grup_kode_key ditambahkan; Pengguna tetap 3 baris (tidak ada data hilang).
+- DEPLOY: vercel link --project darrellsoft lalu `vercel --prod --yes` — build remote sukses (~2 menit) → dpl_7DRmTEtEZx READY, ter-alias https://www.darrellsoft.com. Schema lokal otomatis di-revert ke sqlite + prisma client di-regenerate.
+- VERIFIKASI LIVE: homepage HTTP 200 (title "Darrell Soft - Kalkulator Hitung Cetakan"); /grup HTTP 200 (di build lama 404 — penanda fitur grup sudah live); /api/plans 200; POST /api/auth/login kredensial dummy → 401 JSON "Username atau password salah" (serverless ↔ Supabase terhubung, jalur login multi-kandidat namespace baru aktif); status API Vercel: READY/production 2026-10-30 03:15 UTC (10:15 WIB), tepat menggantikan deploy 27 Okt.
+- LOKAL: dev server tetap sehat (HTTP 200), git bersih, .vercel/.env.local diabaikan git.
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan build terbaru (dpl_7DRmTEtEZx) dengan seluruh fitur grup: tambah anggota eksklusif Owner, kata sandi akun anggota, dan namespace username terpisah grup vs pengelola. Schema Supabase produksi sudah sinkron (GrupAnggota dibuat, unique username diubah per-grup) dengan backup penuh sebelum migrasi. Sebelumnya produksi tertinggal build lama tanpa fitur grup.
