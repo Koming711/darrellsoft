@@ -139,7 +139,7 @@ const menuItems = [
     section: 'master_cetakan',
   },
   {
-    titleKey: 'daftar_kategori' as TranslationKey,
+    titleKey: 'menu_daftar_kategori' as TranslationKey,
     href: '/daftar-kategori',
     icon: ListTree,
     featureId: 'daftar-kategori',
