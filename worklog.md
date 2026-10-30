@@ -15654,3 +15654,17 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com kini menjalankan build terbaru (dpl_7DRmTEtEZx) dengan seluruh fitur grup: tambah anggota eksklusif Owner, kata sandi akun anggota, dan namespace username terpisah grup vs pengelola. Schema Supabase produksi sudah sinkron (GrupAnggota dibuat, unique username diubah per-grup) dengan backup penuh sebelum migrasi. Sebelumnya produksi tertinggal build lama tanpa fitur grup.
+---
+Task ID: sidebar-label-daftar
+Agent: Z.ai Code (main)
+Task: Sidebar menu — tulisan "Daftar Kategori" diganti jadi "Daftar".
+
+Work Log:
+- AKAR: label sidebar diambil dari i18n key daftar_kategori ('Daftar Kategori'), key yang sama juga dipakai sebagai JUDUL HALAMAN /daftar-kategori — mengubah langsung akan ikut mengubah judul halaman.
+- SOLUSI: key i18n BARU menu_daftar_kategori (id: 'Daftar', en: 'List') + kedua sidebar (src/components/sidebar.tsx mobile & sidebar-desktop.tsx desktop) ganti titleKey ke key baru. Judul halaman Daftar Kategori & nama menu RBAC (grup/page.tsx, server-auth.ts) TIDAK berubah.
+- LINT: 3 file bersih.
+- E2E (agent-browser, login owner lina): desktop 1280 — link sidebar /daftar-kategori tampil "Daftar" (visible), judul halaman tetap "Daftar Kategori"; mobile 390 — label drawer juga "Daftar"; console 0 error, page errors kosong.
+- CATATAN: perubahan lokal belum di-deploy — produksi www.darrellsoft.com masih label lama sampai deploy ulang diminta.
+
+Stage Summary:
+- Menu sidebar (desktop & mobile) untuk halaman Daftar Kategori kini berlabel "Daftar" sesuai permintaan, tanpa mengubah judul halaman, URL, hak akses, maupun nama menu di Hak Akses (RBAC).
