@@ -15577,3 +15577,26 @@ Work Log:
 
 Stage Summary:
 - Izin "Profit (Laba Invoice)" kini tersedia di Hak Akses Menu (RBAC) Tambah/Edit Anggota Grup; centangan Owner mengendalikan tampil-tidaknya seluruh tampilan profit (riwayat invoice, editor, beranda) bagi anggota grup. Commit 078f9d9 (6 file, +67/−18). Deployment menunggu instruksi user.
+---
+Task ID: grup-owner-only
+Agent: Z.ai Code (main)
+Task: Halaman Grup Saya — "Tambah Anggota Grup" hanya untuk akun Owner grup (cth. darel); tidak masuk di pengguna admin; data grup hanya masuk ke akun Owner pemiliknya, akun Owner lain tidak bisa melihat/menambah data.
+
+Work Log:
+- AUDIT: UI /grup sudah benar (tombol Tambah Anggota gated adalahOwner; API /api/grup/anggota gated peran owner + cakupan grup sendiri; panel-admin hanya monitoring). Ditemukan 2 API legacy ORPHAN yang menjadi backdoor: POST /api/pengguna/add-to-grup (admin bisa tambah akun ke grup owner mana pun via ownerId; model legacy tanpa GrupAnggota) dan /api/pengguna/linked-accounts (admin bisa tambah akun + BUAT GRUP BARU tanpa owner + simpan password plaintext + unlink). Keduanya tidak pernah dipanggil UI.
+- HAPUS BACKDOOR: dua route tersebut dihapus total (−396 baris).
+- MENU: "Grup Saya" disembunyikan untuk role admin/superadmin di 4 rantai menu: sidebar.tsx (desktop + MobileBottomNav visibleItems + popup Lainnya allMenuItems) dan sidebar-desktop.tsx.
+- HALAMAN /grup UTK ADMIN: view info baru AdminGrupInfo (penjelasan halaman hanya utk Owner + tombol ke Panel Admin → Manajemen Grup) menggantikan upsell paket; GET /api/grup utk admin mengembalikan daftarPaketMultiAkun: [] (admin tidak ditawari paket).
+- API HARDENING (403 eksplisit utk admin sistem): POST /api/grup/anggota, requireOwner (PATCH/DELETE anggota), reset-sandi, PATCH /api/grup. GET /api/grup admin → grup null tanpa paket.
+- ISOLASI ANTAR-OWNER terverifikasi: getDataFilter memberIds hanya grup sendiri (customers lina vs lina3 beda cakupan userId); lina DELETE anggota grup darel → 404; lina3 (staf) POST anggota → 403 "Hanya Owner".
+- E2E (agent-browser, desktop 1280 + mobile 390; catatan: wajib full reload + .next cache bersih setelah restart dev server agar bundle sidebar terbaru):
+  a) ADMIN: menu Grup Saya hilang (rail + popup, 0 link /grup); /grup → info view (bukan upsell, tanpa Tambah Anggota); tombol → /panel-admin?tab=grup (Manajemen Grup, monitoring normal); semua API grup → 403 eksplisit; 2 API terhapus → 404.
+  b) DAREL (owner): menu Grup Saya tampil; tombol Tambah Anggota ada; tambah anggota uji (23/23 izin) sukses → masuk grup "darel" saja; lalu dikeluarkan (cleanup).
+  c) LINA (owner lain): hanya melihat grupnya (CV Lina Printing, 2 anggota); tidak ada data grup darel; tombol Tambah Anggota milik grupnya sendiri.
+  d) LINA3 (staf grup darel): "Anda sebagai Staf", TANPA tombol Tambah Anggota, TANPA kolom Aksi.
+  e) Mobile 390: tanpa scroll horizontal; popup Lainnya admin tanpa Grup Saya (ter-scope ke kontainer popup).
+- Console 0 error; dev.log hanya noise prisma lama (duplicate column kategoriId, pre-existing); lint bersih (7 file).
+- Commit: f9b3897 (kode, 9 file, +88/−400) + ccea9a4 (checkpoint DB). TIDAK ada deploy (instruksi user masih berlaku).
+
+Stage Summary:
+- Penambahan anggota grup kini eksklusif akun Owner: tombol & halaman hanya di grup milik Owner, admin sistem tidak lagi melihat menu/halaman grup (cukup memantau via Panel Admin), 2 backdoor API legacy dihapus, dan seluruh API kelola anggota menolak admin + menolak owner lain (403/404). Data grup terisolasi per owner — terverifikasi E2E lintas 4 peran.
