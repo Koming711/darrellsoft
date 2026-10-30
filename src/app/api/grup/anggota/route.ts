@@ -4,7 +4,7 @@ import { requireAuth, getServerUser, GRUP_MENU_IZIN, invalidateGroupCache, isAdm
 import {
   resolveGrupForUser,
   logGroupAudit,
-  isUsernameTerpakai,
+  isUsernameTerpakaiDiGrup,
   ownerValidUntil,
   PESAN_KUOTA_PENUH,
   ANGGOTA_STATUS,
@@ -84,12 +84,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Kata sandi minimal 6 karakter.' }, { status: 400 })
     }
 
-    if (await isUsernameTerpakai(username)) {
-      return NextResponse.json({ error: 'Username sudah digunakan. Gunakan username lain.' }, { status: 409 })
+    const grupId = resolved.grup.id
+
+    // NAMESPACE GRUP: username hanya harus unik di dalam grup ini (anggota
+    // aktif + username Owner). Akun kelola pengguna / grup lain TIDAK
+    // menghalangi — ruang nama grup dan pengelola terpisah.
+    if (await isUsernameTerpakaiDiGrup(grupId, username, resolved.grup.ownerUserId)) {
+      return NextResponse.json({ error: 'Username sudah digunakan di grup ini. Gunakan username lain.' }, { status: 409 })
     }
 
     const password = sandiAwal || acakPassword(8)
-    const grupId = resolved.grup.id
 
     // ===== Transaksi: kuota + pembuatan akun atomik =====
     const hasil = await db.$transaction(async (tx) => {
@@ -104,12 +108,15 @@ export async function POST(request: NextRequest) {
       }
 
       const validUntil = await ownerValidUntil(grupNow)
+      // Email fallback per-grup (email Pengguna @unique global): sertakan kode
+      // grup agar dua grup boleh punya anggota dengan username sama.
+      const emailFallback = `${username}.${resolved.grup.kode.toLowerCase()}@grup.local`
       const anggota = await tx.pengguna.create({
         data: {
           namaLengkap,
           username,
           password: hashPassword(password),
-          email: email || `${username}@grup.local`,
+          email: email || emailFallback,
           nomorHP: nomorHP || '-',
           role: 'user',
           grupId,
@@ -121,7 +128,7 @@ export async function POST(request: NextRequest) {
         data: {
           nama: namaLengkap,
           nomorHP: nomorHP || '-',
-          email: email || `${username}@grup.local`,
+          email: email || emailFallback,
           alamat: '',
           catatan: `Anggota grup ${resolved.grup.kode}`,
           role: 'user',

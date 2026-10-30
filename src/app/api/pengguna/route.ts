@@ -45,9 +45,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Cek duplikat username
-    const existing = await db.pengguna.findUnique({
-      where: { username }
+    // Cek duplikat username (namespace PENGELOLA — akun tanpa grup).
+    // Username anggota grup tidak menghalangi namespace pengelola.
+    const existing = await db.pengguna.findFirst({
+      where: { username, grupId: null }
     })
 
     if (existing) {
@@ -188,10 +189,10 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Cek duplikat username jika diubah
+    // Cek duplikat username jika diubah (namespace pengelola — tanpa grup)
     if (username && username !== existing.username) {
-      const duplicate = await db.pengguna.findUnique({
-        where: { username }
+      const duplicate = await db.pengguna.findFirst({
+        where: { username, grupId: null, id: { not: id } }
       })
       if (duplicate) {
         return NextResponse.json(

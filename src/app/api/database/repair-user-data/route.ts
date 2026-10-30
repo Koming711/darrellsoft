@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
       // If username provided, auto-detect the old and new userId
       if (username && !targetOldUserId) {
-        const pengguna = await db.pengguna.findUnique({ where: { username } })
+        const pengguna = await db.pengguna.findFirst({ where: { username } })
         if (!pengguna) {
           return NextResponse.json({ error: `Pengguna dengan username "${username}" tidak ditemukan` }, { status: 404 })
         }

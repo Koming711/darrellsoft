@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
     // If username provided, create or link a Pengguna account
     if (username && username.trim()) {
       try {
-        const existingPengguna = await db.pengguna.findUnique({
-          where: { username: username.trim() }
+        const existingPengguna = await db.pengguna.findFirst({
+          where: { username: username.trim(), grupId: null }
         })
         if (existingPengguna) {
           await db.pembeli.update({
@@ -282,7 +282,7 @@ export async function PUT(request: NextRequest) {
           updateData.penggunaId = newPengguna.id
         }
       } else {
-        const existingPengguna = await db.pengguna.findUnique({ where: { username: trimmedUsername } })
+        const existingPengguna = await db.pengguna.findFirst({ where: { username: trimmedUsername, grupId: null } })
         if (existingPengguna) {
           updateData.penggunaId = existingPengguna.id
         } else {

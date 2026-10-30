@@ -20,17 +20,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 1. Cari di Pengguna (user yang sudah dikonversi/disetujui admin)
-    const pengguna = await db.pengguna.findUnique({
-      where: { username }
+    // 1. Cari SEMUA kandidat Pengguna dengan username tersebut.
+    // NAMESPACE TERPISAH: username boleh dipakai akun grup DAN akun pengelola
+    // sekaligus (ruang nama berbeda) - sandi yang menentukan akun mana yang login.
+    const kandidatPengguna = await db.pengguna.findMany({
+      where: { username },
+      orderBy: { createdAt: 'asc' },
     })
+    let pengguna: (typeof kandidatPengguna)[number] | null = null
+    for (const k of kandidatPengguna) {
+      // Kompatibel hash bcrypt (akun baru) & plaintext legacy (akun lama)
+      if (verifyPassword(password, k.password)) {
+        pengguna = k
+        break
+      }
+    }
 
     if (pengguna) {
-      // Kompatibel hash bcrypt (akun baru) & plaintext legacy (akun lama)
-      if (!verifyPassword(password, pengguna.password)) {
-        return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
-      }
-
       if (pengguna.validUntil) {
         if (new Date(pengguna.validUntil) < new Date()) {
           return NextResponse.json({ error: 'Akun sudah expired. Silahkan diperpanjang lagi akunnya.', expired: true }, { status: 403 })
@@ -79,18 +85,21 @@ export async function POST(request: NextRequest) {
       return await buildLoginResponse(pengguna.id, pengguna.username, pengguna.namaLengkap, pengguna.role, pengguna.validUntil, username)
     }
 
-    // 2. Tidak ditemukan di Pengguna → cek di CalonPembeli
-    const calon = await db.calonPembeli.findFirst({
+    // 2. Tidak cocok di Pengguna -> cek kandidat CalonPembeli (owner grup /
+    //    pendaftar mandiri). Username sama dgn akun grup tetap aman - sandi menentukan.
+    const kandidatCalon = await db.calonPembeli.findMany({
       where: { username }
     })
+    let calon: (typeof kandidatCalon)[number] | null = null
+    for (const k of kandidatCalon) {
+      if (verifyPassword(password, k.password)) {
+        calon = k
+        break
+      }
+    }
 
     if (calon) {
-      // Kompatibel hash bcrypt (akun baru) & plaintext legacy (akun lama)
-      if (!verifyPassword(password, calon.password)) {
-        return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
-      }
-
-      // Status "ditolak" → blokir
+      // Status "ditolak" -> blokir
       if (calon.status === 'ditolak') {
         return NextResponse.json({ error: 'Pendaftaran Anda ditolak oleh administrator.', rejected: true }, { status: 403 })
       }
@@ -109,7 +118,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.' }, { status: 403 })
       }
 
-      // Status "baru" atau "aktif" → langsung izinkan login
+      // Status "baru" atau "aktif" -> langsung izinkan login
       // Pakai CalonPembeli ID sebagai userId, role = demo
       const role = calon.role || 'demo'
       return await buildLoginResponse(calon.id, calon.username || username, calon.nama, role, calon.expiredDate, calon.username || username)

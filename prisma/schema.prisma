@@ -79,7 +79,11 @@ model Pengguna {
   namaLengkap  String
   nomorHP      String
   email        String
-  username     String         @unique
+  // NAMESPACE: username unik per-namespace — (a) unik di dalam grup
+  // (@@unique grupId+username), (b) unik di sisi pengelola/grup null
+  // (dicek di aplikasi). Akun grup BOLEH sama dengan akun pengelola
+  // (namespace terpisah); login memakai password utk memilih kandidat.
+  username     String
   password     String
   role         String         @default("user")
   grupId       String?
@@ -88,6 +92,8 @@ model Pengguna {
   validUntil   DateTime?
   calonPembeli CalonPembeli[]
 
+  @@unique([grupId, username])
+  @@index([username])
   @@index([grupId])
 }
 

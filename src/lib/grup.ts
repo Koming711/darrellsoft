@@ -98,13 +98,41 @@ export async function hitungKuota(grupId: string): Promise<{
 export const PESAN_KUOTA_PENUH =
   'Kuota akun Anda sudah penuh. Hapus atau keluarkan anggota yang tidak digunakan, atau pilih paket dengan kuota lebih besar.'
 
-/** Validasi username unik lintas Pengguna & CalonPembeli (login identik). */
-export async function isUsernameTerpakai(username: string, excludePenggunaId?: string): Promise<boolean> {
+/**
+ * Cek username terpakai DI DALAM namespace grup tertentu.
+ *
+ * NAMESPACE TERPISAH (grup vs pengelola):
+ * - Anggota grup LAIN / akun kelola pengguna boleh memakai username yang
+ *   sama — masing-masing grup punya ruang nama sendiri.
+ * - Yang dicadangkan di grup ini: (a) username anggota aktif grup yang sama,
+ *   (b) username Owner grup (Pengguna maupun CalonPembeli) — Owner bagian
+ *   dari grup, agar tidak ada dua akun login sama dalam satu grup.
+ */
+export async function isUsernameTerpakaiDiGrup(
+  grupId: string,
+  username: string,
+  ownerUserId: string | null
+): Promise<boolean> {
+  const [anggotaGrup, ownerPengguna, ownerCalon] = await Promise.all([
+    db.pengguna.findFirst({ where: { username, grupId }, select: { id: true } }),
+    ownerUserId
+      ? db.pengguna.findFirst({ where: { username, id: ownerUserId }, select: { id: true } })
+      : Promise.resolve(null as { id: string } | null),
+    ownerUserId
+      ? db.calonPembeli.findFirst({ where: { username, id: ownerUserId }, select: { id: true } })
+      : Promise.resolve(null as { id: string } | null),
+  ])
+  return !!anggotaGrup || !!ownerPengguna || !!ownerCalon
+}
+
+/**
+ * Cek username terpakai di sisi PENGELOLA (akun tanpa grup: kelola pengguna,
+ * akun konversi pembeli, dll) plus CalonPembeli (pendaftaran mandiri).
+ * Anggota grup TIDAK menghalangi namespace pengelola — ruang nama terpisah.
+ */
+export async function isUsernameTerpakaiPengelola(username: string): Promise<boolean> {
   const [pengguna, calon] = await Promise.all([
-    db.pengguna.findFirst({
-      where: { username, ...(excludePenggunaId ? { id: { not: excludePenggunaId } } : {}) },
-      select: { id: true },
-    }),
+    db.pengguna.findFirst({ where: { username, grupId: null }, select: { id: true } }),
     db.calonPembeli.findFirst({ where: { username }, select: { id: true } }),
   ])
   return !!pengguna || !!calon

@@ -44,9 +44,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. Check if username already exists in Pengguna
-    const existingPengguna = await db.pengguna.findUnique({
-      where: { username: username.trim() }
+    // 2. Check if username already exists in Pengguna (namespace pengelola —
+    // akun tanpa grup; anggota grup punya ruang nama terpisah)
+    const existingPengguna = await db.pengguna.findFirst({
+      where: { username: username.trim(), grupId: null }
     })
 
     if (existingPengguna) {

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check username uniqueness
-    const existingUser = await db.pengguna.findUnique({ where: { username } })
+    const existingUser = await db.pengguna.findFirst({ where: { username, grupId: null } })
     if (existingUser) {
       return NextResponse.json({ error: 'Username sudah digunakan' }, { status: 409 })
     }

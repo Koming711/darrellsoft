@@ -120,7 +120,7 @@ export async function DELETE(request: NextRequest) {
     // If this CalonPembeli has username/password, also delete linked Pengguna to prevent orphaned accounts
     if (existing.username) {
       try {
-        const linkedPengguna = await db.pengguna.findUnique({
+        const linkedPengguna = await db.pengguna.findFirst({
           where: { username: existing.username }
         })
         if (linkedPengguna && linkedPengguna.username !== 'admin' && linkedPengguna.username !== 'superadmin') {

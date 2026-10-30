@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check duplicate username
-    const existingPengguna = await db.pengguna.findUnique({
-      where: { username }
+    // Check duplicate username (namespace pengelola — akun tanpa grup)
+    const existingPengguna = await db.pengguna.findFirst({
+      where: { username, grupId: null }
     })
 
     if (existingPengguna) {

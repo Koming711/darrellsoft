@@ -32,8 +32,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 2. Pengguna
-    const existingUser = await db.pengguna.findUnique({ where: { username } })
+    // 2. Pengguna (namespace pengelola — akun tanpa grup; anggota grup punya
+    // ruang nama sendiri, tidak menghalangi pendaftaran pengelola)
+    const existingUser = await db.pengguna.findFirst({ where: { username, grupId: null } })
     if (existingUser) {
       // READ-ONLY: endpoint publik tidak boleh punya efek samping menghapus data.
       // Pembersihan orphan Pengguna hanya dilakukan saat register (server, tervalidasi).

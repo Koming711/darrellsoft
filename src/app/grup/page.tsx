@@ -873,6 +873,9 @@ function HalamanTambahAnggota({
               <div className="space-y-1.5">
                 <Label htmlFor="t-username">Username *</Label>
                 <Input id="t-username" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={40} placeholder="cth. budi" data-testid="tambah-username" />
+                <p className="text-[11px] text-muted-foreground">
+                  Unik di dalam grup ini — boleh sama dengan akun di luar grup (pengelola/grup lain).
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="t-hp">Nomor HP</Label>

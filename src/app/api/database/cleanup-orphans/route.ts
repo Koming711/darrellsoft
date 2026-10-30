@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Find and delete from Pengguna
-      const pengguna = await db.pengguna.findUnique({ where: { username } })
+      const pengguna = await db.pengguna.findFirst({ where: { username } })
       if (pengguna && pengguna.username !== 'admin' && pengguna.username !== 'superadmin') {
         // Unlink CalonPembeli
         await db.calonPembeli.updateMany({

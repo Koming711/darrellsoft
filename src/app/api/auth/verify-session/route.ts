@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
     const isAdminRole = role === 'admin' || role === 'superadmin'
     if (!isAdminRole) {
       // 1. Check Pengguna.validUntil
-      const pengguna = await db.pengguna.findUnique({
+      // findFirst: username kini per-namespace (grup vs pengelola bisa sama)
+      const pengguna = await db.pengguna.findFirst({
         where: { username },
         select: { validUntil: true, id: true }
       })
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
     // ===== Info grup perusahaan (RBAC menu klien — sinkron tiap poll) =====
     let grup: { grupId: string; peran: string; status: string; izin: string[] } | null = null
     try {
-      const pu = await db.pengguna.findUnique({ where: { username }, select: { id: true } })
+      const pu = await db.pengguna.findFirst({ where: { username }, select: { id: true } })
       const memberId = pu?.id || getServerUser(request)?.id || ''
       if (memberId) {
         const gm = await db.grupAnggota.findFirst({

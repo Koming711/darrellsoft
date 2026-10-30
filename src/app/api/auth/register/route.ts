@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const fieldErrors: Record<string, string> = {}
 
     const existingCalonUsername = await db.calonPembeli.findFirst({ where: { username: d.username } })
-    const existingUserUsername = await db.pengguna.findUnique({ where: { username: d.username } })
+    const existingUserUsername = await db.pengguna.findFirst({ where: { username: d.username, grupId: null } })
     if (existingCalonUsername) {
       fieldErrors.username = 'Username sudah digunakan'
     } else if (existingUserUsername) {

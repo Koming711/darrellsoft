@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
     // 4. If CalonPembeli has username & password, create a Pengguna (login account)
     let penggunaId: string | null = null
     if (calon.username && calon.password) {
-      // Check if username already exists in Pengguna
-      const existingPengguna = await db.pengguna.findUnique({
-        where: { username: calon.username }
+      // Check if username already exists in Pengguna (namespace pengelola —
+      // akun tanpa grup; anggota grup punya ruang nama terpisah)
+      const existingPengguna = await db.pengguna.findFirst({
+        where: { username: calon.username, grupId: null }
       })
 
       if (!existingPengguna) {

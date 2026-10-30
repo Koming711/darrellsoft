@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     } catch {}
 
     if (!pengguna && metaUsername) {
-      pengguna = await db.pengguna.findUnique({ where: { username: metaUsername } })
+      pengguna = await db.pengguna.findFirst({ where: { username: metaUsername } })
     }
     if (!pengguna) {
       pengguna = await db.pengguna.findFirst({

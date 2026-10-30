@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingUser = await db.pengguna.findUnique({ where: { username } })
+    // Namespace PENGELOLA: hanya akun tanpa grup yang menghalangi pendaftaran
+    // (anggota grup punya ruang nama sendiri — terpisah dari pengelola)
+    const existingUser = await db.pengguna.findFirst({ where: { username, grupId: null } })
     if (existingUser) {
       // Check if this Pengguna is orphaned (no linked Pembeli and not admin/superadmin)
       // This can happen when a user was deleted from Pembeli/CalonPembeli but Pengguna remained

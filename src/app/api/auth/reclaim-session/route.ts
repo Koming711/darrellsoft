@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       isVerified = true
     } else {
       // Last resort: verify the username exists as a known user
-      const pengguna = await db.pengguna.findUnique({ where: { username } })
+      const pengguna = await db.pengguna.findFirst({ where: { username } })
       const calon = pengguna ? null : await db.calonPembeli.findFirst({ where: { username } })
       if (pengguna || calon) {
         isVerified = true
