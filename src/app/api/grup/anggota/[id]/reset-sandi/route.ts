@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, getServerUser, invalidateGroupCache } from '@/lib/server-auth'
+import { requireAuth, getServerUser, invalidateGroupCache, isAdmin } from '@/lib/server-auth'
 import { resolveGrupForUser, logGroupAudit, ANGGOTA_STATUS } from '@/lib/grup'
 import { hashPassword } from '@/lib/password'
 
@@ -27,6 +27,10 @@ export async function POST(
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)!
+    // Admin sistem tidak me-reset sandi anggota grup — hanya Owner grup.
+    if (isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Admin sistem tidak dapat me-reset kata sandi anggota. Reset hanya oleh Owner grup perusahaan.' }, { status: 403 })
+    }
     const resolved = await resolveGrupForUser(user.id)
     if (!resolved) {
       return NextResponse.json({ error: 'Anda belum tergabung dalam grup perusahaan.' }, { status: 404 })

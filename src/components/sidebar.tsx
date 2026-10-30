@@ -387,6 +387,10 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
   const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const grupInfo = getGrupInfo()
   const isAnggotaGrup = !!grupInfo && grupInfo.peran !== 'owner'
+  // Admin sistem (admin/superadmin) tidak mengelola grup pelanggan — menu
+  // "Grup Saya" disembunyikan. Grup hanya milik akun Owner (pelanggan);
+  // admin memantau grup via Panel Admin → Manajemen Grup.
+  const isAdminSistem = role === 'admin' || role === 'superadmin'
   const menuWithAccess = menuItems
     .map(item => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }
@@ -394,6 +398,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
       return { ...item, isPro: !accessible }
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+    .filter(item => !isAdminSistem || item.featureId !== 'grup-saya')
     .filter(item => {
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun
@@ -538,10 +543,13 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // ANGGOTA GRUP (RBAC Owner): menu yang tidak diizinkan DISEMBUNYIKAN dari bottom bar.
   const grupInfoNav = getGrupInfo()
   const isAnggotaNav = !!grupInfoNav && grupInfoNav.peran !== 'owner'
+  // Admin sistem tidak melihat menu grup pelanggan (sama dgn sidebar desktop)
+  const isAdminNav = role === 'admin' || role === 'superadmin'
   const bolehGrupNav = (featureId: string) =>
     ['grup-saya', 'langganan-saya', 'pilih-paket', 'pengaturan'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
   const visibleItems = bottomNavItems
     .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
+    .filter(item => !isAdminNav || item.featureId !== 'grup-saya')
     .map(item => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }
       const accessible = hasFeatureAccess(role, item.featureId)
@@ -560,6 +568,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
       return { ...item, isPro: !accessible }
     })
     .filter(item => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+    .filter(item => !isAdminNav || item.featureId !== 'grup-saya')
     .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
 
   // Check if current page is one of the bottom nav items

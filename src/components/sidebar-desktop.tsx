@@ -412,6 +412,10 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
   const HIDDEN_WHEN_DENIED = ['hak-akses', 'pengguna', 'panel-admin']
   const grupInfo = getGrupInfo()
   const isAnggotaGrup = !!grupInfo && grupInfo.peran !== 'owner'
+  // Admin sistem (admin/superadmin) tidak mengelola grup pelanggan — menu
+  // "Grup Saya" disembunyikan. Grup hanya milik akun Owner (pelanggan);
+  // admin memantau grup via Panel Admin → Manajemen Grup.
+  const isAdminSistem = role === 'admin' || role === 'superadmin'
   const menuWithAccess = menuItems
     .map((item) => {
       if (!role || role === 'superadmin') return { ...item, isPro: false }
@@ -419,6 +423,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
       return { ...item, isPro: !accessible }
     })
     .filter((item) => !item.isPro || !HIDDEN_WHEN_DENIED.includes(item.featureId))
+    .filter((item) => !isAdminSistem || item.featureId !== 'grup-saya')
     .filter((item) => {
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun

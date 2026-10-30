@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { authFetch } from '@/lib/auth-fetch'
+import { useAuth } from '@/contexts/auth-context'
 import { startNavigation } from '@/components/navigation-progress'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -160,6 +161,11 @@ export default function GrupPage() {
 
 function GrupContent() {
   const router = useRouter()
+  const { user: authUser, isLoading: authLoading } = useAuth()
+  // Admin sistem (admin/superadmin) bukan pemilik grup pelanggan — halaman
+  // Grup Saya (termasuk upsell paket multi-akun) hanya untuk akun Owner.
+  // Data grup tidak masuk ke pengguna admin: admin memantau via Panel Admin.
+  const adminSistem = authUser?.role === 'admin' || authUser?.role === 'superadmin'
   const [data, setData] = useState<ResponsGrup | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'ringkasan' | 'perusahaan' | 'anggota' | 'langganan'>('ringkasan')
@@ -202,6 +208,9 @@ function GrupContent() {
 
   // ===== Tanpa grup → upsell =====
   if (!data?.grup) {
+    // Admin sistem: tampilkan info (bukan upsell) — grup dikelola Owner,
+    // admin hanya memantau via Panel Admin → Manajemen Grup.
+    if (!authLoading && adminSistem) return <AdminGrupInfo />
     return <UpsellView paket={data?.daftarPaketMultiAkun ?? []} />
   }
 
@@ -1121,6 +1130,42 @@ function DialogResetSandi({ target, onOpenChange }: { target: Anggota | null; on
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ===== Info utk admin sistem (bukan Owner grup) =====
+// Admin tidak melihat/menambah data grup — tombol "Tambah Anggota" dan upsell
+// paket hanya ada di halaman grup milik akun Owner (pelanggan).
+function AdminGrupInfo() {
+  const router = useRouter()
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base"><Users className="h-5 w-5 text-emerald-600" /> Grup Perusahaan</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Halaman <span className="font-medium text-foreground">Grup Saya</span> hanya untuk
+            {' '}<span className="font-medium text-foreground">akun Owner grup perusahaan</span> (pelanggan paket multi-akun).
+            Penambahan anggota hanya dapat dilakukan oleh Owner grup masing-masing —
+            data grup tidak masuk ke pengguna admin.
+          </p>
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+            Sebagai admin Darrellsoft, Anda dapat memantau seluruh grup perusahaan
+            (owner, anggota, kuota, status langganan, riwayat aktivitas) melalui
+            Panel Admin → Manajemen Grup.
+          </div>
+          <Button
+            className="w-full min-h-[44px] bg-emerald-600 hover:bg-emerald-700"
+            onClick={() => { startNavigation(); router.push('/panel-admin?tab=grup') }}
+            data-testid="admin-buka-manajemen-grup"
+          >
+            Buka Manajemen Grup (Panel Admin)
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

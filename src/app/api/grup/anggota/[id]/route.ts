@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, getServerUser, GRUP_MENU_IZIN, invalidateGroupCache } from '@/lib/server-auth'
+import { requireAuth, getServerUser, GRUP_MENU_IZIN, invalidateGroupCache, isAdmin } from '@/lib/server-auth'
 import {
   resolveGrupForUser,
   logGroupAudit,
@@ -20,6 +20,11 @@ async function requireOwner(request: NextRequest) {
   const authErr = requireAuth(request)
   if (authErr) return { err: authErr } as const
   const user = getServerUser(request)!
+  // Admin sistem bukan Owner grup — pengelolaan anggota hanya oleh Owner
+  // grup perusahaan (masing-masing grup dikelola owner-nya sendiri).
+  if (isAdmin(user.role)) {
+    return { err: NextResponse.json({ error: 'Admin sistem tidak dapat mengelola anggota grup. Pengelolaan hanya oleh Owner grup perusahaan.' }, { status: 403 }) } as const
+  }
   const resolved = await resolveGrupForUser(user.id)
   if (!resolved) {
     return { err: NextResponse.json({ error: 'Anda belum tergabung dalam grup perusahaan.' }, { status: 404 }) } as const

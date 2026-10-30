@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, getServerUser, GRUP_MENU_IZIN, invalidateGroupCache } from '@/lib/server-auth'
+import { requireAuth, getServerUser, GRUP_MENU_IZIN, invalidateGroupCache, isAdmin } from '@/lib/server-auth'
 import {
   resolveGrupForUser,
   logGroupAudit,
@@ -48,6 +48,11 @@ export async function POST(request: NextRequest) {
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)!
+    // Admin sistem tidak menambah anggota grup — penambahan anggota hanya
+    // oleh Owner grup perusahaan (data grup masuk ke akun Owner, bukan admin).
+    if (isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Admin sistem tidak dapat menambah anggota grup. Penambahan anggota hanya dilakukan oleh Owner grup perusahaan.' }, { status: 403 })
+    }
     const resolved = await resolveGrupForUser(user.id)
     if (!resolved) {
       return NextResponse.json({ error: 'Anda belum tergabung dalam grup perusahaan.' }, { status: 404 })

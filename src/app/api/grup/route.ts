@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, getServerUser } from '@/lib/server-auth'
+import { requireAuth, getServerUser, isAdmin } from '@/lib/server-auth'
 import {
   resolveGrupForUser,
   hitungKuota,
@@ -20,6 +20,14 @@ export async function GET(request: NextRequest) {
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)!
+    // Admin sistem bukan pelanggan — tidak punya grup & jangan ditawari paket.
+    // Data grup hanya milik akun Owner; admin memantau via Panel Admin.
+    if (isAdmin(user.role)) {
+      return NextResponse.json(
+        { grup: null, daftarPaketMultiAkun: [] },
+        { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      )
+    }
     const resolved = await resolveGrupForUser(user.id)
 
     if (!resolved) {
@@ -153,6 +161,9 @@ export async function PATCH(request: NextRequest) {
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)!
+    if (isAdmin(user.role)) {
+      return NextResponse.json({ error: 'Admin sistem tidak dapat mengubah data perusahaan grup. Pengelolaan hanya oleh Owner grup perusahaan.' }, { status: 403 })
+    }
     const resolved = await resolveGrupForUser(user.id)
     if (!resolved) {
       return NextResponse.json({ error: 'Anda belum tergabung dalam grup perusahaan.' }, { status: 404 })
