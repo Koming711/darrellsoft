@@ -15739,3 +15739,17 @@ Work Log:
 
 Stage Summary:
 - Menu sidebar (HP & desktop) kini menampilkan "Master Bahan" untuk halaman Master Harga Kertas — hanya label sidebar yang berubah; URL, judul halaman, RBAC, dan hak akses tidak berubah.
+---
+Task ID: sidebar-produk
+Agent: Z.ai Code (main)
+Task: Di sidebar menu, tambahkan "Produk".
+
+Work Log:
+- POLA sama dgn tugas "tambahkan master barang" sebelumnya (commit 210e622, dibatalkan): menu produk di sidebar adalah item /master-barang yang selama ini berlabel "Harga per Customer" — label diganti agar menu tampil sebagai "Produk".
+- i18n.ts: key master_barang 'Harga per Customer' → 'Produk' (id), 'Price per Customer' → 'Products' (en, termasuk salinan backup-section di baris 934). short_barang (bottom-nav HP) 'Hg/Cust' → 'Produk' (en 'Items' → 'Product').
+- AMAN: key master_barang hanya dipakai 3 titleKey sidebar (sidebar.tsx menu+bottom-nav, sidebar-desktop.tsx) — judul halaman /master-barang (H1 hardcode "Harga per Customer"), URL, RBAC (id 'master-barang', label 'Master Barang'), dan hak akses tidak berubah.
+- LINT: i18n.ts bersih.
+- E2E (agent-browser, owner lina): desktop 1280 — sidebar (screenshot) seksi DOKUMEN menampilkan "Produk" (ikon Package), "Harga per Customer" tidak ada lagi; klik "Produk" → /master-barang, H1 tetap "Harga per Customer". Mobile 390 — bottom-nav tampil "Produk" (menggantikan "Hg/Cust"); drawer (Lainnya) menampilkan "Produk" (screenshot); klik → /master-barang. Console & page errors bersih di kedua viewport.
+
+Stage Summary:
+- Sidebar (HP & desktop) dan bottom-nav kini menampilkan "Produk" untuk halaman harga barang per customer (/master-barang) — hanya label menu yang berubah; judul halaman, URL, RBAC, dan hak akses tidak berubah.
