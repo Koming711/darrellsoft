@@ -15787,3 +15787,16 @@ Work Log:
 
 Stage Summary:
 - Fitur Harga Customer hidup end-to-end: setiap customer punya harga jual sendiri; invoice otomatis memakai harga kesepakatan (prioritas harga khusus aktif & berlaku → harga standar); harga manual hanya berlaku di invoice tsb & tercatat; harga pokok/stok tidak tersentuh; data terisolasi per user/grup; Owner mengontrol akses anggota via Hak Akses Menu.
+---
+Task ID: cancel-fitur-harga-customer
+Agent: Z.ai Code (main)
+Task: User membatalkan perintah terakhir (fitur Harga Customer).
+
+Work Log:
+- REVERT: git revert 82470bd (commit 2320c3d) — 14 file kembali: hapus halaman /harga-customer, API /api/harga-customer (+[id]), ekstensi customerPrice di /api/items, perubahan schema BarangCustomer (validFrom/validUntil/isActive), menu sidebar & RBAC harga-customer, perubahan invoice-editor/items-fields/types. Koneksi invoice kembali ke perilaku lama (harga dari Master Barang, lockPrices).
+- KOREKSI CATATAN SEBELUMNYA: klaim "bug warisan /invoice crash (deklarasi rusak di HEAD)" di entri fitur-harga-customer TIDAK AKURAT — itu artefak tampilan terminal (urutan escape ANSI "[m" pada output sed/rg menelan literal "[m" dari kode "[matchedCustomerId"); file tidak pernah rusak & tidak ada perbaikan yang perlu di-apply ulang setelah revert (diverifikasi: editor /invoice terbuka normal).
+- DB: prisma db push --accept-data-loss — kolom validFrom/validUntil/isActive dihapus dari db/custom.db (schema kembali paritas). Data uji dibersihkan: 2 registrasi BarangCustomer (harga uji 4.800/4.500) + 1 Barang uji "Paper Bowl 500 ml" dihapus (0 sisa). Prisma client diregenerasi.
+- VERIFIKASI (agent-browser, owner lina, desktop 1280): /harga-customer → 404; sidebar tidak lagi menampilkan "Harga Customer"; "Kategori" & "Master Bahan" tetap utuh; editor /invoice terbuka normal tanpa error console. LINT: 7 file inti bersih.
+
+Stage Summary:
+- Fitur "Harga Customer" DIBATALKAN seluruhnya (UI, API, schema, RBAC) — aplikasi kembali ke kondisi sebelum fitur. Perubahan "Kategori" & "Master Bahan" tetap berlaku. Data uji dibersihkan dari database.
