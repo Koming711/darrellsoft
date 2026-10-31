@@ -15753,3 +15753,16 @@ Work Log:
 
 Stage Summary:
 - Sidebar (HP & desktop) dan bottom-nav kini menampilkan "Produk" untuk halaman harga barang per customer (/master-barang) — hanya label menu yang berubah; judul halaman, URL, RBAC, dan hak akses tidak berubah.
+---
+Task ID: cancel-sidebar-produk
+Agent: Z.ai Code (main)
+Task: User membatalkan perintah terakhir (sidebar "Produk").
+
+Work Log:
+- REVERT: git revert d81715d (commit 22431c8) — kembalikan i18n.ts: label /master-barang kembali "Harga per Customer" (en 'Price per Customer', termasuk salinan backup-section), short_barang bottom-nav kembali "Hg/Cust" (en 'Items').
+- TIDAK TERPENGARUH: perubahan "Kategori" (menu_daftar_kategori) dan "Master Bahan" (menu_master_harga_kertas) tetap utuh.
+- LINT: i18n.ts bersih.
+- E2E (agent-browser, owner lina): desktop 1280 — sidebar kembali "Harga per Customer", "Produk" tidak ada, "Kategori" & "Master Bahan" tetap tampil. Mobile 390 — bottom-nav kembali "Hg/Cust", drawer "Harga per Customer", "Produk" tidak ada. Console & page errors bersih.
+
+Stage Summary:
+- Perintah "tambahkan produk" DIBATALKAN — sidebar & bottom-nav kembali seperti sebelumnya. Perubahan "Kategori" dan "Master Bahan" tetap berlaku.
