@@ -76,15 +76,6 @@ export function hasFeatureAccess(roleId: string, featureId: string): boolean {
     }
     return true
   }
-  // Harga Customer — Owner & akun non-grup selalu boleh; anggota grup
-  // (admin/staf) mengikuti izin Owner di Hak Akses Menu (RBAC grup).
-  if (featureId === 'harga-customer') {
-    const grupHarga = getGrupInfo()
-    if (grupHarga && grupHarga.peran !== 'owner') {
-      return grupHarga.izin.includes('harga-customer')
-    }
-    return true
-  }
   // Halaman grup milik akun sendiri — selalu tersedia (owner kelola, anggota lihat).
   if (featureId === 'grup-saya') return true
 
@@ -173,20 +164,6 @@ export function hasProfitAccess(): boolean {
   return true
 }
 
-/**
- * Apakah user boleh MENGUBAH HARGA SECARA MANUAL di invoice (fitur Harga
- * Customer). Owner & akun non-grup selalu boleh; anggota grup (admin/staf)
- * harus punya izin 'harga-customer' atau 'master-barang' dari Owner
- * (staf penjualan tanpa izin hanya melihat harga otomatis).
- */
-export function hasManualPriceAccess(): boolean {
-  const grup = getGrupInfo()
-  if (grup && grup.peran !== 'owner') {
-    return grup.izin.includes('harga-customer') || grup.izin.includes('master-barang')
-  }
-  return true
-}
-
 /** Map pathname to feature ID for permission checking */
 export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/dashboard') return 'dashboard'
@@ -202,7 +179,6 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/master-finishing') return 'master-finishing'
   if (pathname === '/master-customer') return 'master-customer'
   if (pathname === '/master-barang-customer') return 'master-barang-customer'
-  if (pathname === '/harga-customer') return 'harga-customer'
   if (pathname === '/master-toko-pemasok') return 'master-toko-pemasok'
   if (pathname === '/stock-bahan') return 'stock-bahan'
   if (pathname === '/riwayat') return 'riwayat'
@@ -241,7 +217,6 @@ export function getPathForFeatureId(featureId: string): string | null {
     'master-finishing': '/master-finishing',
     'master-customer': '/master-customer',
     'master-barang-customer': '/master-barang-customer',
-    'harga-customer': '/harga-customer',
     'master-toko-pemasok': '/master-toko-pemasok',
     'stock-bahan': '/stock-bahan',
     'riwayat': '/riwayat',

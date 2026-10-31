@@ -48,42 +48,24 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-    const today = new Date().toISOString().slice(0, 10)
-    const items = rows.map((it) => {
-      // Harga khusus customer (BarangCustomer) yang AKTIF & berlaku hari ini —
-      // dipakai invoice untuk auto-apply harga kesepakatan (prioritas di atas
-      // harga standar Barang.jual). Null → tidak ada, pakai standardPrice.
-      let customerPrice: number | null = null
-      if (customerId) {
-        for (const r of it.registrations) {
-          if (r.customerId !== customerId) continue
-          if (!r.isActive) continue
-          if (r.validFrom && r.validFrom > today) continue
-          if (r.validUntil && r.validUntil < today) continue
-          customerPrice = r.price
-          break
-        }
-      }
-      return {
-        id: it.id,
-        code: it.kode,
-        name: it.nama,
-        unit: it.satuan,
-        standardPrice: it.jual,
-        customerPrice,
-        hpp: it.modal,
-        qty: it.qty,
-        keterangan: it.keterangan,
-        isActive: it.isActive,
-        photoUrl: it.photoUrl,
-        createdAt: it.createdAt.toISOString(),
-        customers: it.registrations.map((r) => ({
-          id: r.customer.id,
-          name: r.customer.name,
-          companyName: r.customer.companyName,
-        })),
-      }
-    })
+    const items = rows.map((it) => ({
+      id: it.id,
+      code: it.kode,
+      name: it.nama,
+      unit: it.satuan,
+      standardPrice: it.jual,
+      hpp: it.modal,
+      qty: it.qty,
+      keterangan: it.keterangan,
+      isActive: it.isActive,
+      photoUrl: it.photoUrl,
+      createdAt: it.createdAt.toISOString(),
+      customers: it.registrations.map((r) => ({
+        id: r.customer.id,
+        name: r.customer.name,
+        companyName: r.customer.companyName,
+      })),
+    }))
     return NextResponse.json(
       { items },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }

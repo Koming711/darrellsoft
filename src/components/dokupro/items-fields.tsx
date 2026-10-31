@@ -27,8 +27,6 @@ export interface BarangOption {
   name: string;
   unit: string;
   standardPrice: number;
-  /** Harga khusus customer yang aktif & berlaku (dari BarangCustomer) — null = tidak ada. */
-  customerPrice?: number | null;
   hpp: number | null;
   /** Qty dari Master Barang — otomatis mengisi Qty item saat dipilih. */
   qty: number;
