@@ -71,7 +71,7 @@ function ActiveBadge({ active }: { active: boolean }) {
     : <Badge variant="outline" className="bg-stone-100 text-stone-500 border-stone-200 text-[11px] shrink-0">Nonaktif</Badge>
 }
 
-/** Chips nama pelanggan — tampil di bawah/di samping nama barang (barang umum = label "Umum"). */
+/** Chips nama pelanggan — tampil di kolom Customer (barang umum = label "Umum"). */
 function CustomerChips({ customers }: { customers?: ItemCustomerRef[] }) {
   if (!customers || customers.length === 0) {
     return (
@@ -592,8 +592,9 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-stone-50">
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
+                  <TableHead>Customer</TableHead>
                   <TableHead>Kode</TableHead>
-                  <TableHead>Nama</TableHead>
+                  <TableHead>Nama barang</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
@@ -611,13 +612,13 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     title="Klik baris untuk melihat foto barang"
                     onClick={() => setViewPhoto(it)}
                   >
+                    <TableCell className="max-w-[220px]">
+                      <CustomerChips customers={it.customers} />
+                    </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
                     {/* Kolom Satuan dihapus — satuan tetap bisa diatur lewat form */}
                     <TableCell className="font-medium">
-                      <div className="min-w-0 space-y-1">
-                        <span className="block truncate" title={it.name}>{it.name}</span>
-                        <CustomerChips customers={it.customers} />
-                      </div>
+                      <span className="block truncate" title={it.name}>{it.name}</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground" title="Tanggal dibuat">{formatTanggalDibuat(it.createdAt)}</TableCell>
                     <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
