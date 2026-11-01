@@ -26,6 +26,7 @@ const TILE_GRADIENT: Record<string, string> = {
   '/piutang-dagang': 'from-lime-400 to-green-600',
   '/master-customer': 'from-cyan-400 to-sky-600',
   '/master-barang': 'from-blue-400 to-blue-600',
+  '/barang': 'from-emerald-400 to-teal-600',
   '/laporan/penjualan': 'from-green-400 to-emerald-600',
   '/laporan/rugi-laba': 'from-fuchsia-500 to-purple-600',
   '/biaya-operasional': 'from-pink-500 to-rose-600',

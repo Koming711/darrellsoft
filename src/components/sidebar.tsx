@@ -32,6 +32,7 @@ import {
   Home,
   Boxes,
   Package,
+  PackagePlus,
   MoreHorizontal,
   Wallet,
   Tags,
@@ -111,6 +112,13 @@ const menuItems = [
     href: '/master-barang',
     icon: Package,
     featureId: 'master-barang',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'barang' as TranslationKey,
+    href: '/barang',
+    icon: PackagePlus,
+    featureId: 'barang',
     section: 'dokumen',
   },
   {

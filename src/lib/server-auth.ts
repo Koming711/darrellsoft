@@ -171,6 +171,8 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'purchase-order', label: 'Purchase Order' },
   { id: 'master-customer', label: 'Master Customer' },
   { id: 'master-barang', label: 'Master Produk' },
+  // Menu Barang — porting dr app upload (products-view), data satu tabel Barang
+  { id: 'barang', label: 'Barang' },
   // Harga Customer — daftar harga jual khusus per customer (BarangCustomer);
   // bila tidak dicentang, anggota tidak melihat menu & tidak bisa ubah harga.
   { id: 'harga-customer', label: 'Harga Customer' },
