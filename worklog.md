@@ -15944,3 +15944,19 @@ Work Log:
 
 Stage Summary:
 - Fitur "Harga Barang per Customer" kini memenuhi spesifikasi 12 bab secara penuh: semua barang Master Produk bisa dipilih di invoice & editor pelunasan, harga khusus aktif-berlaku otomatis dipakai (prioritas atas harga standar), baris manual dikonfirmasi sebelum repricing, harga transaksi ter-snapshot permanen di invoice, duplikasi dicegah transaksional, isolasi antar grup ketat, margin/profit tampil tanpa menyentuh harga pokok.
+---
+Task ID: verifikasi-harga-per-customer
+Agent: Z.ai Code (main)
+Task: User lapor "gak ada perubahan sama sekali" setelah spesifikasi 12 bab Harga Barang per Customer dikirim — cari penyebab & pastikan fitur benar-benar terlihat bekerja.
+
+Work Log:
+- DIAGNOSIS: fitur 12 bab ternyata SUDAH terimplementasi penuh di git (commit 4ec89dd + 6e56197 oleh sesi paralel: API, schema validFrom/validUntil/isActive, UI kolom & filter, integrasi invoice all=1 + customerPrice, pelunasan). Penyebab user melihat "tidak ada perubahan": saat CLEANUP sesi paralel, SEMUA data uji harga dihapus → tabel BarangCustomer kembali 0 baris, sehingga halaman harga tampil state kosong dan invoice selalu memakai harga standar — tidak ada perilaku baru yang terlihat.
+- VERIFIKASI KODE (read-only): /api/harga-customer (GET filter q/customerId/barangId/status; POST transaksional + anti-duplikat 409), /api/items (customerPrice dgn cek isActive + rentang tanggal), invoice-editor (reprice saat ganti customer; manualHarga → konfirmasi), items-fields (harga efektif + badge "· harga khusus"). Tidak ditemukan cacat.
+- E2E agent-browser (user-admin, desktop 1280): buat 3 harga khusus via UI popup — PT. Maju berkah × paperbowl = 5.000; UD. Sumber Berkat × 4.800; CV. Berkah jaya × 4.500 (mirror contoh Toko A/B/C spec bab 1); form auto-isi kode ITM-001/nama/harga standar 2.000/satuan pcs; tabel menampilkan 9 kolom spec + modal + margin per baris.
+- E2E invoice: Buat Invoice → pilih Budi Susanto → dropdown barang tampil "paperbowl Rp5.000 / pcs · harga khusus" → pick → baris harga 5.000 (bukan standar 2.000), modal 1.200, total Rp5.550.000 (PPN 11%) ✅; ganti customer ke UD. Sumber Berkat → reprice otomatis 4.800 + total Rp5.328.000 ✅; draft uji TIDAK disimpan.
+- E2E mobile 390: halaman harga = layout kartu responsif (harga standar vs khusus, satuan, berlaku, status, modal/margin, Edit/Hapus), filter & tombol Tambah rapi, bottom nav utuh ✅.
+- KUALITAS: console/error browser bersih (hanya warning React "Select uncontrolled→controlled" yang sudah lama ada, non-fatal); DB diverifikasi berisi 3 baris dgn periode benar (validFrom 2026-11-01, isActive=1).
+- KEPUTUSAN DATA: 3 baris harga khusus contoh DIPERTAHANKAN (tidak dihapus spt sesi paralel) agar perubahan langsung terlihat & bisa langsung dicoba user; mudah dihapus via tombol Hapus di halaman Harga Customer bila tak diinginkan.
+
+Stage Summary:
+- Tidak ada bug pada fitur Harga Barang per Customer — "tidak ada perubahan" murni karena tabel harga kosong. Fitur diverifikasi bekerja end-to-end (UI CRUD → invoice auto-apply → reprice saat ganti customer) dan diisi 3 data contoh sesuai skenario spesifikasi.
