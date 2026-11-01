@@ -15807,3 +15807,20 @@ Work Log:
 
 Stage Summary:
 - Tabel Harga Customer versi desktop kini punya kolom Customer sendiri di kiri Kode, dan kolom "Nama barang". Tampilan mobile tidak berubah.
+---
+Task ID: fitur-harga-barang-per-customer-v2
+Agent: Z.ai Code (main)
+Task: User kirim spesifikasi lengkap "PROMPT UPDATE DARRELLSOFT — FITUR HARGA BARANG PER CUSTOMER" — implementasikan sampai berfungsi penuh di workspace hasil restore snapshot.
+
+Work Log:
+- STRATEGI (spec §10 — perubahan sekecil mungkin): fitur identik pernah dibangun & terverifikasi penuh di commit 3b7d938 (sebelum rollback snapshot 4c25685) → PORT kembali dr git, bukan tulis ulang. 11 file di-checkout utuh dr 3b7d938 (harga-customer page + 2 API route, items route, invoice-editor, invoice-pelunasan-editor, items-fields, schema.prisma, auth.ts, server-auth.ts, types.ts) + 4 file di-port manual utk menyelaraskan dgn state sekarang (permissions.ts 4 hunks, grup/page.tsx, i18n.ts, sidebar.tsx + sidebar-desktop.tsx).
+- MENU: entry sidebar (desktop+mobile) kini "Harga Customer" → /harga-customer (icon BadgePercent, featureId 'harga-customer'); tile bottom-nav "Hg/Cust" ikut menunjuk /harga-customer (deviasi sadar dr impl lama: tile dipertahankan krn user terbiasa); halaman lama /master-barang tetap hidup via URL (non-destruktif); special-case isActive '/master-barang' dibersihkan.
+- DB: db push menambah validFrom/validUntil/IsActive di BarangCustomer (row Radio×Budi 300.000 bawaan restore otomatis jadi harga khusus aktif).
+- DEBUG 1: /invoice 500 — invoice-editor butuh export hasManualPriceAccess; permissions.ts belum di-port → tambah hasFeatureAccess('harga-customer'), hasManualPriceAccess(), map path↔feature. Setelah fix: /invoice 200.
+- UJI API (curl, persona user-admin): POST 3 harga paperbowl (Maju 5000 validFrom 2026-11-01 / Sumber 4800 / Berkah 4500) 201; duplikat pasangan → 409 dgn pesan perbaikan; harga negatif → 400; isolasi: POST pakai customer milik user-superadmin → 404; PUT ubah harga + validUntil → 200; DELETE baris temp → 200; /api/items?all=1 → customerPrice 5000 utk Maju, null utk tanpa khusus (fallback standar).
+- UJI BROWSER (desktop 1280 + mobile 390): menu → /harga-customer, kolom Customer|Kode|Nama Barang|Harga Standar|Harga Khusus|Satuan|Berlaku|Status|Aksi + modal/margin; form Tambah dgn dropdown customer & barang; Buat Invoice → dropdown "paperbowl Rp5.000 / pcs · harga khusus" → pick → harga 5.000, modal 700, total 5.550.000 (PPN 11%); ganti customer ke UD. Sumber Berkat → reprice otomatis 4.800 TANPA dialog (baris otomatis); edit manual 4.300 → ganti customer → dialog "Ganti harga baris manual?" (Pertahankan / Ya, Ganti) → Ya → 4.500; simpan INV/11/26/0005 → DocumentHistory snapshot harga 4500 modal 700 manualHarga:false; ubah harga khusus 4500→4600 via API → buka ulang invoice lama → TETAP 4.500 (snapshot riwayat); harga dikembalikan 4500; invoice uji dihapus (soft-delete → Sampah); mobile: kartu harga rapi (standar vs khusus, margin), dropdown invoice "Rp5.000 · harga khusus".
+- SMOKE modul lama: 16 route + 4 API → semua 200. Lint 19 file → bersih. Console error = buffer stale dari debug awal (terverifikasi /invoice 200 pasca-fix).
+- DATA AKHIR: 4 harga khusus aktif — Radio×Maju 300.000; paperbowl: Maju 5.000 (mulai 01/11/26), Sumber 4.800, Berkah 4.500 (mirror contoh Toko A/B/C spec §3).
+
+Stage Summary:
+- Fitur "Harga Barang per Customer" berfungsi penuh sesuai 10 bab spesifikasi: CRUD + cari + filter, satu barang banyak harga per customer, auto-apply di invoice & pelunasan dengan konfirmasi harga manual, snapshot harga permanen di invoice tersimpan, anti-duplikasi periode, isolasi antar grup, RBAC harga-customer, UI responsif Rupiah + notifikasi + konfirmasi hapus. Modul lama tak tersentuh (items-view, /master-barang, invoice lama aman).
