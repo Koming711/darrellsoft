@@ -15830,3 +15830,19 @@ Work Log:
 
 Stage Summary:
 - Tabel Harga per Customer kini punya kolom Customer tersendiri (desktop); info pelanggan tidak lagi menempel di kolom Nama. Mobile tidak berubah (kartu).
+---
+Task ID: port-produk-harga-customer-dari-workspace-upload
+Agent: Z.ai Code (main)
+Task: User upload workspace tar (d167b051 — prototipe mandiri spec Harga Customer) dan minta "tambahkan menu produk dan harga customer dengan file ini".
+
+Work Log:
+- ANALISA FILE: tar berisi implementasi MANDIRI sesuai 12-bab spec Harga Customer (schema Company/User/Customer/Product/CustomerProductPrice/Invoice, API /api/customer-prices + resolve, SPA app-shell, agent-ctx docs) — arsitektur TIDAK kompatibel dgn app produksi (auth header x-company-id, model Company, tanpa login/grup/i18n). Diputuskan: fitur di-port ke app asli lewat jalur yang sudah pernah dibuat & di-revert (reapply), desain fitur konsisten dgn file (CRUD harga khusus + periode + auto-apply invoice + margin).
+- REAPPLY: git revert 2320c3d (commit 94656a8) — fitur "Harga Customer" kembali utuh: halaman /harga-customer, API /api/harga-customer (+[id]), customerPrice di /api/items, integrasi invoice-editor (auto reprice + konfirmasi baris manual + izin harga manual), RBAC (menu + GRUP_MENU_IZIN + server guard), i18n.
+- LABEL PRODUK: i18n.ts 5 lokasi (id/en + bagian backup terduplikasi) — master_barang 'Harga per Customer'→'Produk'/'Products', short_barang 'Hg/Cust'→'Produk', 'Items'→'Product' (commit 1455690, sama dgn d81715d yang dulu dibatalkan user).
+- DB: bun run db:push — kolom validFrom/validUntil/isActive kembali di BarangCustomer (diverifikasi PRAGMA). DEV SERVER DI-RESTART (next-server lama PID 16925 bertahan krn pattern pkill tidak match "next-server" — bug client basi pagi ini hampir terulang; kini PID 20084 fresh).
+- E2E (agent-browser, owner lina, desktop 1280 + mobile 390): sidebar desktop & drawer mobile menampilkan "Produk" + "Harga Customer" ✓. Halaman /harga-customer: tambah harga (CV. Berkah jaya + Paper Bowl 500 ml, standar 5.000 → khusus 4.800, satuan auto, margin Rp1.800 tampil, berlaku 01/11/2026–∞) ✓; hapus dgn konfirmasi ✓. INVOICE: gate PRO untuk akun demo — diatasi dgn network-mock verify-session (grup:null + permissions.features.invoice=true, sesuai preseden; TIDAK mengubah data); buat invoice → pilih customer Siti Rohana + Paper Bowl 500 ml → harga otomatis Rp4.800 (bukan 5.000), subtotal 480.000, PPN 11% benar ✓. Bottom-nav mobile "Produk" ✓.
+- KENDALA E2E: (1) grup_info localStorage basi (peran staf grup uji 'darel' milik Pengguna 'lina') → menu RBAC tersembunyi; data DB sebenarnya benar (User-tabel lina owner CV Lina Printing); (2) dropdown custom invoice editor memakai button+onMouseDown, filter by nama bukan companyName.
+- BERSIH-BERSIH: harga uji dihapus via UI, barang uji via API (0 sisa); 1 baris BarangCustomer tersisa = data lama user-admin (Radio, bukan uji).
+
+Stage Summary:
+- Menu "Produk" (=/master-barang, H1 tetap "Harga per Customer") dan menu "Harga Customer" (=/harga-customer, fitur lengkap: CRUD harga khusus per customer + periode berlaku + auto-apply di invoice + margin + RBAC grup) kembali aktif di aplikasi, dipindah dari implementasi 12-bab spec yang pernah dibuat (sesuai desain file upload). Semua fungsi lama tetap utuh.
