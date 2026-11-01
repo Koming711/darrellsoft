@@ -15794,3 +15794,16 @@ Work Log:
 
 Stage Summary:
 - Nama fitur resmi kini "Harga Customer" di semua permukaan UI (menu, judul, hak akses, kamus EN). Fungsionalitas tidak tersentuh.
+---
+Task ID: kolom-customer-tabel-harga-customer
+Agent: Z.ai Code (main)
+Task: User minta di halaman Harga Customer: (1) kolom Customer ditambahkan di tabel, posisi kiri kolom Kode; (2) kolom Nama diganti "Nama barang".
+
+Work Log:
+- src/components/views/items-view.tsx (satu-satunya file): header tabel = Customer | Kode | Nama barang | Tanggal | Qty | Harga Jual | HPP | Keterangan | Status | Aksi; chips pelanggan (CustomerChips) dipindah dari dalam kolom Nama ke kolom Customer tersendiri (max-w-[220px]); kolom Nama kini hanya nama barang (span truncate); fallback "Umum (tanpa pelanggan)" tetap untuk barang tanpa registrasi; komentar komponen diperbarui.
+- Data customers[] sudah tersedia dr /api/items (registrasi BarangCustomer) — tanpa perubahan API.
+- LINT: items-view.tsx bersih.
+- E2E (agent-browser, user-admin, desktop 1280 + mobile 390): header & urutan kolom sesuai; baris Radio = chip "Budi Susanto" | ITM-007 | Radio; baris box = "Umum (tanpa pelanggan)" | ITM-006 | box; mobile kartu tak berubah (sudah ada badge pelanggan); console & errors = 0.
+
+Stage Summary:
+- Tabel Harga Customer versi desktop kini punya kolom Customer sendiri di kiri Kode, dan kolom "Nama barang". Tampilan mobile tidak berubah.
