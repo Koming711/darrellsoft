@@ -15815,3 +15815,18 @@ Work Log:
 
 Stage Summary:
 - "Tambah barang" di halaman Harga per Customer kembali berfungsi (desktop & mobile). Penyebab: runtime dev server stale pasca-revert fitur Harga Customer — diperbaiki dgn restart tanpa perubahan kode. Tidak ada commit kode (tidak ada perubahan); entri worklog ini di-commit terpisah.
+---
+Task ID: kolom-customer-tabel-harga-per-customer
+Agent: Z.ai Code (main)
+Task: User minta tambah kolom Customer di tabel halaman Harga per Customer.
+
+Work Log:
+- PERUBAHAN (items-view.tsx, tabel desktop /master-barang): header += "Customer" (posisi antara Nama & Tanggal); isi kolom Nama tidak lagi menempel CustomerChips — chips pelanggan dipindah ke TableCell sendiri (max-w-[220px]). Barang umum tetap tampil "Umum (tanpa pelanggan)".
+- Mobile (kartu) tidak diubah — chips pelanggan tetap di bawah nama kartu (mobile tanpa tabel).
+- CATATAN E2E: tombol "Tambah" tidak muncul di browser uji fresh karena localStorage 'permissions' kosong (seed hanya saat login; role 'demo' default tanpa sub-izin master-barang) — BUKAN regresi perubahan ini; tabel dirender utk semua user berakses halaman. Data uji dibuat via API.
+- LINT: items-view.tsx bersih.
+- E2E (agent-browser, owner lina): desktop 1280 — kolom tabel kini [Kode, Nama, Customer, Tanggal, Qty, Harga Jual, HPP, Keterangan, Status, Aksi]; baris barang dgn pelanggan → badge "Siti Rohana", barang umum → "Umum (tanpa pelanggan)"; Nama tidak dobel chips; tanpa scroll-horizontal. Mobile 390 — kartu tetap tampil chips pelanggan di bawah nama. Console & page errors bersih.
+- Data uji (2 barang via API) dihapus setelah verifikasi (0 sisa).
+
+Stage Summary:
+- Tabel Harga per Customer kini punya kolom Customer tersendiri (desktop); info pelanggan tidak lagi menempel di kolom Nama. Mobile tidak berubah (kartu).
