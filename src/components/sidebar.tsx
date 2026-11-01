@@ -36,7 +36,6 @@ import {
   Tags,
   ListTree,
   UserCog,
-  Package,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -104,13 +103,6 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
     section: 'dokumen',
   },
   {
@@ -302,13 +294,6 @@ const bottomNavItems = [
     icon: Receipt,
     featureId: 'invoice',
   },
-  {
-    titleKey: 'master_barang' as TranslationKey,
-    shortTitleKey: 'short_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
-  },
 ]
 
 interface SidebarProps {
@@ -381,9 +366,6 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     }
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
-    }
-    if (href === '/master-barang') {
-      return pathname === '/master-barang'
     }
     return pathname.startsWith(href)
   }
@@ -542,7 +524,6 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   const isActive = (href: string) => {
     if (href === '/potong-kertas') return pathname === '/potong-kertas'
     if (href === '/pembukaan') return pathname === '/pembukaan'
-    if (href === '/master-barang') return pathname === '/master-barang'
     return pathname.startsWith(href)
   }
 

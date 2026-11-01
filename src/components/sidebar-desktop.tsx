@@ -25,7 +25,6 @@ import {
   Tags,
   ListTree,
   UserCog,
-  Package,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -123,13 +122,6 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
     section: 'dokumen',
   },
   {
@@ -406,9 +398,6 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     }
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
-    }
-    if (href === '/master-barang') {
-      return pathname === '/master-barang'
     }
     return pathname.startsWith(href)
   }
