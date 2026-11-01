@@ -15840,3 +15840,19 @@ Work Log:
 
 Stage Summary:
 - Master Produk kembali sebagai menu utuh (CRUD barang: kode/nama/satuan/harga jual/HPP/status/foto/backup-restore) tersambung ke fitur Harga Customer — produk baru langsung bisa diatur harga khususnya. Label RBAC & hak akses selaras "Master Produk".
+
+---
+Task ID: menu-barang-dari-file-upload
+Agent: Z.ai Code (main)
+Task: User upload workspace-d2498c56-b6b4-431f-a0ac-fce7c0168931.tar — "extract file ini. tambahkan menu barang dengan file ini".
+
+Work Log:
+- EKSTRAKSI: tar (gzip, 615 entri) → /tmp/ext-d249. Isi = aplikasi TERPISAH "Aplikasi Invoice & Pembukuan" (slim, src/app hanya layout+page, 20 route API sendiri, prisma Product/CustomerPrice/Invoice/InvoiceItem/Payment). Komponen sumber: src/components/master/products-view.tsx (menu "Barang" di app-shell-nya).
+- PORTING products-view.tsx → src/components/views/barang-view.tsx (struktur/UX 1:1: cari, Tambah Barang, tabel Nama|Satuan|Stok|Harga Modal|Harga Jual|Margin|Harga Khusus|Aksi, kartu mobile, hint margin live di footer dialog, konfirmasi hapus). ADAPTASI: (1) TanStack Query dipertahankan, QueryClientProvider dipasang LOKAL di /barang (app utama tak punya provider global); (2) toast @/hooks/use-toast → sonner; (3) helper api → adapter tipis di atas apiFetch @/lib/client (header sesi x-user-id); (4) sumber data /api/products (db.product) → /api/items (tabel Barang, pemetaan qty→stock, hpp→costPrice, jual→sellPrice, customers[]→badge harga khusus) — SATU sumber kebenaran dgn Master Produk/invoice/harga customer, tanpa master baru; (5) stockMin di-drop (model Barang tak punya kolom; form edit sediakan Stok (Qty) langsung); (6) props canAdd/canEdit/canDelete dr matriks hak akses.
+- HALAMAN BARU /barang (DashboardLayout "Barang — Kelola daftar barang, harga modal & harga jual") + guard auth & sub-permission barang-tambah/edit/hapus.
+- WIRING: permission-defaults GROUP_FEATURES += fitur 'barang' (lihat/tambah/edit/hapus; default admin penuh, manager tanpa hapus, user tidak); server-auth GRUP_MENU_IZIN += {barang}; grup/page MENU_IZIN += {barang, Dokumen}; grup/anggota GRUP_FITUR_SECTIONS Master Data += {barang}; i18n key barang (ID 'Barang', 2 kamus EN 'Products'); sidebar desktop+mobile entry "Barang" (icon PackagePlus, seksi Dokumen, setelah Master Produk, featureId 'barang'); menu-home-screen TILE_GRADIENT += '/barang' (emerald→teal).
+- LINT 10 file → bersih.
+- E2E (agent-browser, persona user-admin): /barang render 9 barang dr tabel Barang (Banner margin 10.000, badge Harga Khusus: Banner 1, Radio 1, paperbowl 3); EDIT Banner harga jual 25.000→26.000 — hint margin live "Margin: Rp 11.000 (42,3%)" → simpan → toast sonner "Barang diperbarui" → baris update; SINKRON lintas halaman: Master Produk (/master-barang) menampilkan Harga Jual Rp 26.000 (tabel sama); mobile 390 kartu rapi + bottom nav utuh; console/page error 0.
+
+Stage Summary:
+- Menu "Barang" baru (hasil porting dr file upload user) hidup di /barang: UI simpel ala app invoice & pembukuan milik user, namun data tetap satu tabel Barang — barang yang ditambah/diedit di sini langsung dikenali Master Produk, Harga Customer & invoice. Fitur 'barang' masuk Matriks Hak Akses & RBAC grup. Master Produk (items-view) tidak diubah.
