@@ -15863,3 +15863,19 @@ Work Log:
 
 Stage Summary:
 - Semua dropdown di halaman Harga Customer kini aktif — saat Tambah maupun Edit, customer & barang dapat diganti. API PUT mendukung perubahan pasangan dgn validasi kepemilikan + guard unik (409 bila pasangan sudah terdaftar). Desktop & mobile terverifikasi E2E; data uji tidak meninggalkan sisa.
+---
+Task ID: fix-dropdown-kosong-tambah-harga-customer
+Agent: Z.ai Code (main)
+Task: User lapor "di halaman harga customer, apabila diklik tambah harga customer maka muncul popup. dropdown customer dan barang tidak muncul."
+
+Work Log:
+- DIAGNOSA (dev.log): permintaan user menunjukkan GET /api/customers 200 (TAPI kosong — filter anonim) dan GET /api/items?active=1 401 serta GET /api/harga-customer 401 → browser user mengirim request TANPA cookie sesi (userId/userRole), sementara localStorage 'auth' masih ada sehingga halaman tetap dirender & popup terbuka. Akibatnya dropdown di popup Tambah kosong (tidak ada opsi). Akar: cookie bisa terhapus sendiri (pembersihan browser/kebijakan WebView) tanpa mekanisme pemulihan; verify-session pun hanya memvalidasi body username, tidak menyentuh cookie.
+- FIX 1 — lib/auth.ts: ensureAuthCookies() — bila localStorage 'auth' ada, cookie userId/userRole ditulis ulang (atribut sama dgn login: path=/, max-age 10 th, samesite=lax) hanya bila nilai berbeda/missing. Dipanggil otomatis di getAuthUser() (self-heal utk SEMUA halaman, dipanggil sebelum fetch di tiap mount) dan setAuthUser() (alur auto-login non-API). Cookie memang non-httpOnly (logout menghapusnya via document.cookie) — konsisten dgn model keamanan aplikasi; bila cookie diblokir total, tulisan gagal diam-diam dan authFetch menutup lewat header.
+- FIX 2 — harga-customer/page.tsx: (a) semua fetch → authFetch (header x-user-id/x-user-role fallback, GET no-store) — halaman tetap berfungsi bahkan saat cookie tak tersedia; (b) master customer/barang kini dimuat ulang setiap dialog Tambah/Edit dibuka (bukan hanya saat mount halaman) agar dropdown selalu freshest; (c) hint amber saat dropdown kosong: "Belum ada customer di master — tambahkan dulu di menu Master Customer." / "Belum ada barang di Master Produk — tambahkan dulu di menu Produk."; (d) kotak merah saat master gagal dimuat: "Gagal memuat data customer & barang. Tutup lalu buka ulang dialog ini…".
+- LINT: auth.ts + page.tsx bersih.
+- E2E (agent-browser): Skenario A (merekonstruksi keadaan user — cookie dibersihkan total, hanya localStorage auth user-admin): buka /harga-customer → cookie PULIH otomatis (userId/userRole ter-set kembali oleh ensureAuthCookies) → popup Tambah → dropdown customer 6 opsi & barang 10 opsi ✓ → pilih angel+box (harga auto-isi 9.100), ubah 7.777 → Simpan → baris tampil ✓ → Hapus via UI (konfirmasi) ✓. Skenario B (akun tanpa master data, lina3): kedua hint kosong tampil di popup ✓ (screenshot). Mobile 390 (sesi healed): dropdown Tambah terisi ✓.
+- dev.log pasca-fix: /api/customers, /api/items, /api/harga-customer semua 200 (tidak ada 401 lagi dari sesi yang pulih).
+- DB: baris uji dihapus via UI; kondisi akhir = 1 baris asli user-admin (Budi Susanto × Radio × 300.000). M db/custom.db hanya drift runtime — tidak di-commit.
+
+Stage Summary:
+- Dropdown customer & barang di popup Tambah Harga Customer kini selalu terisi: sesi yang kehilangan cookie dipulihkan otomatis dari localStorage (berlaku global utk semua halaman), halaman Harga Customer memakai authFetch (fallback header), master dimuat ulang tiap dialog dibuka, dan bila memang tidak ada data master kini muncul petunjuk jelas — bukan dropdown bisu.
