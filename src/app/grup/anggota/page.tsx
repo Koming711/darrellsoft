@@ -106,7 +106,7 @@ const GRUP_FITUR_SECTIONS: { judul: string; items: { id: string; label: string }
     judul: 'Master Data',
     items: [
       { id: 'master-customer', label: 'Customer' },
-      { id: 'master-barang', label: 'Harga Customer' },
+      { id: 'master-barang', label: 'Master Produk' },
       { id: 'stock-bahan', label: 'Stok Bahan' },
       { id: 'master-harga-kertas', label: 'Master Harga Kertas' },
       { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak' },

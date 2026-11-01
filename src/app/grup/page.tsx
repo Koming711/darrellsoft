@@ -117,7 +117,7 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
   { id: 'surat-jalan', label: 'Surat Jalan', grup: 'Dokumen' },
   { id: 'purchase-order', label: 'Purchase Order', grup: 'Dokumen' },
   { id: 'master-customer', label: 'Master Customer', grup: 'Dokumen' },
-  { id: 'master-barang', label: 'Master Barang', grup: 'Dokumen' },
+  { id: 'master-barang', label: 'Master Produk', grup: 'Dokumen' },
   { id: 'harga-customer', label: 'Harga Customer', grup: 'Dokumen' },
   { id: 'biaya', label: 'Biaya Operasional (Kas / Bank)', grup: 'Keuangan & Laporan' },
   { id: 'laporan', label: 'Laporan Penjualan & Laba Rugi', grup: 'Keuangan & Laporan' },

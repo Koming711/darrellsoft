@@ -639,7 +639,7 @@ export default function HargaCustomerPage() {
               )}
               {!masterError && barangList.length === 0 && (
                 <p className="text-[11px] text-amber-700">
-                  Belum ada barang di Master Produk — tambahkan dulu di menu Master Bahan.
+                  Belum ada barang di Master Produk — tambahkan dulu di menu Master Produk.
                 </p>
               )}
             </div>
