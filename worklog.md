@@ -15909,3 +15909,18 @@ Work Log:
 
 Stage Summary:
 - Perintah terakhir (menu Produk = app file upload via mini-service 3010) dibatalkan sepenuhnya — aplikasi kembali ke menu "Produk" = halaman Harga per Customer (/master-barang) seperti sebelumnya. File upload tidak hilang (masih di folder upload/), bisa diekstrak ulang kapan pun.
+---
+Task ID: hapus-menu-produk
+Agent: Z.ai Code (main)
+Task: User minta "delete menu produk" — hapus menu Produk dari navigasi aplikasi.
+
+Work Log:
+- LINGKUP: hapus SEMUA titik navigasi ke menu "Produk" (/master-barang, label i18n master_barang): (1) sidebar desktop — entry menu section 'dokumen' dihapus; (2) sidebar mobile — entry menu utama dihapus; (3) bottom-nav mobile — entry (shortTitleKey short_barang) dihapus, sisanya 4 item + Lainnya; (4) menu pintas halaman Beranda (/pembukaan) — QuickLink "Master Barang" dihapus; (5) app drawer (menu-home-screen) — otomatis hilang krn items diturunkan dr daftar menu (urutan lama di localStorage otomatis difilter krn href tak ada lagi); TILE_GRADIENT '/master-barang' dibersihkan; (6) offline-warmup — '/master-barang' dilepas dr daftar pre-warm.
+- DEAD CODE: special-case isActive '/master-barang' dihapus dr 3 tempat (sidebar.tsx x2, sidebar-desktop.tsx x1); import ikon Package yang menganggur dibersihkan dr 3 file.
+- DIPERTAHANKAN (sengaja, non-destruktif & reversibel): route /master-barang + halamannya + API /api/barang + data — menu cukup tak terlihat; izin RBAC 'master-barang' di matriks hak akses tetap (dipakai sbg fallback akses harga-customer di permissions.ts & guard requireGroupMenu /api/barang, jangan dihapus); kunci i18n master_barang/short_barang dibiarkan (masih dipakai halaman lain).
+- LINT: 5 file (sidebar.tsx, sidebar-desktop.tsx, pembukaan/page.tsx, menu-home-screen.tsx, offline-warmup.ts) bersih tanpa error.
+- E2E (agent-browser, user-admin, desktop 1280 + mobile 390): sidebar desktop berurutan Master Customer → Harga Customer → Master Bahan (TANPA "Produk"); menu pintas Beranda tanpa "Master Barang"; halaman /harga-customer tetap normal (filter, tombol Tambah, tabel); mobile bottom-nav = Beranda, Potong, Cetakan, Invoice, Lainnya (tanpa Produk); popup Lainnya = 28 tile tanpa tile "Produk" (sblmnya 29); /master-barang via URL langsung masih 200 (halaman ItemsView lama dgn data paperbowl tampil); console & errors bersih.
+- CATATAN: tabel BarangCustomer kosong (0 baris) — kondisi warisan dr sesi paralel sblmnya (drift db/custom.db), bukan akibat perubahan ini (tugas ini murni UI navigasi, tanpa sentuh API/DB).
+
+Stage Summary:
+- Menu "Produk" dihapus total dari semua permukaan navigasi (sidebar desktop, sidebar mobile, bottom-nav mobile, app drawer, menu pintas Beranda, warmup). Halaman & data /master-barang dipertahankan demi keamanan RBAC & reversibilitas — bisa dipasang kembali dgn menambahkan 1 entry menu.
