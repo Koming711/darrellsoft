@@ -15846,3 +15846,20 @@ Work Log:
 
 Stage Summary:
 - Menu "Produk" (=/master-barang, H1 tetap "Harga per Customer") dan menu "Harga Customer" (=/harga-customer, fitur lengkap: CRUD harga khusus per customer + periode berlaku + auto-apply di invoice + margin + RBAC grup) kembali aktif di aplikasi, dipindah dari implementasi 12-bab spec yang pernah dibuat (sesuai desain file upload). Semua fungsi lama tetap utuh.
+---
+Task ID: aktifkan-dropdown-edit-harga-customer
+Agent: Z.ai Code (main)
+Task: User minta "dihalaman harga customer. aktifkan semua dropdown."
+
+Work Log:
+- DIAGNOSA: di form Tambah/Edit Harga Customer (/harga-customer), dropdown "Customer" & "Barang (Master Produk)" keduanya disabled saat mode edit (disabled={!!editId}) — user hanya bisa mengubah harga/satuan/periode. API PUT /api/harga-customer/[id] juga memang belum menerima customerId/barangId.
+- PAGE (src/app/harga-customer/page.tsx): hapus disabled={!!editId} pada kedua Select — dropdown Customer & Barang kini aktif juga saat edit. onValueChange barang: satuan selalu mengikuti barang terpilih; harga hanya terisi otomatis bila field masih kosong (harga edit tidak tertimpa). Deskripsi dialog edit diubah: "Ubah customer, barang, harga, atau periode berlaku untuk harga khusus ini."
+- API (src/app/api/harga-customer/[id]/route.ts): PUT kini menerima customerId?/barangId? — (1) validasi master baru ada & canAccessRecord (sama seperti POST); (2) cek duplikat pasangan (barangId, customerId) unik DB, meng-eksepsi record sendiri; (3) update data; (4) catch P2002 → 409 "Sudah ada harga khusus untuk customer & barang ini...". Doc comment diperbarui.
+- LINT: kedua file bersih (bunx eslint).
+- VERIFIKASI API (curl, user-admin): PUT ganti customer (Budi→CV. Berkah jaya) 200 ✓; PUT balik 200 ✓; POST temp row (Radio×angel) lalu PUT ke pasangan yang sudah ada → 409 dgn pesan ramah ✓; PUT customerId bogus → 404 "Customer tidak ditemukan" ✓; PUT harga saja (tanpa ganti pasangan) 200 ✓ (regresi aman); temp row dihapus ✓.
+- E2E (agent-browser, user-admin — data Barang/BarangCustomer milik user-admin; lina kini staf grup 'darel' tanpa izin harga-customer): desktop 1280 — buka Edit → kedua dropdown ENABLED (is enabled true), listbox customer menampilkan 6 master, listbox barang menampilkan 10 master; ganti customer via UI → tabel berubah "CV. Berkah jaya" ✓; ganti barang via UI → tabel berubah "box"/ITM-006 & harga standar ikut Rp9.100 (join otomatis) ✓; ganti customer+barang sekaligus dlm 1 simpan → kembali ke data awal (PT. Maju berkah × Radio × 300.000) ✓. Mobile 390 — dialog edit: kedua dropdown enabled & listbox terbuka ✓. Dialog Tambah: kedua dropdown enabled ✓ (regresi aman).
+- Console & page errors bersih; dev.log bersih; HTTP 200.
+- DB: data kembali persis ke kondisi awal (1 baris BarangCustomer user-admin: Budi Susanto × Radio × 300.000 × aktif; temp row dihapus). M db/custom.db hanya drift updatedAt — tidak di-commit.
+
+Stage Summary:
+- Semua dropdown di halaman Harga Customer kini aktif — saat Tambah maupun Edit, customer & barang dapat diganti. API PUT mendukung perubahan pasangan dgn validasi kepemilikan + guard unik (409 bila pasangan sudah terdaftar). Desktop & mobile terverifikasi E2E; data uji tidak meninggalkan sisa.
