@@ -15800,3 +15800,18 @@ Work Log:
 
 Stage Summary:
 - Fitur "Harga Customer" DIBATALKAN seluruhnya (UI, API, schema, RBAC) — aplikasi kembali ke kondisi sebelum fitur. Perubahan "Kategori" & "Master Bahan" tetap berlaku. Data uji dibersihkan dari database.
+---
+Task ID: fix-tambah-barang-harga-per-customer
+Agent: Z.ai Code (main)
+Task: User melapor "di halaman harga per customer, tambah barang tidak bisa" — diperbaiki.
+
+Work Log:
+- DIAGNOSIS (dev.log): POST /api/items 500 — PrismaClientKnownRequestError P2022 "The column `isActive` does not exist in the current database" pada db.barangCustomer.upsert() (src/app/api/items/route.ts:143), khusus saat tambah barang dgn "Pelanggan tujuan" terisi.
+- AKAR MASALAH: setelah revert fitur-harga-customer (2320c3d), schema.prisma, node_modules/.prisma client, dan db/custom.db SUDAH sinkron (BarangCustomer tanpa kolom isActive) — tetapi dev server lama (masih berjalan sejak sebelum revert) memegang chunk Turbopack ter-compile dgn Prisma client LAMA (fitur: BarangCustomer punya isActive). Setiap insert/upsert BarangCustomer menyertakan kolom isActive yang tak lagi ada di DB → 500.
+- FIX: restart dev server (bun run dev) agar chunk & Prisma client yang benar dimuat. TIDAK ADA perubahan kode/schema/DB yang diperlukan — semuanya sudah paritas; hanya runtime yang stale.
+- VERIFIKASI API (curl, owner lina): POST /api/items tanpa customerId → 200; dgn customerId (path upsert yang gagal) → 200. 2 item uji dihapus via DELETE API (0 sisa).
+- E2E (agent-browser, owner lina): Desktop 1280 — sidebar "Harga per Customer" → Tambah Barang → isi nama+harga+pilih pelanggan Budi Susanto → Simpan → toast "berhasil ditambahkan untuk Budi Susanto", baris tampil → Hapus dgn dialog konfirmasi → "berhasil dihapus", 0 barang. Mobile 390 — bottom-nav "Harga per Customer" → alur sama sukses. Console & page errors bersih.
+- DB: data uji dibersihkan semua; 1 baris BarangCustomer tersisa adalah data lama user-admin (bukan yatim). M db/custom.db hanya drift runtime — tidak di-commit.
+
+Stage Summary:
+- "Tambah barang" di halaman Harga per Customer kembali berfungsi (desktop & mobile). Penyebab: runtime dev server stale pasca-revert fitur Harga Customer — diperbaiki dgn restart tanpa perubahan kode. Tidak ada commit kode (tidak ada perubahan); entri worklog ini di-commit terpisah.
