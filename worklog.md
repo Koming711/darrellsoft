@@ -15766,3 +15766,18 @@ Work Log:
 
 Stage Summary:
 - Perintah "tambahkan produk" DIBATALKAN — sidebar & bottom-nav kembali seperti sebelumnya. Perubahan "Kategori" dan "Master Bahan" tetap berlaku.
+---
+Task ID: restore-workspace-snapshot-10
+Agent: Z.ai Code (main)
+Task: User upload snapshot workspace terpecah 4 part ("workspace-78453881-...(10).tar.001-004") + instruksi "extract file ini. ganti semua konten dengan file ini."
+
+Work Log:
+- ARSIP: 4 part @50 MiB (gzip stream terpecah) → digabung (cat 001-004 → /tmp/ws10.tar.gz, 175 MB, gzip -t OK) → ekstrak utuh ke /tmp/ws10 (191 MB, 2.121 entri, TANPA node_modules). Isi = snapshot workspace lengkap termasuk .git.
+- AUDIT SEBELUM MENIMPA: HEAD arsip = 1b100fd (auto-checkpoint, 31 Okt 2026 14:47 UTC) dan ADALAH leluhur HEAD lokal → snapshot lebih tua 34 commit; worktree arsip BERSIH (0 diff vs HEAD-nya); tidak punya src/app/harga-customer; .env, package.json, bun.lock, Caddyfile IDENTIK dgn lokal (node_modules tetap valid); schema.prisma beda hanya kolom validFrom/validUntil/isActive; arsip .gitignore sudah mengenal upload/, tool-results/, skills/.
+- EKSEKUSI: dev server dimatikan → rsync -a --delete /tmp/ws10/ → /home/z/my-project dgn exclude: .git (riwayat lokal dipertahankan sbg jaring pengaman), node_modules, upload/, tool-results/, skills/, dev.log → cache .next dihapus → prisma generate ulang (client kembali ke schema lama).
+- DAMPAK (22 file, -1.705 baris): src/app/harga-customer + API-nya DIHAPUS (fitur "Harga Barang Berbeda per Customer" 12 bab tidak ada di snapshot); API items kembali tanpa all=1/customerPrice; invoice-editor/pelunasan/items-fields kembali ke versi pra-harga-khusus; sidebar/bottom-nav/menu-home/pembukaan/warmup kembali menampilkan menu lama; menu "Harga per Customer" (→ /master-barang) kembali; prisma/schema.prisma mundur; db/custom.db diganti data snapshot (226 customer, 8 barang, 3 pengguna, 1 baris BarangCustomer asli Radio×Budi Rp300.000); 3 data contoh harga khusus yg dibuat tugas sebelumnya ikut hilang (konsisten dgn hilangnya fitur).
+- E2E (agent-browser, user-admin): / muat + dialog versi; sidebar desktop = daftar menu versi snapshot (Master Customer → Harga per Customer → Master Bahan); /master-barang = halaman "Harga per Customer" versi lama (8 barang, filter pelanggan, Radio aktif Rp300.000); /harga-customer = 404 (route fitur baru memang tak ada); /invoice = riwayat 4 invoice · Rp4.920.000; mobile 390 rapi dgn bottom-nav "Hg/Cust" kembali; console & errors = 0.
+- COMMIT: 4c25685 (restore). State sebelum restore tetap aman di git (3b7d938 dst) — bisa dikembalikan penuh via git (mis. revert commit restore ini, atau checkout file dr 3b7d938).
+
+Stage Summary:
+- Seluruh konten workspace kini = snapshot upload (10) / commit 1b100fd. Konsekuensi penting: fitur Harga Customer 12 bab & penghapusan menu Produk yang dikerjakan 34 commit terakhir TERTIMPA (tidak ada di snapshot). Dev server sehat, E2E lulus. Pemulihan state terbaru tersedia kapan pun via riwayat git.
