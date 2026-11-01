@@ -202,6 +202,9 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/master-finishing') return 'master-finishing'
   if (pathname === '/master-customer') return 'master-customer'
   if (pathname === '/master-barang-customer') return 'master-barang-customer'
+  // Menu "Produk" baru — app manajemen penjualan (mini-service port 3010)
+  // menggantikan halaman lama /master-barang; RBAC diwarisi featureId yang sama.
+  if (pathname === '/produk') return 'master-barang'
   if (pathname === '/harga-customer') return 'harga-customer'
   if (pathname === '/master-toko-pemasok') return 'master-toko-pemasok'
   if (pathname === '/stock-bahan') return 'stock-bahan'

@@ -108,7 +108,7 @@ const menuItems = [
   },
   {
     titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
+    href: '/produk',
     icon: Package,
     featureId: 'master-barang',
     section: 'dokumen',
@@ -305,7 +305,7 @@ const bottomNavItems = [
   {
     titleKey: 'master_barang' as TranslationKey,
     shortTitleKey: 'short_barang' as TranslationKey,
-    href: '/master-barang',
+    href: '/produk',
     icon: Package,
     featureId: 'master-barang',
   },
@@ -382,8 +382,8 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
     }
-    if (href === '/master-barang') {
-      return pathname === '/master-barang'
+    if (href === '/produk') {
+      return pathname === '/produk'
     }
     return pathname.startsWith(href)
   }

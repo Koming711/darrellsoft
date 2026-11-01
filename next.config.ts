@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
     '.space-z.ai',
     'preview-chat-11004390-ef1d-45a1-8ea3-8617894ae3d3.space-z.ai',
   ],
+  async rewrites() {
+    return [
+      // Mini-service "Produk" (aplikasi manajemen penjualan dari workspace
+      // upload, port 3010) — dilayani di bawah path /produk-app/*.
+      {
+        source: '/produk-app/:path*',
+        destination: 'http://127.0.0.1:3010/produk-app/:path*',
+      },
+    ]
+  },
 };
 
 export default nextConfig;
