@@ -171,6 +171,9 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'purchase-order', label: 'Purchase Order' },
   { id: 'master-customer', label: 'Master Customer' },
   { id: 'master-barang', label: 'Master Barang' },
+  // Harga Customer — daftar harga jual khusus per customer (BarangCustomer);
+  // bila tidak dicentang, anggota tidak melihat menu & tidak bisa ubah harga.
+  { id: 'harga-customer', label: 'Harga Customer' },
   // Keuangan & laporan
   { id: 'biaya', label: 'Biaya Operasional (Kas / Bank)' },
   { id: 'laporan', label: 'Laporan Penjualan & Laba Rugi' },

@@ -44,6 +44,7 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  BadgePercent,
   PiggyBank,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
@@ -110,6 +111,13 @@ const menuItems = [
     href: '/master-barang',
     icon: Package,
     featureId: 'master-barang',
+    section: 'dokumen',
+  },
+  {
+    titleKey: 'harga_customer' as TranslationKey,
+    href: '/harga-customer',
+    icon: BadgePercent,
+    featureId: 'harga-customer',
     section: 'dokumen',
   },
   {

@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { useDokuproStore } from '@/lib/store';
-import { hasProfitAccess } from '@/lib/permissions';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { hasProfitAccess, hasManualPriceAccess } from '@/lib/permissions';
 import { ItemsFields, type BarangOption } from './items-fields';
 import type { BarangFormSavedItem } from '@/components/views/barang-form-dialog';
 import { CustomerFormDialog, type CustomerFormSavedCustomer } from '@/components/views/customer-form-dialog';
@@ -91,6 +92,50 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   // perubahan nama dari alur ini TIDAK boleh mengosongkan item yang baru diisi.
   const autoFillNameRef = useRef<string>('');
 
+  // ===== HARGA CUSTOMER =====
+  // Izin ubah harga manual di invoice (Owner/non-grup bebas; anggota grup
+  // butuh izin 'harga-customer'/'master-barang' dari Owner).
+  const [bisaEditHarga, setBisaEditHarga] = useState(true);
+  useEffect(() => { setBisaEditHarga(hasManualPriceAccess()); }, []);
+  // Repricing tertunda: customer diganti sementara baris item masih berisi —
+  // harga baris di-refresh begitu daftar barang customer baru termuat.
+  const repricePendingRef = useRef(false);
+  const repriceRowsRef = useRef<BarangOption[]>([]);
+  // Baris yang harganya pernah diedit manual — menunggu konfirmasi user.
+  const [repriceConfirmRows, setRepriceConfirmRows] = useState<string[] | null>(null);
+
+  // ===== HARGA CUSTOMER: repricing baris saat customer diganti =====
+  // Baris dicocokkan berdasar nama barang. Baris otomatis langsung dipakai
+  // harga customer baru; baris yang harganya pernah diedit manual TIDAK
+  // diubah otomatis — dikumpulkan untuk dialog konfirmasi.
+  const jalankanReprice = useCallback((rows: BarangOption[]) => {
+    repriceRowsRef.current = rows;
+    const inv = useDokuproStore.getState().invoice;
+    const manual = new Set<string>();
+    let changed = 0;
+    const items = inv.items.map((it) => {
+      const d = it.deskripsi.trim().toLowerCase();
+      if (!d) return it;
+      const b = rows.find((r) => r.name.trim().toLowerCase() === d);
+      if (!b) return it;
+      if (it.manualHarga) {
+        manual.add(it.deskripsi.trim());
+        return it;
+      }
+      const harga = (b.customerPrice ?? b.standardPrice) || 0;
+      const modal = b.hpp ?? 0;
+      if (harga === it.harga && modal === (it.modal ?? 0)) return it;
+      changed += 1;
+      return { ...it, harga, modal, manualHarga: false };
+    });
+    setInvoice((prev) => ({ ...prev, items }));
+    if (manual.size > 0) {
+      setRepriceConfirmRows(Array.from(manual));
+    } else if (changed > 0) {
+      toast.info(`Harga ${changed} baris diperbarui mengikuti customer baru`);
+    }
+  }, [setInvoice, setRepriceConfirmRows]);
+
   // Riwayat cetakan dropdown state
   const [riwayatList, setRiwayatList] = useState<RiwayatCetakanItem[]>([]);
   const [referensiInput, setReferensiInput] = useState(invoice.referensi);
@@ -145,6 +190,26 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     setMatchedCustomerId(found?.id ?? null);
     if (!found) {
       setBarangList([]);
+      if (repricePendingRef.current) {
+        repricePendingRef.current = false;
+        // Customer bebas teks / tidak terdaftar → tidak ada harga khusus:
+        // baris kembali memakai harga standar Master Produk.
+        fetch('/api/items?active=1', { headers: getAuthHeaders() })
+          .then((res) => (res.ok ? res.json() : { items: [] }))
+          .then((data) => {
+            const rows = Array.isArray(data?.items) ? data.items : [];
+            jalankanReprice(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
+              id: r.id,
+              name: r.name,
+              unit: r.unit || 'pcs',
+              standardPrice: r.standardPrice || 0,
+              customerPrice: null,
+              hpp: r.hpp ?? null,
+              qty: r.qty ?? 0,
+            })));
+          })
+          .catch(() => {});
+      }
       return;
     }
     let cancelled = false;
@@ -153,18 +218,24 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       .then((data) => {
         if (cancelled) return;
         const rows = Array.isArray(data?.items) ? data.items : [];
-        setBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
+        const mapped = rows.map((r: { id: string; name: string; unit: string; standardPrice: number; customerPrice?: number | null; hpp: number | null; qty?: number }) => ({
           id: r.id,
           name: r.name,
           unit: r.unit || 'pcs',
           standardPrice: r.standardPrice || 0,
+          customerPrice: r.customerPrice ?? null,
           hpp: r.hpp ?? null,
           qty: r.qty ?? 0,
-        })));
+        }));
+        setBarangList(mapped);
+        if (repricePendingRef.current) {
+          repricePendingRef.current = false;
+          jalankanReprice(mapped);
+        }
       })
       .catch(() => { if (!cancelled) setBarangList([]); });
     return () => { cancelled = true; };
-  }, [invoice.client.nama, customerList]);
+  }, [invoice.client.nama, customerList, jalankanReprice]);
 
   // Barang BARU berhasil disimpan dari popup "Tambah Barang" (BarangFormDialog
   // — sama persis dgn Master Barang) di header Item. Bila barang terdaftar
@@ -203,8 +274,10 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     }));
   };
 
-  // Ganti customer → otomatis KOSONGKAN nama barang di kotak item
-  // (barang milik tiap pelanggan tidak boleh tercampur).
+  // Ganti customer → HARGA baris item di-refresh mengikuti customer baru
+  // (baris TIDAK dikosongkan lagi — aturan Harga Customer):
+  //  - baris otomatis → langsung pakai harga khusus/standar customer baru
+  //  - baris yang harganya pernah diedit manual → minta konfirmasi dulu
   // Pengecualian: nama yang diisi otomatis oleh pemilihan referensi cetakan.
   useEffect(() => {
     const nama = invoice.client.nama.trim();
@@ -212,21 +285,18 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
     if (nama !== prev) {
       prevClientNameRef.current = invoice.client.nama;
       if (autoFillNameRef.current && nama === autoFillNameRef.current.trim()) {
-        // Diisi otomatis oleh applyReferensi — jangan kosongkan
+        // Diisi otomatis oleh applyReferensi — jangan repricing
         autoFillNameRef.current = '';
         return;
       }
       autoFillNameRef.current = '';
-      setInvoice((prevInv) => ({
-        ...prevInv,
-        items: prevInv.items.map((it, i) => (
-          i === 0
-            ? { ...it, deskripsi: '', qty: 1, harga: 0, modal: 0 }
-            : null
-        )).filter((it): it is typeof prevInv.items[number] => it !== null),
-      }));
+      if (invoice.items.some((it) => it.deskripsi.trim() !== '')) {
+        // Tandai repricing tertunda — dieksekusi begitu daftar barang
+        // customer baru termuat (efek fetch barang di atas).
+        repricePendingRef.current = true;
+      }
     }
-  }, [invoice.client.nama, setInvoice]);
+  }, [invoice.client.nama, invoice.items, setInvoice]);
 
   // Fetch next Invoice number from server (only when creating new, not editing)
   const fetchNextNumber = useCallback(() => {
@@ -414,8 +484,9 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   };
 
   // Pilih barang dari dropdown Master Barang customer → isi deskripsi + Qty
-  // (dari master, mis. 10.000) + satuan + harga satuan + harga modal otomatis.
-  // Harga TIDAK bisa diedit manual di sini (lockPrices) — hanya di Master Barang.
+  // (dari master) + satuan + harga satuan + harga modal otomatis.
+  // HARGA CUSTOMER: harga khusus customer yang aktif & berlaku PRIORITAS —
+  // bila tidak ada, pakai harga standar master (aturan prioritas harga).
   const handlePickBarang = (itemIndex: number, barang: BarangOption) => {
     setInvoice((prev) => ({
       ...prev,
@@ -426,12 +497,41 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
               deskripsi: barang.name,
               satuan: barang.unit || it.satuan || 'pcs',
               qty: barang.qty > 0 ? barang.qty : it.qty,
-              harga: barang.standardPrice || 0,
+              harga: (barang.customerPrice ?? barang.standardPrice) || 0,
               modal: barang.hpp ?? 0,
+              manualHarga: false,
             }
           : it
       )),
     }));
+  };
+
+  // Konfirmasi: baris manual ikut memakai harga customer baru.
+  const konfirmasiRepriceManual = () => {
+    const rows = repriceRowsRef.current;
+    setInvoice((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => {
+        if (!it.manualHarga) return it;
+        const d = it.deskripsi.trim().toLowerCase();
+        const b = rows.find((r) => r.name.trim().toLowerCase() === d);
+        if (!b) return it;
+        return {
+          ...it,
+          harga: (b.customerPrice ?? b.standardPrice) || 0,
+          modal: b.hpp ?? 0,
+          manualHarga: false,
+        };
+      }),
+    }));
+    setRepriceConfirmRows(null);
+    toast.success('Harga baris manual diperbarui mengikuti customer baru');
+  };
+
+  // Pertahankan harga manual (tidak jadi diganti).
+  const pertahankanHargaManual = () => {
+    setRepriceConfirmRows(null);
+    toast.info('Harga manual dipertahankan');
   };
 
   const updateClient = (field: string, value: string) => {
@@ -772,11 +872,29 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
         <div className="space-y-3 lg:space-y-5 min-w-0">
         <ItemsFields
           items={invoice.items}
-          onChange={(items) => setInvoice((prev) => ({ ...prev, items }))}
+          onChange={(items) =>
+            setInvoice((prev) => {
+              // HARGA CUSTOMER: tandai baris yang HARGANYA diubah manual di
+              // invoice — baris manual tidak ikut repricing otomatis saat
+              // customer diganti (minta konfirmasi dulu), dan statusnya
+              // tersimpan di dokumen (DocumentItem.manualHarga).
+              const hargaLama = new Map(prev.items.map((it) => [it.id, it.harga]));
+              return {
+                ...prev,
+                items: items.map((it) =>
+                  hargaLama.has(it.id) &&
+                  hargaLama.get(it.id) !== it.harga &&
+                  it.deskripsi.trim() !== ''
+                    ? { ...it, manualHarga: true }
+                    : it
+                ),
+              };
+            })
+          }
           showPrice
           showModal
           barangOptions={barangList}
-          lockPrices
+          lockPrices={!bisaEditHarga}
           emptyBarangMessage={
             invoice.client.nama.trim()
               ? 'Belum ada barang untuk customer ini — pakai tombol "Tambah Barang"'
@@ -874,6 +992,29 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           perilaku SAMA PERSIS dengan popup Tambah/Edit di halaman Master
           Pelanggan (kode otomatis, nama*, telepon, email, alamat, catatan).
           Customer yang disimpan langsung terpilih di kotak Nama Customer. */}
+      {/* Konfirmasi repricing baris manual (aturan Harga Customer): baris yang
+          harganya pernah diedit manual tidak diganti diam-diam saat customer
+          berubah — user memilih ganti atau pertahankan. */}
+      <AlertDialog
+        open={repriceConfirmRows !== null}
+        onOpenChange={(o) => !o && setRepriceConfirmRows(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ganti harga baris manual?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Baris berikut harganya pernah diedit manual:{' '}
+              <span className="font-medium text-foreground">{(repriceConfirmRows ?? []).join(', ')}</span>.
+              Ganti dengan harga untuk customer &quot;{invoice.client.nama.trim()}&quot;? Baris otomatis sudah memakai harga customer baru.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={pertahankanHargaManual}>Pertahankan</AlertDialogCancel>
+            <AlertDialogAction onClick={konfirmasiRepriceManual}>Ya, Ganti</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CustomerFormDialog
         open={customerFormOpen}
         onOpenChange={setCustomerFormOpen}

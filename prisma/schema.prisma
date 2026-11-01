@@ -150,6 +150,12 @@ model BarangCustomer {
   barangId   String
   customerId String
   price      Float
+  // Periode berlaku harga khusus (tanggal 'yyyy-mm-dd', String konsisten
+  // dgn konvensi tanggal aplikasi). Null = langsung berlaku / tanpa akhir.
+  validFrom  String?
+  validUntil String?
+  // Status aktif — harga nonaktif diabaikan saat auto-apply di invoice.
+  isActive   Boolean  @default(true)
   userId     String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -157,6 +163,8 @@ model BarangCustomer {
   barang   Barang   @relation(fields: [barangId], references: [id], onDelete: Cascade)
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
+  // Unik per (barang, customer): struktur mencegah dua harga aktif tumpang
+  // tindih untuk pasangan yang sama (aturan prioritas harga Darrellsoft).
   @@unique([barangId, customerId])
   @@index([userId])
 }
