@@ -7,6 +7,7 @@ export interface DocumentItem {
   satuan: string;
   harga: number; // Only for invoice & PO
   modal?: number; // Snapshot harga modal per unit saat invoice dibuat (laporan rugi laba)
+  manualHarga?: boolean; // Harga diedit manual di invoice (fitur Harga Customer) — tidak ikut repricing otomatis
 }
 
 export interface CompanyInfo {

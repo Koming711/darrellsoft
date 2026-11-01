@@ -25,7 +25,6 @@ import {
   Tags,
   ListTree,
   UserCog,
-  Package,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -33,6 +32,7 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  BadgePercent,
   PiggyBank,
 } from 'lucide-react'
 import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
@@ -125,10 +125,10 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
+    titleKey: 'harga_customer' as TranslationKey,
+    href: '/harga-customer',
+    icon: BadgePercent,
+    featureId: 'harga-customer',
     section: 'dokumen',
   },
   {
@@ -398,9 +398,6 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     }
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
-    }
-    if (href === '/master-barang') {
-      return pathname === '/master-barang'
     }
     return pathname.startsWith(href)
   }

@@ -36,7 +36,6 @@ import {
   Tags,
   ListTree,
   UserCog,
-  Package,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -44,6 +43,7 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  BadgePercent,
   PiggyBank,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
@@ -106,10 +106,10 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
+    titleKey: 'harga_customer' as TranslationKey,
+    href: '/harga-customer',
+    icon: BadgePercent,
+    featureId: 'harga-customer',
     section: 'dokumen',
   },
   {
@@ -295,11 +295,11 @@ const bottomNavItems = [
     featureId: 'invoice',
   },
   {
-    titleKey: 'master_barang' as TranslationKey,
+    titleKey: 'harga_customer' as TranslationKey,
     shortTitleKey: 'short_barang' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
+    href: '/harga-customer',
+    icon: BadgePercent,
+    featureId: 'harga-customer',
   },
 ]
 
@@ -373,9 +373,6 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     }
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
-    }
-    if (href === '/master-barang') {
-      return pathname === '/master-barang'
     }
     return pathname.startsWith(href)
   }
@@ -534,7 +531,6 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   const isActive = (href: string) => {
     if (href === '/potong-kertas') return pathname === '/potong-kertas'
     if (href === '/pembukaan') return pathname === '/pembukaan'
-    if (href === '/master-barang') return pathname === '/master-barang'
     return pathname.startsWith(href)
   }
 
