@@ -236,19 +236,16 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
       return;
     }
     let cancelled = false;
-    // all=1 → SEMUA barang master (bukan hanya yang terdaftar customer);
-    // customerPrice = harga khusus aktif & berlaku utk customer invoice ini.
-    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1&all=1`, { headers: getAuthHeaders() })
+    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         if (cancelled) return;
         const rows = Array.isArray(data?.items) ? data.items : [];
-        setPelunasanBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; customerPrice?: number | null; hpp: number | null; qty?: number }) => ({
+        setPelunasanBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
           id: r.id,
           name: r.name,
           unit: r.unit || 'pcs',
           standardPrice: r.standardPrice || 0,
-          customerPrice: r.customerPrice ?? null,
           hpp: r.hpp ?? null,
           qty: r.qty ?? 0,
         })));
@@ -271,10 +268,7 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
         hpp: saved.hpp,
         qty: saved.qty ?? 0,
       };
-      setPelunasanBarangList((prev) => {
-        const ada = prev.some((b) => b.id === option.id);
-        return ada ? prev.map((b) => (b.id === option.id ? { ...b, ...option } : b)) : [...prev, option];
-      });
+      setPelunasanBarangList((prev) => [...prev, option]);
     }
   }, [matchedCustomerId]);
 
@@ -387,10 +381,8 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
     setInvoiceData(prev => prev ? { ...prev, client: { ...prev.client, [field]: value } } : null);
   };
 
-  // Pilih barang dari dropdown Master Produk → isi Nama Barang + Qty
+  // Pilih barang dari dropdown Master Barang customer → isi Nama Barang + Qty
   // (dari master, mis. 10.000) + Satuan + Harga Satuan + snapshot Harga Modal.
-  // HARGA CUSTOMER: harga khusus aktif & berlaku PRIORITAS — bila tidak ada,
-  // pakai harga standar master (aturan prioritas harga Darrellsoft).
   const handlePickBarangPelunasan = (itemIndex: number, barang: BarangOption) => {
     setInvoiceData((prev) => prev ? {
       ...prev,
@@ -401,7 +393,7 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
               deskripsi: barang.name,
               satuan: barang.unit || it.satuan || 'pcs',
               qty: barang.qty > 0 ? barang.qty : it.qty,
-              harga: (barang.customerPrice ?? barang.standardPrice) || 0,
+              harga: barang.standardPrice || 0,
               modal: barang.hpp ?? 0,
             }
           : it

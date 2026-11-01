@@ -19,6 +19,7 @@ import {
   Plus,
   ChevronRight,
   Users,
+  Package,
   ClipboardList,
   AlarmClock,
   RefreshCw,
@@ -1030,6 +1031,7 @@ export default function PembukaanPage() {
             {canSeeFinance && (
               <>
                 <QuickLink icon={Users} title="Master Pelanggan" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
+                <QuickLink icon={Package} title="Master Barang" desc="Harga standar & HPP" onClick={() => navigate('/master-barang')} />
               </>
             )}
             <QuickLink icon={ReceiptText} title="Riwayat Invoice" desc="Cari, export Excel/PDF, kirim WA" onClick={() => navigate('/invoice')} />

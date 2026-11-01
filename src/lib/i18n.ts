@@ -46,8 +46,7 @@ export const translations = {
     master_finishing: 'Master Finishing',
     master_customer: 'Master Customer',
     master_toko_pemasok: 'Master Suplier',
-    master_barang: 'Produk',
-    harga_customer: 'Harga Customer',
+    master_barang: 'Harga per Customer',
     stock_bahan: 'Stock Bahan',
     invoice: 'Invoice',
     riwayat_pembayaran: 'Riwayat Pembayaran',
@@ -650,7 +649,7 @@ export const translations = {
     short_cetakan: 'Cetakan',
     short_invoice: 'Invoice',
     short_h_kertas: 'H.Kertas',
-    short_barang: 'Produk',
+    short_barang: 'Hg/Cust',
     lainnya: 'Lainnya',
 
     // Copyright
@@ -709,8 +708,7 @@ export const translations = {
     master_finishing: 'Finishing Master',
     master_customer: 'Customer Master',
     master_toko_pemasok: 'Supplier Master',
-    master_barang: 'Products',
-    harga_customer: 'Customer Prices',
+    master_barang: 'Price per Customer',
     stock_bahan: 'Material Stock',
     invoice: 'Invoice',
     riwayat_pembayaran: 'Payment History',
@@ -933,7 +931,7 @@ export const translations = {
     master_harga_kertas: 'Master Paper Price',
     master_customer: 'Master Customer',
     master_toko_pemasok: 'Master Supplier',
-    master_barang: 'Products',
+    master_barang: 'Price per Customer',
     records_count: 'records',
     backup: 'Backup',
     restore: 'Restore',
@@ -1316,7 +1314,7 @@ export const translations = {
     short_cetakan: 'Print',
     short_invoice: 'Invoice',
     short_h_kertas: 'P.Price',
-    short_barang: 'Product',
+    short_barang: 'Items',
     lainnya: 'More',
 
     // Copyright

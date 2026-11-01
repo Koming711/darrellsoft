@@ -35,73 +35,15 @@ export function getAuthUser(): User | null {
   const authData = localStorage.getItem('auth')
   if (!authData) return null
   try {
-    const parsed = JSON.parse(authData) as User
-    // Self-heal: cookie sesi bisa terhapus sendiri (dibersihkan browser /
-    // WebView dgn kebijakan cookie) sementara localStorage bertahan — tanpa
-    // sinkron ini UI masih "login" tapi semua API berbasis cookie membalas
-    // 401 / daftar kosong (mis. dropdown Harga Customer tidak berisi).
-    ensureAuthCookies(parsed)
-    return parsed
+    return JSON.parse(authData)
   } catch {
     return null
-  }
-}
-
-const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 10 // 10 tahun — sama dgn login
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'))
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-/**
- * Sinkronkan cookie sesi (userId/userRole) dgn identitas di localStorage.
- *
- * Cookie ini memang tidak httpOnly (logout pun menghapusnya via
- * document.cookie), jadi menulisnya ulang dari klien konsisten dgn model
- * keamanan aplikasi. Atribut cookie disamakan dgn yang di-set API login
- * (path=/, max-age 10 tahun, samesite=lax).
- *
- * Bila cookie ditolak browser sepenuhnya, tulisan ini gagal diam-diam —
- * permintaan API masih bisa terautentikasi lewat header x-user-id/
- * x-user-role pada fetch yang memakai authFetch.
- */
-export function ensureAuthCookies(user?: User): void {
-  if (typeof document === 'undefined') return
-  let u = user
-  if (!u) {
-    try {
-      const raw = localStorage.getItem('auth')
-      u = raw ? (JSON.parse(raw) as User) : null
-    } catch {
-      u = null
-    }
-  }
-  if (!u?.id) return
-  const wantId = u.id
-  const wantRole = u.role || ''
-  if (
-    readCookie('userId') === wantId &&
-    (!wantRole || readCookie('userRole') === wantRole)
-  ) {
-    return // sudah sinkron — jangan tulis ulang tiap panggilan
-  }
-  try {
-    const attrs = `path=/; max-age=${AUTH_COOKIE_MAX_AGE}; samesite=lax`
-    document.cookie = `userId=${encodeURIComponent(wantId)}; ${attrs}`
-    if (wantRole) document.cookie = `userRole=${encodeURIComponent(wantRole)}; ${attrs}`
-  } catch {
-    // cookie diblokir browser — biarkan authFetch mengirim header identitas
   }
 }
 
 export function setAuthUser(user: User): void {
   if (typeof window === 'undefined') return
   localStorage.setItem('auth', JSON.stringify(user))
-  // Pastikan cookie sesi ikut ter-set — alur login non-API (mis. auto-login
-  // PaymentDialog) tidak melewati endpoint login yang men-set cookie.
-  ensureAuthCookies(user)
   // Info grup perusahaan (RBAC menu anggota grup) — sinkron dgn cache klien
   try {
     if (user.grup) {

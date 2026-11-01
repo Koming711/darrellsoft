@@ -4,14 +4,11 @@ import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 
 /**
- * GET /api/items?q=&active=&customerId=&all=1 — list barang (versi lama "Master Barang").
+ * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
  * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt, photoUrl, customers[] }.
  * hpp (harga modal) dikirim untuk SEMUA role (permintaan owner; sebelumnya dinol-kan untuk kasir).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
- *   Kecuali all=1 → SEMUA barang master dikembalikan (dipakai Buat Invoice:
- *   barang belum terdaftar pun bisa dipilih, harganya pakai harga standar —
- *   aturan prioritas harga Darrellsoft).
  * customers[] = daftar pelanggan pemilik registrasi barang (untuk ditampilkan di nama barang).
  */
 export async function GET(request: NextRequest) {
@@ -24,7 +21,6 @@ export async function GET(request: NextRequest) {
     const q = (sp.get('q') ?? '').trim()
     const activeParam = sp.get('active')
     const customerId = (sp.get('customerId') ?? '').trim()
-    const allParam = sp.get('all') === '1'
 
     const where: Record<string, unknown> = { userId: user.id }
     if (q) {
@@ -36,15 +32,11 @@ export async function GET(request: NextRequest) {
       if (!customer || customer.userId !== user.id) {
         return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
       }
-      // all=1 → semua barang master tetap dikembalikan (dropdown Buat Invoice);
-      // harga khusus tetap dihitung per barang terdaftar di bawah.
-      if (!allParam) {
-        const regs = await db.barangCustomer.findMany({
-          where: { userId: user.id, customerId },
-          select: { barangId: true },
-        })
-        where.id = { in: regs.map((r) => r.barangId) }
-      }
+      const regs = await db.barangCustomer.findMany({
+        where: { userId: user.id, customerId },
+        select: { barangId: true },
+      })
+      where.id = { in: regs.map((r) => r.barangId) }
     }
 
     const rows = await db.barang.findMany({
@@ -56,42 +48,24 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-    const today = new Date().toISOString().slice(0, 10)
-    const items = rows.map((it) => {
-      // Harga khusus customer (BarangCustomer) yang AKTIF & berlaku hari ini —
-      // dipakai invoice untuk auto-apply harga kesepakatan (prioritas di atas
-      // harga standar Barang.jual). Null → tidak ada, pakai standardPrice.
-      let customerPrice: number | null = null
-      if (customerId) {
-        for (const r of it.registrations) {
-          if (r.customerId !== customerId) continue
-          if (!r.isActive) continue
-          if (r.validFrom && r.validFrom > today) continue
-          if (r.validUntil && r.validUntil < today) continue
-          customerPrice = r.price
-          break
-        }
-      }
-      return {
-        id: it.id,
-        code: it.kode,
-        name: it.nama,
-        unit: it.satuan,
-        standardPrice: it.jual,
-        customerPrice,
-        hpp: it.modal,
-        qty: it.qty,
-        keterangan: it.keterangan,
-        isActive: it.isActive,
-        photoUrl: it.photoUrl,
-        createdAt: it.createdAt.toISOString(),
-        customers: it.registrations.map((r) => ({
-          id: r.customer.id,
-          name: r.customer.name,
-          companyName: r.customer.companyName,
-        })),
-      }
-    })
+    const items = rows.map((it) => ({
+      id: it.id,
+      code: it.kode,
+      name: it.nama,
+      unit: it.satuan,
+      standardPrice: it.jual,
+      hpp: it.modal,
+      qty: it.qty,
+      keterangan: it.keterangan,
+      isActive: it.isActive,
+      photoUrl: it.photoUrl,
+      createdAt: it.createdAt.toISOString(),
+      customers: it.registrations.map((r) => ({
+        id: r.customer.id,
+        name: r.customer.name,
+        companyName: r.customer.companyName,
+      })),
+    }))
     return NextResponse.json(
       { items },
       { headers: { 'Cache-Control': 'no-store, max-age=0' } }

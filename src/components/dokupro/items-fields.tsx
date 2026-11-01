@@ -27,8 +27,6 @@ export interface BarangOption {
   name: string;
   unit: string;
   standardPrice: number;
-  /** Harga khusus customer yang aktif & berlaku (dari BarangCustomer) — null = tidak ada. */
-  customerPrice?: number | null;
   hpp: number | null;
   /** Qty dari Master Barang — otomatis mengisi Qty item saat dipilih. */
   qty: number;
@@ -174,8 +172,7 @@ export function ItemsFields({
       onPickBarang(index, barang);
       return;
     }
-    // Fallback tanpa onPickBarang: isi langsung (Qty ikut dari master bila > 0).
-    // HARGA CUSTOMER: harga khusus aktif & berlaku prioritas di atas harga standar.
+    // Fallback tanpa onPickBarang: isi langsung (Qty ikut dari master bila > 0)
     onChange(
       items.map((item, i) =>
         i === index
@@ -184,7 +181,7 @@ export function ItemsFields({
               deskripsi: barang.name,
               satuan: barang.unit || item.satuan || 'pcs',
               qty: barang.qty > 0 ? barang.qty : item.qty,
-              harga: (barang.customerPrice ?? barang.standardPrice) || 0,
+              harga: barang.standardPrice || 0,
               ...(showModal ? { modal: barang.hpp ?? 0 } : {}),
             }
           : item
@@ -372,7 +369,7 @@ export function ItemsFields({
                     {barangOptions!.length > 0 ? (
                       <div>
                         <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                          Master Produk
+                          Master Barang Customer
                         </div>
                         {barangOptions!.map((b) => {
                           // Barang yang sudah dipakai di baris lain → tidak
@@ -397,12 +394,7 @@ export function ItemsFields({
                               </span>
                               {showPrice && (
                                 <span className={`block text-[11px] ${used ? 'text-slate-300' : 'text-slate-400'}`}>
-                                  {/* Harga EFEKTIF: khusus customer bila ada & berlaku,
-                                      selain itu harga standar Master Produk. */}
-                                  {formatRupiah(b.customerPrice ?? b.standardPrice)} / {b.unit || 'pcs'}
-                                  {b.customerPrice != null && b.customerPrice !== b.standardPrice && (
-                                    <span className="text-emerald-600 font-medium"> · harga khusus</span>
-                                  )}
+                                  {formatRupiah(b.standardPrice)} / {b.unit || 'pcs'}
                                   {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
                                 </span>
                               )}
