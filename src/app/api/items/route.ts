@@ -4,11 +4,14 @@ import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
 
 /**
- * GET /api/items?q=&active=&customerId= — list barang (versi lama "Master Barang").
+ * GET /api/items?q=&active=&customerId=&all=1 — list barang (versi lama "Master Barang").
  * Response: { items: Item[] } dengan Item = { id, code, name, unit, standardPrice, hpp, qty, keterangan, isActive, createdAt, photoUrl, customers[] }.
  * hpp (harga modal) dikirim untuk SEMUA role (permintaan owner; sebelumnya dinol-kan untuk kasir).
  * Default hanya isActive=true; active=0|all untuk semua. q = contains nama/kode.
  * customerId= → hanya barang TERDAFTAR (BarangCustomer) untuk customer tsb.
+ *   Kecuali all=1 → SEMUA barang master dikembalikan (dipakai Buat Invoice:
+ *   barang belum terdaftar pun bisa dipilih, harganya pakai harga standar —
+ *   aturan prioritas harga Darrellsoft).
  * customers[] = daftar pelanggan pemilik registrasi barang (untuk ditampilkan di nama barang).
  */
 export async function GET(request: NextRequest) {
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
     const q = (sp.get('q') ?? '').trim()
     const activeParam = sp.get('active')
     const customerId = (sp.get('customerId') ?? '').trim()
+    const allParam = sp.get('all') === '1'
 
     const where: Record<string, unknown> = { userId: user.id }
     if (q) {
@@ -32,11 +36,15 @@ export async function GET(request: NextRequest) {
       if (!customer || customer.userId !== user.id) {
         return NextResponse.json({ error: 'Pelanggan tidak ditemukan' }, { status: 404 })
       }
-      const regs = await db.barangCustomer.findMany({
-        where: { userId: user.id, customerId },
-        select: { barangId: true },
-      })
-      where.id = { in: regs.map((r) => r.barangId) }
+      // all=1 → semua barang master tetap dikembalikan (dropdown Buat Invoice);
+      // harga khusus tetap dihitung per barang terdaftar di bawah.
+      if (!allParam) {
+        const regs = await db.barangCustomer.findMany({
+          where: { userId: user.id, customerId },
+          select: { barangId: true },
+        })
+        where.id = { in: regs.map((r) => r.barangId) }
+      }
     }
 
     const rows = await db.barang.findMany({

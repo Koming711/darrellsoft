@@ -142,13 +142,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Barang tidak ditemukan' }, { status: 404 })
     }
 
-    // Cegah duplikasi (juga dijaga unique DB): satu harga aktif per pasangan
-    // customer+barang — bila sudah ada, minta edit data yang ada.
-    const dup = await db.barangCustomer.findUnique({
-      where: { barangId_customerId: { barangId, customerId } },
-      select: { id: true },
+    // Cegah duplikasi ATOMIK (spec: transaksi database + validasi server):
+    // dup-check + create dalam satu transaksi; unique DB (barangId_customerId)
+    // menjadi pengaman terakhir bila ada race condition.
+    const reg = await db.$transaction(async (tx) => {
+      const dup = await tx.barangCustomer.findUnique({
+        where: { barangId_customerId: { barangId, customerId } },
+        select: { id: true },
+      })
+      if (dup) return null
+      return tx.barangCustomer.create({
+        data: {
+          barangId,
+          customerId,
+          price: harga,
+          validFrom: from,
+          validUntil: until,
+          isActive: true,
+          userId: user.id,
+        },
+        include: {
+          barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
+          customer: { select: { name: true, companyName: true } },
+        },
+      })
     })
-    if (dup) {
+
+    if (!reg) {
       return NextResponse.json(
         {
           error:
@@ -157,22 +177,6 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
-
-    const reg = await db.barangCustomer.create({
-      data: {
-        barangId,
-        customerId,
-        price: harga,
-        validFrom: from,
-        validUntil: until,
-        isActive: true,
-        userId: user.id,
-      },
-      include: {
-        barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
-        customer: { select: { name: true, companyName: true } },
-      },
-    })
 
     return NextResponse.json(rowOf(reg), { status: 201 })
   } catch (error: unknown) {

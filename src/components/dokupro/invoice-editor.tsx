@@ -213,7 +213,11 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       return;
     }
     let cancelled = false;
-    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
+    // all=1 → SEMUA barang master tampil di dropdown (bukan hanya barang
+    // terdaftar customer). Harga khusus customer yang aktif & berlaku sudah
+    // dihitung server (customerPrice) — barang tanpa harga khusus otomatis
+    // memakai harga standar Master Produk (aturan prioritas harga).
+    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1&all=1`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         if (cancelled) return;
@@ -251,7 +255,12 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
         hpp: saved.hpp,
         qty: saved.qty ?? 0,
       };
-      setBarangList((prev) => [...prev, option]);
+      // Daftar dropdown kini memuat SEMUA barang master (all=1) — barang baru
+      // bisa saja sudah ada di daftar: ganti entri lama, bukan menambah dobel.
+      setBarangList((prev) => {
+        const ada = prev.some((b) => b.id === option.id);
+        return ada ? prev.map((b) => (b.id === option.id ? { ...b, ...option } : b)) : [...prev, option];
+      });
     }
   }, [matchedCustomerId]);
 
@@ -897,7 +906,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           lockPrices={!bisaEditHarga}
           emptyBarangMessage={
             invoice.client.nama.trim()
-              ? 'Belum ada barang untuk customer ini — pakai tombol "Tambah Barang"'
+              ? 'Belum ada barang di Master Produk — pakai tombol "Tambah Barang"'
               : 'Pilih customer terlebih dahulu'
           }
           onPickBarang={handlePickBarang}
