@@ -15896,3 +15896,16 @@ Work Log:
 
 Stage Summary:
 - Menu "Produk" kini adalah aplikasi Manajemen Penjualan & Harga Customer LENGKAP persis dari file upload (bukan lagi halaman master barang): dashboard, customer, produk, harga customer (kontrak), invoice, laporan — berjalan sbg mini-service port 3010 dengan database terpisah, di-embed via /produk-app. Menu lama dihapus dari sidebar/bottom-nav; RBAC & route lama tetap aman.
+---
+Task ID: cancel-ganti-menu-produk
+Agent: Z.ai Code (main)
+Task: User minta "cancel perintah terakhir" — membatalkan penggantian menu Produk dengan app file upload.
+
+Work Log:
+- REVERT: git revert 34c5849 → commit 98b11fa "Revert fitur: menu Produk = app Manajemen Penjualan dari file upload (mini-service 3010)" — mengembalikan persis keadaan sebelum tugas: menu 'Produk' (sidebar desktop, drawer mobile, bottom-nav) kembali menunjuk /master-barang; halaman /produk dihapus; rewrites /produk-app di next.config.ts dihapus; mapping permissions '/produk' → dihapus; TILE_GRADIENT menu-home-screen kembali.
+- MINI-SERVICE DIMATIKAN: next-server port 3010 di-kill (port bebas); folder mini-services/produk-app dihapus total (termasuk artefak runtime gitignored: node_modules, .next, dev.log, .env). Sumber asli tetap tersimpan di upload/workspace-d167b051 tar bila suatu saat mau dipasang lagi.
+- VERIFIKASI: /master-barang 200 (halaman Harga per Customer + tabel + tombol Tambah utuh); /produk 404; sidebar & bottom-nav href = '/master-barang' (eval di desktop 1280 & mobile 390); next.config tanpa rewrites; lint 4 file ter-restorasi bersih; dev server utama sehat (200); console bersih.
+- CATATAN: db/custom.db M = drift runtime saja (bukan bagian tugas).
+
+Stage Summary:
+- Perintah terakhir (menu Produk = app file upload via mini-service 3010) dibatalkan sepenuhnya — aplikasi kembali ke menu "Produk" = halaman Harga per Customer (/master-barang) seperti sebelumnya. File upload tidak hilang (masih di folder upload/), bisa diekstrak ulang kapan pun.
