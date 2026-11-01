@@ -560,7 +560,7 @@ export default function HargaCustomerPage() {
             <DialogTitle>{editId ? 'Edit Harga Customer' : 'Tambah Harga Customer'}</DialogTitle>
             <DialogDescription>
               {editId
-                ? 'Ubah harga atau periode berlaku untuk pasangan customer & barang ini.'
+                ? 'Ubah customer, barang, harga, atau periode berlaku untuk harga khusus ini.'
                 : 'Pilih customer dan barang dari master, lalu isi harga khususnya.'}
             </DialogDescription>
           </DialogHeader>
@@ -570,7 +570,6 @@ export default function HargaCustomerPage() {
               <Select
                 value={fCustomerId || undefined}
                 onValueChange={setFCustomerId}
-                disabled={!!editId}
               >
                 <SelectTrigger className="w-full bg-white" aria-label="Pilih customer" data-testid="form-pilih-customer">
                   <SelectValue placeholder="Pilih customer" />
@@ -593,10 +592,9 @@ export default function HargaCustomerPage() {
                   const b = barangList.find((x) => x.id === v)
                   if (b) {
                     setFSatuan(b.unit || 'pcs')
-                    if (!editId && !fHarga) setFHarga(String(b.standardPrice || 0))
+                    if (!fHarga) setFHarga(String(b.standardPrice || 0))
                   }
                 }}
-                disabled={!!editId}
               >
                 <SelectTrigger className="w-full bg-white" aria-label="Pilih barang" data-testid="form-pilih-barang">
                   <SelectValue placeholder="Pilih barang" />

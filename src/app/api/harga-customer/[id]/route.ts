@@ -4,8 +4,11 @@ import { getServerUser, requireGroupMenu, canAccessRecord } from '@/lib/server-a
 import { sanitizeError } from '@/lib/api-error'
 
 /**
- * PUT    /api/harga-customer/[id] — ubah harga / periode berlaku / status.
- *        Body: { price?, validFrom?, validUntil?, isActive? }
+ * PUT    /api/harga-customer/[id] — ubah customer / barang / harga / periode
+ *        berlaku / status.
+ *        Body: { customerId?, barangId?, price?, validFrom?, validUntil?, isActive? }
+ *        Dropdown customer & barang di form aktif juga saat edit — pasangan
+ *        baru divalidasi kepemilikan + unik per (barang, customer).
  * DELETE /api/harga-customer/[id] — hapus harga khusus (konfirmasi di UI).
  * id = id registrasi BarangCustomer. Akses dijaga canAccessRecord (isolasi
  * grup/user) + requireGroupMenu('harga-customer') untuk anggota grup.
@@ -58,7 +61,9 @@ export async function PUT(
     const user = getServerUser(request)!
     const { id } = await params
     const body = await request.json()
-    const { price, validFrom, validUntil, isActive } = body as {
+    const { customerId, barangId, price, validFrom, validUntil, isActive } = body as {
+      customerId?: string
+      barangId?: string
       price?: number | string
       validFrom?: string | null
       validUntil?: string | null
@@ -71,11 +76,54 @@ export async function PUT(
     }
 
     const data: {
+      customerId?: string
+      barangId?: string
       price?: number
       validFrom?: string | null
       validUntil?: string | null
       isActive?: boolean
     } = {}
+
+    // Ganti pasangan customer/barang (dropdown form aktif juga saat edit).
+    // Kepemilikan master baru divalidasi dgn canAccessRecord — sama seperti POST.
+    const nextCustomerId = (customerId ?? '').toString().trim()
+    const nextBarangId = (barangId ?? '').toString().trim()
+    if (nextCustomerId && nextCustomerId !== reg.customerId) {
+      const customer = await db.customer.findUnique({ where: { id: nextCustomerId } })
+      if (!customer || !(await canAccessRecord(user, customer.userId))) {
+        return NextResponse.json({ error: 'Customer tidak ditemukan' }, { status: 404 })
+      }
+      data.customerId = nextCustomerId
+    }
+    if (nextBarangId && nextBarangId !== reg.barangId) {
+      const barang = await db.barang.findUnique({ where: { id: nextBarangId } })
+      if (!barang || !(await canAccessRecord(user, barang.userId))) {
+        return NextResponse.json({ error: 'Barang tidak ditemukan' }, { status: 404 })
+      }
+      data.barangId = nextBarangId
+    }
+    if (data.customerId || data.barangId) {
+      // Unik per (barang, customer): pasangan baru tidak boleh sudah terdaftar
+      // pada record lain — edit record itu atau hapus dulu.
+      const dup = await db.barangCustomer.findUnique({
+        where: {
+          barangId_customerId: {
+            barangId: data.barangId ?? reg.barangId,
+            customerId: data.customerId ?? reg.customerId,
+          },
+        },
+        select: { id: true },
+      })
+      if (dup && dup.id !== reg.id) {
+        return NextResponse.json(
+          {
+            error:
+              'Sudah ada harga khusus untuk customer & barang ini. Edit harga yang ada atau hapus dulu — tidak boleh ada dua harga aktif untuk pasangan yang sama.',
+          },
+          { status: 409 }
+        )
+      }
+    }
 
     if (price !== undefined) {
       const harga = Number(price)
@@ -116,6 +164,20 @@ export async function PUT(
     })
     return NextResponse.json(rowOf(updated))
   } catch (error: unknown) {
+    // Unique (barangId, customerId) terlanggar di level DB — balas 409 ramah.
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: string }).code === 'P2002'
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Sudah ada harga khusus untuk customer & barang ini. Edit harga yang ada atau hapus dulu.',
+        },
+        { status: 409 }
+      )
+    }
     console.error('PUT /api/harga-customer/[id] error:', error)
     return NextResponse.json(
       { error: sanitizeError(error, 'Gagal memperbarui harga customer') },
