@@ -550,7 +550,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               <p className="text-xs text-muted-foreground">
                 {editing
                   ? 'Stok saat ini tercantum di kolom Stok — ubah lewat kolom ini bila perlu.'
-                  : 'Stok awal barang; kelola lanjutan di menu Master Produk.'}
+                  : 'Stok awal barang; kelola harga & stok di tabel barang.'}
               </p>
             </div>
             {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}

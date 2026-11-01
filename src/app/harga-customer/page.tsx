@@ -560,7 +560,7 @@ export default function HargaCustomerPage() {
           {!loading && rows.length > 0 && (
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <BadgePercent className="h-3.5 w-3.5" />
-              {rows.length} harga khusus · dipakai otomatis di invoice bila aktif &amp; berlaku; selain itu harga standar Master Produk.
+              {rows.length} harga khusus · dipakai otomatis di invoice bila aktif &amp; berlaku; selain itu harga standar barang.
             </p>
           )}
         </div>
@@ -607,7 +607,7 @@ export default function HargaCustomerPage() {
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Barang (Master Produk) *</Label>
+              <Label>Barang *</Label>
               <Select
                 value={fBarangId || undefined}
                 onValueChange={(v) => {
@@ -639,7 +639,7 @@ export default function HargaCustomerPage() {
               )}
               {!masterError && barangList.length === 0 && (
                 <p className="text-[11px] text-amber-700">
-                  Belum ada barang di Master Produk — tambahkan dulu di menu Master Produk.
+                  Belum ada barang — tambahkan dulu di menu Barang.
                 </p>
               )}
             </div>

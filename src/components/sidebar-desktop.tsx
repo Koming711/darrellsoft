@@ -21,7 +21,6 @@ import {
   Store,
   Home,
   Boxes,
-  Package,
   PackagePlus,
   Wallet,
   Tags,
@@ -124,13 +123,6 @@ const menuItems = [
     href: '/master-customer',
     icon: Users,
     featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
-    titleKey: 'master_produk' as TranslationKey,
-    href: '/master-barang',
-    icon: Package,
-    featureId: 'master-barang',
     section: 'dokumen',
   },
   {

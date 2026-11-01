@@ -372,7 +372,7 @@ export function ItemsFields({
                     {barangOptions!.length > 0 ? (
                       <div>
                         <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                          Master Produk
+                          Daftar Barang
                         </div>
                         {barangOptions!.map((b) => {
                           // Barang yang sudah dipakai di baris lain → tidak
