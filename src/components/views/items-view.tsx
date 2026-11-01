@@ -594,6 +594,7 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
                   <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Tanggal</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
@@ -614,10 +615,11 @@ export default function ItemsView({ user, canAdd: canAddProp, canEdit: canEditPr
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{it.code}</TableCell>
                     {/* Kolom Satuan dihapus — satuan tetap bisa diatur lewat form */}
                     <TableCell className="font-medium">
-                      <div className="min-w-0 space-y-1">
-                        <span className="block truncate" title={it.name}>{it.name}</span>
-                        <CustomerChips customers={it.customers} />
-                      </div>
+                      <span className="block max-w-[240px] truncate" title={it.name}>{it.name}</span>
+                    </TableCell>
+                    {/* Kolom Customer — daftar pelanggan yang terdaftar utk barang ini */}
+                    <TableCell className="max-w-[220px]">
+                      <CustomerChips customers={it.customers} />
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-sm text-muted-foreground" title="Tanggal dibuat">{formatTanggalDibuat(it.createdAt)}</TableCell>
                     <TableCell className="text-center whitespace-nowrap">{formatNum(it.qty)}</TableCell>
