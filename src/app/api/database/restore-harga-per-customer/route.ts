@@ -21,6 +21,13 @@ import { castRowBySchema } from '@/lib/restore-cast'
  * dari file. Aman karena hanya BarangCustomer yang mereferensikan Barang (invoice/PO
  * menyimpan salinan data di dataJson, bukan FK barangId).
  * photoUrl tidak diubah dari file (diset null) — batas panjang sel Excel.
+ *
+ * HARDENING (insiden wipe 2× — 1 & 2 Nov 2026): validasi baris DILAKUKAN
+ * SEBELUM delete. Bila sheet "Data" berisi tetapi TIDAK ada satu pun baris
+ * dengan kode valid (kolom kode kosong / semua duplikat), endpoint membatalkan
+ * dengan 400 dan TIDAK menghapus apa pun. Perilaku lama (deleteMany jalan dulu,
+ * create 0) pernah menghapus seluruh barang user tanpa pengganti — file backup
+ * yang kolomnya tidak cocok kini aman diunggah.
  */
 
 function getUserFromRequest(req: NextRequest) {
@@ -105,6 +112,21 @@ export async function POST(req: NextRequest) {
       casted.photoUrl = null // foto tidak ikut backup (batas panjang sel Excel)
       seenKodes.add(kode.toUpperCase())
       barangToCreate.push(casted)
+    }
+
+    // HARDENING: jangan pernah menghapus bila tidak ada satu pun baris barang
+    // valid untuk dibuat ulang (dulu → semua barang user terhapus, 0 dibuat).
+    if (barangToCreate.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            `Tidak ada baris barang valid di sheet "Data" (${skippedBarang} baris dilewati — ` +
+            'kolom "kode" wajib terisi dan tidak duplikat). Data lama TIDAK diubah — ' +
+            'periksa file backup / unduh backup baru lalu sesuaikan kolomnya.',
+        },
+        { status: 400 }
+      )
     }
 
     const result = await db.$transaction(async (tx) => {
