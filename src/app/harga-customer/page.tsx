@@ -329,13 +329,6 @@ export default function HargaCustomerPage() {
     }
   }
 
-  const periodeText = (r: HargaRow) => {
-    if (!r.validFrom && !r.validUntil) return 'Selalu berlaku'
-    const from = r.validFrom ? r.validFrom.split('-').reverse().join('/') : '…'
-    const until = r.validUntil ? r.validUntil.split('-').reverse().join('/') : '∞'
-    return `${from} – ${until}`
-  }
-
   const marginOf = (r: HargaRow) => r.harga - (r.hargaPokok ?? 0)
 
   return (
@@ -413,7 +406,6 @@ export default function HargaCustomerPage() {
                     <TableHead className="text-right min-w-[110px]">Harga Standar</TableHead>
                     <TableHead className="text-right min-w-[120px]">Harga Khusus</TableHead>
                     <TableHead className="min-w-[70px]">Satuan</TableHead>
-                    <TableHead className="min-w-[150px]">Berlaku</TableHead>
                     <TableHead className="text-center min-w-[90px]">Status</TableHead>
                     <TableHead className="text-right min-w-[100px]">Aksi</TableHead>
                   </TableRow>
@@ -421,13 +413,13 @@ export default function HargaCustomerPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Memuat…
                       </TableCell>
                     </TableRow>
                   ) : rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-12 text-center">
+                      <TableCell colSpan={8} className="py-12 text-center">
                         <PackageOpen className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                         <p className="text-sm text-muted-foreground">
                           Belum ada harga khusus. Klik &quot;Tambah&quot; untuk menambah barang — pilih pelanggan agar harga khususnya terdaftar di sini.
@@ -452,7 +444,6 @@ export default function HargaCustomerPage() {
                           {rupiah(r.harga)}
                         </TableCell>
                         <TableCell className="text-slate-500">{r.satuan}</TableCell>
-                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">{periodeText(r)}</TableCell>
                         <TableCell className="text-center">
                           <button
                             onClick={() => toggleStatus(r)}
@@ -547,10 +538,6 @@ export default function HargaCustomerPage() {
                     <div>
                       <p className="text-[10px] uppercase tracking-wide text-slate-400">Satuan</p>
                       <p className="text-slate-600">{r.satuan}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Berlaku</p>
-                      <p className="text-slate-600 text-xs">{periodeText(r)}</p>
                     </div>
                   </div>
                   {r.hargaPokok > 0 && (
