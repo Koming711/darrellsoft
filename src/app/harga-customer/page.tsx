@@ -51,17 +51,28 @@ import {
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
+import {
+  BarangFormDialog,
+  type BarangCustomerOption,
+  type BarangFormSavedItem,
+} from '@/components/views/barang-form-dialog'
 
 /**
  * Halaman Harga Customer — daftar harga jual khusus per customer per barang.
  *
  * Sumber data: tabel BarangCustomer yang sudah ada (registrasi barang→customer
- * + harga khusus) via /api/harga-customer — TIDAK membuat master customer atau
- * master barang baru. Customer & barang selalu dipilih dari data master.
+ * + harga khusus) via /api/harga-customer. Prioritas harga di invoice
+ * (diterapkan otomatis oleh /api/items + invoice-editor): harga khusus customer
+ * yang aktif & berlaku → harga standar barang. Harga pokok (Barang.modal)
+ * TIDAK pernah diubah fitur ini.
  *
- * Prioritas harga di invoice (diterapkan otomatis oleh /api/items +
- * invoice-editor): harga khusus customer yang aktif & berlaku → harga standar
- * Master Produk. Harga pokok (Barang.modal) TIDAK pernah diubah fitur ini.
+ * Popup TAMBAH memakai komponen bersama BarangFormDialog (sama persis dengan
+ * popup "Tambah Barang" Master Barang / Buat Invoice, sesuai desain aplikasi
+ * desktop): nama, foto (Pilih File/Kamera), Untuk Pelanggan, satuan, qty,
+ * harga jual, harga modal + profit dua arah, keterangan. Simpan via
+ * POST /api/items — bila pelanggan dipilih, barang otomatis terdaftar
+ * (BarangCustomer) sehingga langsung muncul di daftar harga khusus.
+ * Dialog edit harga khusus tetap khusus mode edit.
  */
 
 interface HargaRow {
@@ -98,8 +109,6 @@ interface BarangOpt {
 const rupiah = (n: number | null | undefined) =>
   `Rp ${(n ?? 0).toLocaleString('id-ID')}`
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
-
 export default function HargaCustomerPage() {
   const [ready, setReady] = useState(false)
   const [rows, setRows] = useState<HargaRow[]>([])
@@ -117,7 +126,10 @@ export default function HargaCustomerPage() {
   const [fBarang, setFBarang] = useState('all')
   const [fStatus, setFStatus] = useState('all')
 
-  // Form dialog (tambah / edit)
+  // Popup "Tambah Barang" (BarangFormDialog — sama persis dgn Master Barang)
+  const [addOpen, setAddOpen] = useState(false)
+
+  // Form dialog edit harga khusus
   const [formOpen, setFormOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [fCustomerId, setFCustomerId] = useState('')
@@ -206,14 +218,23 @@ export default function HargaCustomerPage() {
 
   const openTambah = () => {
     void loadMaster()
-    setEditId(null)
-    setFCustomerId(fCustomer !== 'all' ? fCustomer : '')
-    setFBarangId('')
-    setFHarga('')
-    setFSatuan('')
-    setFFrom(todayStr())
-    setFUntil('')
-    setFormOpen(true)
+    setAddOpen(true)
+  }
+
+  /** Barang baru tersimpan dari popup "Tambah Barang" (BarangFormDialog).
+   *  Muat ulang daftar harga + master; barang umum (tanpa pelanggan) tidak
+   *  masuk daftar harga khusus — beri tahu user agar tidak bingung. */
+  const handleBarangSaved = (
+    _item: BarangFormSavedItem | null,
+    customerId: string
+  ) => {
+    void loadRows()
+    void loadMaster()
+    if (customerId === 'none') {
+      toast.info(
+        'Barang umum tersimpan — tidak tampil di daftar harga khusus per pelanggan'
+      )
+    }
   }
 
   const openEdit = (row: HargaRow) => {
@@ -228,7 +249,9 @@ export default function HargaCustomerPage() {
     setFormOpen(true)
   }
 
+  /** Simpan edit harga khusus (dialog edit — popup tambah kini BarangFormDialog). */
   const submitForm = async () => {
+    if (!editId) return
     if (!fCustomerId) return toast.error('Pilih customer terlebih dahulu')
     if (!fBarangId) return toast.error('Pilih barang terlebih dahulu')
     const harga = Number(fHarga)
@@ -239,9 +262,8 @@ export default function HargaCustomerPage() {
 
     setSaving(true)
     try {
-      const url = editId ? `/api/harga-customer/${editId}` : '/api/harga-customer'
-      const res = await authFetch(url, {
-        method: editId ? 'PUT' : 'POST',
+      const res = await authFetch(`/api/harga-customer/${editId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId: fCustomerId,
@@ -256,9 +278,7 @@ export default function HargaCustomerPage() {
         toast.error(data?.error || 'Gagal menyimpan harga customer')
         return
       }
-      toast.success(
-        editId ? 'Harga customer diperbarui' : 'Harga customer tersimpan — otomatis dipakai di invoice'
-      )
+      toast.success('Harga customer diperbarui')
       setFormOpen(false)
       await loadRows()
     } catch {
@@ -377,7 +397,7 @@ export default function HargaCustomerPage() {
               className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
               data-testid="harga-customer-tambah"
             >
-              <Plus className="h-4 w-4 mr-1" /> Tambah Harga Customer
+              <Plus className="h-4 w-4 mr-1" /> Tambah
             </Button>
           </div>
 
@@ -410,7 +430,7 @@ export default function HargaCustomerPage() {
                       <TableCell colSpan={9} className="py-12 text-center">
                         <PackageOpen className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                         <p className="text-sm text-muted-foreground">
-                          Belum ada harga khusus. Klik &quot;Tambah Harga Customer&quot; untuk mengatur harga kesepakatan.
+                          Belum ada harga khusus. Klik &quot;Tambah&quot; untuk menambah barang — pilih pelanggan agar harga khususnya terdaftar di sini.
                         </p>
                       </TableCell>
                     </TableRow>
@@ -491,7 +511,7 @@ export default function HargaCustomerPage() {
               <div className="py-12 text-center rounded-lg border bg-card">
                 <PackageOpen className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                 <p className="text-sm text-muted-foreground px-6">
-                  Belum ada harga khusus. Klik &quot;Tambah Harga Customer&quot; untuk mengatur harga kesepakatan.
+                  Belum ada harga khusus. Klik &quot;Tambah&quot; untuk menambah barang — pilih pelanggan agar harga khususnya terdaftar di sini.
                 </p>
               </div>
             ) : (
@@ -566,15 +586,24 @@ export default function HargaCustomerPage() {
         </div>
       )}
 
-      {/* ===== Dialog Tambah/Edit ===== */}
+      {/* ===== Popup Tambah Barang (BarangFormDialog — sama persis dgn
+          Master Barang / Buat Invoice, sesuai desain aplikasi desktop) ===== */}
+      <BarangFormDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        customers={customers as BarangCustomerOption[]}
+        customerFilter={fCustomer}
+        lockedCustomerNote="Mengikuti pelanggan yang dipilih di filter halaman ini."
+        onSaved={handleBarangSaved}
+      />
+
+      {/* ===== Dialog Edit Harga Khusus ===== */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editId ? 'Edit Harga Customer' : 'Tambah Harga Customer'}</DialogTitle>
+            <DialogTitle>Edit Harga Customer</DialogTitle>
             <DialogDescription>
-              {editId
-                ? 'Ubah customer, barang, harga, atau periode berlaku untuk harga khusus ini.'
-                : 'Pilih customer dan barang dari master, lalu isi harga khususnya.'}
+              Ubah customer, barang, harga, atau periode berlaku untuk harga khusus ini.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3.5 py-1">
