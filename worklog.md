@@ -15824,3 +15824,19 @@ Work Log:
 
 Stage Summary:
 - Fitur "Harga Barang per Customer" berfungsi penuh sesuai 10 bab spesifikasi: CRUD + cari + filter, satu barang banyak harga per customer, auto-apply di invoice & pelunasan dengan konfirmasi harga manual, snapshot harga permanen di invoice tersimpan, anti-duplikasi periode, isolasi antar grup, RBAC harga-customer, UI responsif Rupiah + notifikasi + konfirmasi hapus. Modul lama tak tersentuh (items-view, /master-barang, invoice lama aman).
+
+---
+Task ID: restore-menu-master-produk
+Agent: Z.ai Code (main)
+Task: User lapor "master produk tidak ada. check and fix" — menu Master Produk hilang dari aplikasi.
+
+Work Log:
+- AKAR MASALAH: halaman master produk (/master-barang, ItemsView) sebenarnya masih ada, tetapi tanpa menu — sebelum snapshot restore menu /master-barang sempat dilabeli "Produk" lalu DIHAPUS dr navigasi (commit 8a3f65e); pasca-restore + port fitur Harga Customer, entry navigasi tidak pernah dikembalikan. Halaman jadi yatim (hanya via URL) dan judulnya nyasar "Harga Customer" (bekas rename dd51dea).
+- FIX 10 file: sidebar.tsx + sidebar-desktop.tsx tambah entry menu "Master Produk" (icon Package, href /master-barang, featureId 'master-barang', seksi Dokumen — urut setelah Master Customer); i18n.ts key baru master_produk (ID 'Master Produk', 2 kamus EN 'Product Master'); master-barang/page.tsx title "Master Produk" subtitle "Kelola daftar barang & harga standar"; items-view.tsx h1 "Master Produk" (kolom Customer dr dd51dea dipertahankan); permission-defaults.ts nama fitur 'Master Barang'→'Master Produk'; server-auth.ts GRUP_MENU_IZIN label ikut; grup/page.tsx MENU_IZIN label ikut; grup/anggota/page.tsx GRUP_FITUR_SECTIONS label ikut; harga-customer/page.tsx empty-state "tambahkan dulu di menu Master Bahan"→"menu Master Produk" (teks salah arah bawaan port).
+- Izin: featureId 'master-barang' & sub master-barang-tambah/edit/hapus sudah ada di matriks (admin penuh) — tanpa perubahan skema izin; tile app-drawer otomatis ikut krn menarik dr menuItems sidebar.
+- LINT 10 file → bersih.
+- E2E (agent-browser, persona user-admin): menu "Master Produk" tampil di sidebar antara Master Customer & Harga Customer; /master-barang render penuh (header+h1 "Master Produk", 8 barang, statistik, cari, Backup/Restore/Tambah, Pilih Pelanggan); CRUD nyata — tambah "Banner Flexi China 280gr" via dialog → jadi ITM-009 (9 barang, baris+kartu mobile muncul); integrasi — /harga-customer → Tambah → dropdown barang memuat Banner → pilih PT. Maju berkah → harga standar auto-isi 25.000 → harga khusus 23.000 → simpan → baris muncul (25.000 vs 23.000, berlaku 01/11/2026–∞) & row BarangCustomer terkonfirmasi di DB; mobile 390 (header, kartu produk, bottom nav utuh); console hanya warning Radix Select bawaan, page error 0.
+- CATATAN OPS: dev server sempat 2x mati (OOM kill next-server RSS 2,7GB pada cgroup 4GB; diagnostik dmesg) → restart dgn NODE_OPTIONS max-old-space-size & verifikasi ulang; chip kartu "Budi Susanto" vs kolom harga "PT. Maju berkah" = customer sama (nama vs companyName), bukan bug.
+
+Stage Summary:
+- Master Produk kembali sebagai menu utuh (CRUD barang: kode/nama/satuan/harga jual/HPP/status/foto/backup-restore) tersambung ke fitur Harga Customer — produk baru langsung bisa diatur harga khususnya. Label RBAC & hak akses selaras "Master Produk".
