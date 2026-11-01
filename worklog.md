@@ -15781,3 +15781,16 @@ Work Log:
 
 Stage Summary:
 - Seluruh konten workspace kini = snapshot upload (10) / commit 1b100fd. Konsekuensi penting: fitur Harga Customer 12 bab & penghapusan menu Produk yang dikerjakan 34 commit terakhir TERTIMPA (tidak ada di snapshot). Dev server sehat, E2E lulus. Pemulihan state terbaru tersedia kapan pun via riwayat git.
+---
+Task ID: rename-harga-customer
+Agent: Z.ai Code (main)
+Task: User minta label "Harga per Customer" diganti jadi "Harga Customer".
+
+Work Log:
+- PERUBAHAN 5 file: (1) src/lib/i18n.ts — key master_barang ID 'Harga per Customer'→'Harga Customer' (+ 2 kamus EN 'Price per Customer'→'Customer Price'); (2) src/components/views/items-view.tsx — h1 judul dalam halaman; (3) src/app/master-barang/page.tsx — DashboardLayout title (header mobile/desktop); (4) src/app/grup/anggota/page.tsx — label item hak akses grup; (5) komentar kode master-barang-view.tsx.
+- TIDAK DIUBAH (sengaja): subtitle "Kelola harga barang per customer" (kalimat deskriptif alami), label pendek bottom-nav 'Hg/Cust' (tidak diminta), teks historis changelog.ts, nama endpoint & pesan backup/restore harga-per-customer (kompatibilitas file backup lama).
+- LINT: 4 file diubah — bersih (exit 0).
+- E2E (agent-browser, user-admin, desktop 1280 + mobile 390): sidebar desktop & mobile tampil "Harga Customer" (urutan Master Customer → Harga Customer → Master Bahan); judul banner + h1 halaman "Harga Customer"; data halaman utuh (8 barang, Radio × Budi Susanto Rp300.000); console & errors = 0.
+
+Stage Summary:
+- Nama fitur resmi kini "Harga Customer" di semua permukaan UI (menu, judul, hak akses, kamus EN). Fungsionalitas tidak tersentuh.
