@@ -15906,3 +15906,18 @@ Work Log:
 
 Stage Summary:
 - Popup "Tambah" di Harga per Customer kini identik dgn desain desktop: menambah BARANG baru (kode otomatis, foto, pelanggan tujuan, satuan/qty, harga jual, modal+profit sinkron, keterangan) — bila pelanggan dipilih, harga khususnya otomatis terdaftar & langsung muncul di daftar. Edit harga khusus tetap memakai dialog edit lama. Insiden wipe data ke-2 dipulihkan dan endpoint penyebabnya di-hardening (validasi sebelum hapus — backup tanpa kolom kode kini ditolak tanpa merusak data).
+
+---
+Task ID: hapus-kolom-berlaku-harga-customer
+Agent: Z.ai Code (main)
+Task: User: "dihalaman harga customer, delete kolom berlaku." — hapus kolom Berlaku (periode validFrom–validUntil) dr halaman Harga Customer.
+
+Work Log:
+- TABEL DESKTOP /harga-customer: TableHead "Berlaku" + TableCell periodeText(r) dihapus → header kini Customer, Kode, Nama Barang, Harga Standar, Harga Khusus, Satuan, Status, Aksi (8 kolom); colSpan baris loading/empty 9→8.
+- KARTU MOBILE: field "Berlaku" (periodeText) dihapus dr grid kartu → kini Harga Standar, Harga Khusus, Satuan + catatan Modal/Margin.
+- HELPER periodeText() dihapus (tak terpakai). DATA & FUNGSI validFrom/validUntil TIDAK diubah: tetap tersimpan, dipakai auto-apply invoice, dan masih bisa diatur di dialog Edit Harga (Tanggal Mulai/Akhir Berlaku).
+- LINT 1 file → bersih. dev.log: hanya noise lama auto-seed "duplicate column kategoriId" (benign, sudah ada sebelumnya).
+- E2E (agent-browser, persona user-admin): desktop 1280 — thead 8 kolom tanpa "Berlaku", 5 baris data render (PT. Maju berkah ITM-009 Banner dst); mobile 390 — 5 kartu tanpa label "Berlaku" (kartu: Harga Standar/Khusus/Satuan + Modal·Margin); page 200, page error 0.
+
+Stage Summary:
+- Kolom "Berlaku" dihapus dr daftar Harga Customer (desktop & mobile) sesuai permintaan; periode berlaku tetap berfungsi (data validFrom/validUntil utuh, diatur lewat dialog Edit, tetap dipakai auto-apply harga di invoice).
