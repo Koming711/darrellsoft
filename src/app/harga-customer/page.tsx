@@ -50,6 +50,7 @@ import {
   PackageOpen,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
+import { authFetch } from '@/lib/auth-fetch'
 
 /**
  * Halaman Harga Customer — daftar harga jual khusus per customer per barang.
@@ -108,6 +109,7 @@ export default function HargaCustomerPage() {
   // Master data untuk form & filter
   const [customers, setCustomers] = useState<CustomerOpt[]>([])
   const [barangList, setBarangList] = useState<BarangOpt[]>([])
+  const [masterError, setMasterError] = useState(false)
 
   // Filter (server-side)
   const [q, setQ] = useState('')
@@ -137,7 +139,7 @@ export default function HargaCustomerPage() {
       if (fCustomer !== 'all') p.set('customerId', fCustomer)
       if (fBarang !== 'all') p.set('barangId', fBarang)
       if (fStatus !== 'all') p.set('status', fStatus)
-      const res = await fetch(`/api/harga-customer?${p.toString()}`)
+      const res = await authFetch(`/api/harga-customer?${p.toString()}`)
       if (res.ok) setRows(await res.json())
       else toast.error('Gagal memuat daftar harga customer')
     } catch {
@@ -161,24 +163,33 @@ export default function HargaCustomerPage() {
     return () => clearTimeout(t)
   }, [ready, loadRows, q])
 
+  // Master data (customer & barang) untuk dropdown form — dimuat saat halaman
+  // siap DAN setiap kali dialog tambah/edit dibuka agar isi dropdown selalu
+  // freshest (mis. user baru menambah master di tab lain).
+  const loadMaster = useCallback(async () => {
+    setMasterError(false)
+    try {
+      const [cRes, bRes] = await Promise.all([
+        authFetch('/api/customers'),
+        authFetch('/api/items?active=1'),
+      ])
+      if (!cRes.ok || !bRes.ok) {
+        setMasterError(true)
+        return
+      }
+      setCustomers(await cRes.json())
+      const data = await bRes.json()
+      setBarangList(Array.isArray(data?.items) ? data.items : [])
+    } catch {
+      // master list gagal dimuat — form tetap bisa dibuka, validasi menahan simpan
+      setMasterError(true)
+    }
+  }, [])
+
   useEffect(() => {
     if (!ready) return
-    void (async () => {
-      try {
-        const [cRes, bRes] = await Promise.all([
-          fetch('/api/customers'),
-          fetch('/api/items?active=1'),
-        ])
-        if (cRes.ok) setCustomers(await cRes.json())
-        if (bRes.ok) {
-          const data = await bRes.json()
-          setBarangList(Array.isArray(data?.items) ? data.items : [])
-        }
-      } catch {
-        // master list gagal dimuat — form tetap bisa dibuka, validasi menahan simpan
-      }
-    })()
-  }, [ready])
+    void loadMaster()
+  }, [ready, loadMaster])
 
   const customerName = useCallback(
     (id: string) => {
@@ -194,6 +205,7 @@ export default function HargaCustomerPage() {
   )
 
   const openTambah = () => {
+    void loadMaster()
     setEditId(null)
     setFCustomerId(fCustomer !== 'all' ? fCustomer : '')
     setFBarangId('')
@@ -205,6 +217,7 @@ export default function HargaCustomerPage() {
   }
 
   const openEdit = (row: HargaRow) => {
+    void loadMaster()
     setEditId(row.id)
     setFCustomerId(row.customerId)
     setFBarangId(row.barangId)
@@ -227,7 +240,7 @@ export default function HargaCustomerPage() {
     setSaving(true)
     try {
       const url = editId ? `/api/harga-customer/${editId}` : '/api/harga-customer'
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method: editId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,7 +272,7 @@ export default function HargaCustomerPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      const res = await fetch(`/api/harga-customer/${deleteTarget.id}`, {
+      const res = await authFetch(`/api/harga-customer/${deleteTarget.id}`, {
         method: 'DELETE',
       })
       const data = await res.json().catch(() => ({}))
@@ -279,7 +292,7 @@ export default function HargaCustomerPage() {
 
   const toggleStatus = async (row: HargaRow) => {
     try {
-      const res = await fetch(`/api/harga-customer/${row.id}`, {
+      const res = await authFetch(`/api/harga-customer/${row.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !row.isActive }),
@@ -565,6 +578,11 @@ export default function HargaCustomerPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3.5 py-1">
+            {masterError && (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">
+                Gagal memuat data customer &amp; barang. Tutup lalu buka ulang dialog ini untuk mencoba lagi.
+              </p>
+            )}
             <div className="space-y-1.5">
               <Label>Customer *</Label>
               <Select
@@ -582,6 +600,11 @@ export default function HargaCustomerPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {!masterError && customers.length === 0 && (
+                <p className="text-[11px] text-amber-700">
+                  Belum ada customer di master — tambahkan dulu di menu Master Customer.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Barang (Master Produk) *</Label>
@@ -613,6 +636,11 @@ export default function HargaCustomerPage() {
                   <p><span className="text-slate-400">Nama:</span> {selectedBarang.name}</p>
                   <p><span className="text-slate-400">Harga standar:</span> {rupiah(selectedBarang.standardPrice)}</p>
                 </div>
+              )}
+              {!masterError && barangList.length === 0 && (
+                <p className="text-[11px] text-amber-700">
+                  Belum ada barang di Master Produk — tambahkan dulu di menu Produk.
+                </p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
