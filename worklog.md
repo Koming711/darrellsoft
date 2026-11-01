@@ -15856,3 +15856,21 @@ Work Log:
 
 Stage Summary:
 - Menu "Barang" baru (hasil porting dr file upload user) hidup di /barang: UI simpel ala app invoice & pembukuan milik user, namun data tetap satu tabel Barang — barang yang ditambah/diedit di sini langsung dikenali Master Produk, Harga Customer & invoice. Fitur 'barang' masuk Matriks Hak Akses & RBAC grup. Master Produk (items-view) tidak diubah.
+
+---
+Task ID: hapus-menu-master-produk
+Agent: Z.ai Code (main)
+Task: User: "delete master produk" — hapus menu Master Produk dari aplikasi.
+
+Work Log:
+- KONTEKS: setelah menu "Barang" (/barang, porting products-view dari file upload) aktif, app punya 2 menu pengelola tabel Barang (Master Produk /master-barang + Barang /barang). User pilih hapus Master Produk → Barang jadi satu-satunya UI pengelola barang.
+- HAPUS UI: entry menu "Master Produk" (master_produk, /master-barang, featureId 'master-barang') dari sidebar.tsx & sidebar-desktop.tsx (+import Package tak terpakai); halaman src/app/master-barang/page.tsx + komponen yatim items-view.tsx dihapus; key i18n master_produk (ID + 2 EN) dihapus; TILE_GRADIENT '/master-barang' (menu-home-screen) & '/master-barang' di offline-warmup dihapus.
+- RETARGET: QuickLink pembukaan "Master Barang" → "Barang" (navigate /barang, desc "Harga standar & HPP"); teks petunjuk user-facing kini menunjuk menu Barang — harga-customer (Label "Barang *", empty-state "tambahkan dulu di menu Barang", ringkasan "harga standar barang"), invoice-editor emptyBarangMessage "Belum ada barang di menu Barang", header dropdown items-fields "Daftar Barang", hint form barang-view "kelola harga & stok di tabel barang".
+- DIPERTAHANKAN (disengaja): featureId 'master-barang' + sub-permission & label di permission-defaults/server-auth/grup — masih dipakai auth API barang (requireGroupMenu) & fallback izin harga-customer; data tabel Barang tidak disentuh.
+- INSIDEN DATA: saat sesi boot, tabel Barang (9→0) & BarangCustomer (5→0) ditemukan terwipe — tabel lain identik dengan HEAD. Kandidat: endpoint restore-harga-per-customer (barang.deleteMany by userId) yang pernah dipanggil; log historis hilang (terpotong). RESTORE selektif dari HEAD (ATTACH+INSERT) → 9 barang + 5 harga khusus kembali; snapshot pra-restore disimpan db/custom.db.pre-restore-20261101-054510.
+- LINT 10 file → bersih.
+- E2E (agent-browser, persona user-admin; chunked per panggilan karena sandbox mereap proses lintas panggilan): /master-barang → 404; sidebar desktop & drawer mobile TANPA "Master Produk", link/tile "Barang" + "Harga Customer" tetap; DOM tidak memuat string 'master-barang'; /barang render 9 barang (Banner Flexi China 280gr tampil); /harga-customer baris PT. Maju berkah + teks "harga standar barang" + dialog label "Barang *"; /pembukaan QuickLink "Barang"; boot server tidak menghapus data (Barang tetap 9); mobile 390 + desktop 1280; page error 0.
+- CATATAN OPS: next-server OOM-kill (RSS 2,2GB) awal sesi; eksperimen restart (setsid/nohup/supervisor) selalu direap platform antar panggilan (AGENTS.md: "processes you started are not [kept]") → E2E dijalankan per-chunk dalam 1 panggilan Bash (start server → warm → browser → asersi).
+
+Stage Summary:
+- Menu & halaman Master Produk dihapus; /barang (menu Barang) kini satu-satunya pengelola barang — data tetap satu tabel Barang, dipakai invoice, Harga Customer & stok. RBAC/API 'master-barang' dipertahankan untuk auth. Insiden wipe data barang dipulihkan penuh dari HEAD.
