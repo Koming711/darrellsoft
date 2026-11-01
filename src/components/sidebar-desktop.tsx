@@ -127,7 +127,7 @@ const menuItems = [
   },
   {
     titleKey: 'master_barang' as TranslationKey,
-    href: '/produk',
+    href: '/master-barang',
     icon: Package,
     featureId: 'master-barang',
     section: 'dokumen',
@@ -407,8 +407,8 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     if (href === '/pembukaan') {
       return pathname === '/pembukaan'
     }
-    if (href === '/produk') {
-      return pathname === '/produk'
+    if (href === '/master-barang') {
+      return pathname === '/master-barang'
     }
     return pathname.startsWith(href)
   }
