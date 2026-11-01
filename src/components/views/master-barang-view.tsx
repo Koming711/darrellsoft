@@ -136,7 +136,7 @@ export default function MasterBarangView({ user, canAdd = true, canEdit = true, 
     void load()
   }, [load])
 
-  // Refresh saat data barang berubah di halaman lain (Harga per Customer, invoice, restore)
+  // Refresh saat data barang berubah di halaman lain (Harga Customer, invoice, restore)
   useDataChange(['items'], () => {
     void load()
   })
