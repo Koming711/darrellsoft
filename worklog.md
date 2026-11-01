@@ -15874,3 +15874,18 @@ Work Log:
 
 Stage Summary:
 - Menu & halaman Master Produk dihapus; /barang (menu Barang) kini satu-satunya pengelola barang — data tetap satu tabel Barang, dipakai invoice, Harga Customer & stok. RBAC/API 'master-barang' dipertahankan untuk auth. Insiden wipe data barang dipulihkan penuh dari HEAD.
+
+---
+Task ID: fix-preview-dev-server
+Agent: Z.ai Code (main)
+Task: User lapor "preview tidak muncul. fix" — dev server mati & tidak bangun.
+
+Work Log:
+- DIAGNOSA: port 3000 kosong. Server boot (dijalankan platform via .zscripts/dev.sh) OOM-kill dini sesi (dmesg: RSS 2,2GB, container 4GB); tidak ada mekanisme respawn. Ditemukan /start.sh platform: bila ada .zscripts/dev.sh maka boot memakai itu (bun install → db:push → bun run dev & → disown) — sesi sebelumnya juga sudah membuat notif-keepalive.sh (model serupa utk port 3003/3004).
+- AKAR KILLER DIPETAKAN via eksperimen: proses keturunan panggilan tool (`nohup/setsid/disown &`) selalu direap antar panggilan (4/4 gagal; kontrol `sleep 300 &` juga mati), tapi proses yang benar-benar didaemonisasi selamat (daemon agent-browser bertahan lintas pesan). Kuncinya DOUBLE-FORK: fork → setsid → fork → exec, PPID → 1, stdio ke /dev/null+log.
+- SOLUSI: .zscripts/spawn-daemon.py (daemonizer generik) + .zscripts/dev-keepalive.sh (loop 15 detik: port 3000 tak merespons → exec `NODE_OPTIONS=--max-old-space-size=1536 bun run dev`, disown, log ke .zscripts/dev-keepalive.log). Keepalive diluncurkan via spawn-daemon → memulai server sendiri. package.json script dev cap 2048→1536 (anti-OOM berulang).
+- UJI: (1) survival lintas panggilan — sleep kontrol mati, keepalive hidup, server 200; (2) self-heal — pkill next-server → 000 → 22 detik → 200 (2x respawn tercatat di log); (3) rute utama 200 semua (/ /pembukaan /barang /harga-customer /invoice).
+- CATATAN: E2E fitur fitur ini tetap pola chunked (server start per panggilan) — keepalive tidak mengganggu karena cek port dulu.
+
+Stage Summary:
+- Preview kini tahan banting: dev server dijaga daemon keepalive double-fork (terkebalik reap antar panggilan) + respawn otomatis ≤~25 detik + heap cap 1536MB anti-OOM. Kegagalan preview karena server mati & tak bangun tidak terulang.
