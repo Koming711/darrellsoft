@@ -16103,3 +16103,20 @@ Work Log:
 
 Stage Summary:
 - Preview kini dijaga dua lapis: watchdog v2 menyalakan ulang app utama & produk-app secara otomatis bila mati, dan me-restart server secara terkendali sebelum kernel OOM killer beraksi — akar mati-preview berulang (OOM) ditangani. Verifikasi browser: landing, tabel 10mm zebra, dan embed /produk semuanya tampil normal lewat jalur preview.
+
+---
+Task ID: zebra-10mm-4-halaman
+Agent: Z.ai Code (main)
+Task: User: "dihalaman riwayat hitung cetakan, dihalaman riwayat potong kertas, dihalaman barang, dihalaman master harga kertas, rubah jarak baris menjadi 10mm zebra. fix."
+
+Work Log:
+- REKON: /barang (barang-view.tsx) ternyata SUDAH memakai pola 10mm zebra (batch sebelumnya) — diverifikasi byte-level anti-artefak ANSI (count h-[10mm] = 1, literal korup = 0) → tidak perlu ubah kode, cukup verifikasi runtime. Tiga target lain belum: riwayat hitung cetakan & riwayat potong kertas berbagi komponen RiwayatContent (tabel desktop raw table, td py-2.5); master harga kertas memakai komponen bersama MobileTable yang juga dipakai administrasi/pengguna — TIDAK boleh ikut berubah.
+- IMPLEMENTASI RiwayatContent (mencakup 2 halaman riwayat sekaligus): tabel desktop diberi class [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50; baris diberi cn(cursor-pointer h-[10mm], idx % 2 === 1 && bg-slate-100 dark:bg-zinc-800/60); tombol aksi Eye/Pencil desktop disesuaikan konvensi h-6 w-6 (flex center) agar konten tidak melebihi 10mm.
+- IMPLEMENTASI MobileTable: prop OPSIONAL dense10mm (default false) — saat aktif: tabel diberi class konvensi, baris h-[10mm] + zebra idx, sel aksi menyusutkan tombol via [&_button]:h-6 [&_button]:w-6 [&_button]:p-0 [&_button_svg]:h-3.5 [&_button_svg]:w-3.5 (tombol default h-9 = 36px akan merusak presisi 10mm). Hanya master-harga-kertas yang mengirim prop; administrasi/pengguna tak tersentuh.
+- LINT 3 file yang berubah → bersih tanpa error.
+- INSIDEN OPS saat E2E: sandbox reboot (pola recycle ±30 mnt) mematikan server utama port 3000 di tengah pengujian (ERR_CONNECTION_REFUSED); pasca reboot platform hanya men-start mini-services & produk-app (3010), server utama TIDAK ikut. Watchdog v2 dihidupkan ulang → start app utama, health 200 dalam ±20 dtk; cron penjaga 30 mnt tetap berkala. Catatan sesi ini: keluhan preview new tab = masalah sertifikat platform (ALB Z.ai menyajikan cert *.z.ai untuk domain *.space-z.ai), di luar kendali sandbox; solusi sementara Advanced → Proceed / gunakan Firefox.
+- E2E desktop 1280 (persona user-admin): /riwayat-hitung-cetakan 1 baris 37,781px; /riwayat-potong-kertas 1 baris 37,781px; /master-harga-kertas 11 baris SEMUA 37,781px + zebra terukur (baris-2 lab 96.286 = slate-100, baris-1 transparan); /barang 8 baris SEMUA 37,781px + zebra. Mobile 390: keempat halaman render kartu normal tanpa error (10mm zebra adalah konvensi tabel desktop; mobile tetap kartu).
+- db/custom.db berubah oleh fitur auto-backup internal selama E2E (runtime state) — sengaja tidak diikutkan commit fitur.
+
+Stage Summary:
+- Konvensi tabel 10mm zebra kini mencakup riwayat hitung cetakan, riwayat potong kertas, master harga kertas, dan barang (sudah sebelumnya) — terverifikasi presisi 37,781px = 10mm lewat browser di 4 halaman, desktop & mobile aman, dan halaman lain pemakai MobileTable tidak terpengaruh.
