@@ -16232,3 +16232,17 @@ Work Log:
 
 Stage Summary:
 - Riwayat git kini ramping & bebas rahasia: .git 46MB (dari 199MB), isi download workspace ±79MB (dari 241MB). GitHub sinkron. CATATAN KEAMANAN: token Vercel lama sudah lama terpapar di riwayat (lokal & GitHub) — SEBAIKNYA DI-ROTATE di dashboard Vercel meski sudah di-scrub dr repo.
+
+---
+Task ID: klik-langsung-hitung-cetakan-lengkap
+Agent: Z.ai Code (main)
+Task: "di halaman potong kertas, apabila diklik hitung cetakan lengkap, data langsung menuju ke halaman hitung cetakan.. fix"
+
+Work Log:
+- AKAR: tombol "Hitung Cetakan Lengkap" di /potong-kertas punya disabled={!results || preparingHc || (!pkHcLink?.hcId && needsRecalc)} — mati sampai user menghitung potongan dulu, dan mati lagi begitu ada input berubah (needsRecalc). E2E bukti: form terisi → klik → tidak terjadi apa-apa (disabled).
+- FIX src/app/potong-kertas/page.tsx: helper baru autoCalcFreshResults() — mode otomatis: POST /api/potong-kertas/optimize + applyCandidate(best); mode manual: recalcForSave() lokal. Handler klik: bila !results || needsRecalc → hitung otomatis dulu (spinner "Menyiapkan riwayat…"), lalu navigasi membawa seluruh data. Param ukuran kertas/potongan/harga/grammage/paperName kini dari hasil hitung AKTIF (bukan closure state yang basi saat auto-hitung baru selesai). Input tak cukup hitung → bawa data form mentah; form kosong total → toast "Isi data potongan terlebih dahulu!" tanpa navigasi. disabled kini hanya {preparingHc}. Auto-simpan riwayat hanya bila ada hasil (buildPayload(activeRes, freshCalc?.paperId)) — field kertas riwayat kini benar (paperName art karton/ivory, bukan 'Custom'; grammage & ukuran kertas terisi).
+- FIX src/app/hitung-cetakan/page.tsx (4 baris): toast else-branch — data dari Potong Kertas tanpa riwayat tidak lagi klaim "Data berhasil di-restore dari riwayat!" → "Data Potong Kertas diterapkan ke form Hitung Cetakan."
+- LINT 2 file → bersih. E2E (agent-browser, admin, desktop 1280 + mobile 390): (1) form kosong → ditolak toast; (2) otomatis klik langsung tanpa hitung → /hitung-cetakan dgn data penuh (nama, 100÷4→25, kertas 79×109 auto, potongan 21.5×28.5, harga/lembar 2687, total 12002=harga/kg derived, paperId terpilih) + riwayat PK tersimpan benar; (3) manual tanpa ukuran kertas → data mentah terbawa (nama, jumlahPesanan, potongan 30×40); (4) hasil basi: hitung → edit cutWidth 20→12 → tombol tetap ENABLED → klik → HC dpt nilai SEGAR 12×25 (bukan basi) + riwayat fresh (duplek 270, qty 10, total 4420); (5) mobile 390 klik langsung → navigasi 200 dgn seluruh param (dev.log: printName=Mobile+Uji … efficiency=86.4&pkRiwayatId=…) — chrome-error sekali = noise kompilasi 6,3s hit pertama, bukan bug. Tanpa scroll horizontal; dev.log bersih (prisma:error startup lama, bukan runtime). Data uji riwayat dihapus semua (5 baris test).
+
+Stage Summary:
+- Alur potong kertas → hitung cetakan kini SATU KLIK: klik "Hitung Cetakan Lengkap" pada form terisi langsung menghitung potongan (bila belum/basi) dan membawa seluruh datanya ke halaman Hitung Cetakan. Riwayat PK yang tersimpan otomatis kini punya metadata kertas yang benar. Commit 9c67dff.
