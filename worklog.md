@@ -16088,3 +16088,18 @@ Work Log:
 
 Stage Summary:
 - Preview Panel kini hidup & terjaga: keepalive daemon aktif kembali (auto-respawn bila server mati) dan seluruh jalur gateway→server→halaman diverifikasi end-to-end di desktop & mobile. Sekalian melengkapi proxy /produk-app yang hilang sehingga embed di halaman /produk tidak lagi 404; seluruh pekerjaan tertunda dr sesi sebelumnya (harga customer, zebra master pelanggan/invoice/7 tabel, backup&restore, fitur produk) diverifikasi ulang lalu di-commit.
+
+---
+Task ID: preview-oom-watchdog-v2
+Agent: Z.ai Code (main)
+Task: User: "preview tidak muncul. check and fix" (keluhan berulang setelah perbaikan keepalive sebelumnya)
+
+Work Log:
+- DIAGNOSA TUNTAS: server port 3000 ternyata MATI LAGI (respawn keepalive v1 tercatat 07.26.57 — cocok dgn laporan owner). Bukti akar masalah di dmesg: "Out of memory: Killed process 2373 (next-server)" saat anon-rss 1.933.520KB — kernel OOM-killer membantai dev server (Turbopack tumbuh ±23-80MB/mnt; pohon proses terukur 1.418.656KB hanya dlm ±40 mnt). Korban kedua: mini-service produk-app (3010) ikut mati tanpa penjaga — proxy /produk-app ECONNREFUSED berulang. keepalive v1 hanya menonton port 3000 & buta memori → OOM pasti berulang.
+- OPS — WATCHDOG v2 (.zscripts/dev-keepalive.sh ditulis ulang): (1) jaga DUA port — 3000 (app utama) & 3010 (produk-app), deteksi tiap 8 dtk + cooldown 30 dtk anti double-start; (2) RSS GUARD — total VmRSS pohon proses app utama (bun→bash→node→next-server) diukur tiap siklus (BFS + set seen); bila > 1.750.000KB (di bawah titik korban OOM 1,93GB) server di-restart TERKENDALI (TERM→KILL via kill_tree) — mengganti kematian acak oleh OOM killer; (3) ADOPSI proses — daemon generasi baru mengadopsi server yg sudah hidup lewat cwd /proc; pidfile dev-main.pid & dev-produk.pid (keduanya di-gitignore sbg runtime state).
+- INSIDEN PROSES: versi pertama sum_tree_rss infinite loop (anak pohon ditambah ulang tiap putaran tanpa set seen) → daemon macet & meninggalkan fork zombie; dibersihkan, fungsi diganti BFS seen-set, diuji standalone (pohon pid 1 selesai < 5 dtk; RSS main terukur benar 1.418.656KB).
+- HASIL: 08.07.05 watchdog v2 mulai; 08.07.06 OTOMATIS menyalakan produk-app yg mati; 3000 / 3010 / proxy /produk-app → 200 semua; chrome sisa E2E ditutup (bebaskan ±450MB). E2E via gateway :81 (jalur Preview Panel): /produk iframe 1201×670 berisi app mini utuh (title "Darrellsoft — Penjualan & Harga Customer"); /barang 8 baris SEMUA tepat 37,781px (10mm) dgn zebra [false,true,false,true]; tanpa error console. Gateway & landing normal.
+- KONSEKUENSI YG DISAMPAIKAN KE OWNER: sesekali (± per 20-40 mnt, saat RSS pohon capai 1,75GB) app utama restart otomatis singkat (±15-25 dtk) lalu hidup sendiri — jauh lebih baik dr kematian OOM acak yg sebelumnya bikin preview hilang tanpa kepastian.
+
+Stage Summary:
+- Preview kini dijaga dua lapis: watchdog v2 menyalakan ulang app utama & produk-app secara otomatis bila mati, dan me-restart server secara terkendali sebelum kernel OOM killer beraksi — akar mati-preview berulang (OOM) ditangani. Verifikasi browser: landing, tabel 10mm zebra, dan embed /produk semuanya tampil normal lewat jalur preview.
