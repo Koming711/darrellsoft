@@ -182,7 +182,7 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'hutang-dagang', label: 'Hutang Dagang' },
   { id: 'piutang-dagang', label: 'Piutang Dagang' },
   // Master cetak
-  { id: 'master-harga-kertas', label: 'Master Harga Kertas' },
+  { id: 'master-harga-kertas', label: 'Master Bahan' },
   { id: 'daftar-kategori', label: 'Daftar Kategori' },
   { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak' },
   { id: 'master-finishing', label: 'Master Finishing' },

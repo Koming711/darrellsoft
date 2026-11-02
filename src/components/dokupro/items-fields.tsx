@@ -115,7 +115,7 @@ export function ItemsFields({
   onBarangCreated,
   lockPrices = false,
   paperOptions,
-  emptyPaperMessage = 'Belum ada data kertas di Master Harga Kertas',
+  emptyPaperMessage = 'Belum ada data kertas di Master Bahan',
 }: ItemsFieldsProps) {
   const [openBarangIndex, setOpenBarangIndex] = useState<number | null>(null);
   const [openPaperIndex, setOpenPaperIndex] = useState<number | null>(null);
@@ -300,7 +300,7 @@ export function ItemsFields({
                     {paperOptions!.length > 0 ? (
                       <div>
                         <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                          Master Harga Kertas
+                          Master Bahan
                         </div>
                         {paperOptions!.map((p) => {
                           const detailParts: string[] = [];

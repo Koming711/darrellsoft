@@ -466,7 +466,7 @@ export default function DaftarKategoriPage() {
             <DialogDescription>
               {editingItem
                 ? 'Ubah nama kategori — bahan kertas yang memakainya otomatis ikut berubah'
-                : 'Beri nama kategori baru, nanti bisa dipilih di Master Harga Kertas & Master Toko/Pemasok'}
+                : 'Beri nama kategori baru, nanti bisa dipilih di Master Bahan & Master Toko/Pemasok'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
@@ -509,7 +509,7 @@ export default function DaftarKategoriPage() {
                 <>
                   Kategori <span className="font-semibold">{deleteTarget?.nama}</span> masih
                   dipakai oleh {deleteUsedCount} bahan kertas dan tidak bisa dihapus. Lepaskan
-                  kategori ini dari bahan kertas terkait terlebih dahulu di Master Harga Kertas.
+                  kategori ini dari bahan kertas terkait terlebih dahulu di Master Bahan.
                 </>
               ) : (
                 <>

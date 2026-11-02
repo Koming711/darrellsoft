@@ -235,7 +235,7 @@ export default function HitungHargaKertasPage() {
     const variant = papers.find(p => normSup(p.suplier) === normSup(sup) && p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
     if (variant) {
       setSelectedPaperId(variant.id)
-      toast.success(`Harga ${selectedPaper.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+      toast.success(`Harga ${selectedPaper.name} mengikuti Master Bahan · ${variant.suplier}`)
     } else {
       setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang / custom
     }
@@ -623,7 +623,7 @@ Total Berat: ${Math.round(calculations.totalWeightKg)} kg` : '')
                     ))}
                   </select>
                   {namaSuplier && paperOptions.length === 0 && (
-                    <p className="text-xs text-slate-400 mt-1 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
+                    <p className="text-xs text-slate-400 mt-1 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Bahan</p>
                   )}
                 </div>
 

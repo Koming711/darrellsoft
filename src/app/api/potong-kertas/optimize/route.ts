@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     if (matching.length === 0) {
       return NextResponse.json({
         ok: false,
-        message: `Tidak ada bahan "${bahan}" ${grammage} gsm${suplier ? ` dari suplier ${suplier}` : ''} di Master Kertas. Periksa Master Harga Kertas atau pilih bahan lain.`,
+        message: `Tidak ada bahan "${bahan}" ${grammage} gsm${suplier ? ` dari suplier ${suplier}` : ''} di Master Kertas. Periksa Master Bahan atau pilih bahan lain.`,
         candidates: [],
       })
     }

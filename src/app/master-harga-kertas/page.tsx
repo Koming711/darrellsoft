@@ -325,7 +325,7 @@ export default function MasterHargaKertasPage() {
       return
     }
 
-    printWindow.document.write('<html><head><title>Master Harga Kertas</title>')
+    printWindow.document.write('<html><head><title>Master Bahan</title>')
     printWindow.document.write(`
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
@@ -341,7 +341,7 @@ export default function MasterHargaKertasPage() {
     printWindow.document.write('</head><body>')
 
     // Add title
-    printWindow.document.write('<h1>Master Harga Kertas</h1>')
+    printWindow.document.write('<h1>Master Bahan</h1>')
 
     // Add print date
     printWindow.document.write(`<p style="text-align: right; font-size: 12px; margin-bottom: 10px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`)

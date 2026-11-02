@@ -27,7 +27,7 @@ const MASTER_TABLES: Record<string, {
   },
   paper: {
     model: db.paper,
-    name: 'Master Harga Kertas',
+    name: 'Master Bahan',
     modelName: 'Paper',
   },
   customer: {

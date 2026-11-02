@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Models that have userId field
     const dataModels = [
       { key: 'customer', model: db.customer, label: 'Master Customer' },
-      { key: 'paper', model: db.paper, label: 'Master Harga Kertas' },
+      { key: 'paper', model: db.paper, label: 'Master Bahan' },
       { key: 'printingCost', model: db.printingCost, label: 'Master Ongkos Cetak' },
       { key: 'finishing', model: db.finishing, label: 'Master Finishing' },
       { key: 'riwayatCetakan', model: db.riwayatCetakan, label: 'Riwayat Cetakan' },

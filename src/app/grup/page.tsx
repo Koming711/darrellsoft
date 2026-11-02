@@ -124,7 +124,7 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
   { id: 'laporan', label: 'Laporan Penjualan & Laba Rugi', grup: 'Keuangan & Laporan' },
   { id: 'hutang-dagang', label: 'Hutang Dagang', grup: 'Keuangan & Laporan' },
   { id: 'piutang-dagang', label: 'Piutang Dagang', grup: 'Keuangan & Laporan' },
-  { id: 'master-harga-kertas', label: 'Master Harga Kertas', grup: 'Master Cetak' },
+  { id: 'master-harga-kertas', label: 'Master Bahan', grup: 'Master Cetak' },
   { id: 'daftar-kategori', label: 'Daftar Kategori', grup: 'Master Cetak' },
   { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak', grup: 'Master Cetak' },
   { id: 'master-finishing', label: 'Master Finishing', grup: 'Master Cetak' },

@@ -162,7 +162,7 @@ function transformForPrint(table: string, rawData: Record<string, any>[]): Recor
 const MASTER_TABLES: Record<string, { model: any; name: string; extraFilter?: Record<string, any> }> = {
   finishing: { model: db.finishing, name: 'Master Finishing' },
   printing_cost: { model: db.printingCost, name: 'Master Ongkos Cetak' },
-  paper: { model: db.paper, name: 'Master Harga Kertas' },
+  paper: { model: db.paper, name: 'Master Bahan' },
   customer: { model: db.customer, name: 'Master Customer' },
   toko_pemasok: { model: db.tokoPemasok, name: 'Master Toko/Pemasok' },
   invoice_history: { model: db.documentHistory, name: 'Riwayat Invoice', extraFilter: { docType: 'invoice' } },

@@ -553,7 +553,7 @@ export function PurchaseOrderEditor({ onSaved, editingId }: { onSaved?: (id: str
           paperOptions={filteredPaperList}
           emptyPaperMessage={
             suplierFilter
-              ? `Tidak ada barang dari suplier "${pemasokInput.trim()}" di Master Harga Kertas — ketik nama barang manual, atau hapus nama suplier untuk melihat semua barang`
+              ? `Tidak ada barang dari suplier "${pemasokInput.trim()}" di Master Bahan — ketik nama barang manual, atau hapus nama suplier untuk melihat semua barang`
               : undefined
           }
         />

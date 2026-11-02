@@ -26,7 +26,7 @@ const USER_TABLES: Record<string, {
   dateFields?: string[]
 }> = {
   Customer: { model: db.customer, name: 'Customer', label: 'Master Customer', dateFields: ['createdAt', 'updatedAt'] },
-  Paper: { model: db.paper, name: 'Paper', label: 'Master Harga Kertas', intFields: ['grammage'], floatFields: ['width', 'height', 'pricePerRim'], dateFields: ['createdAt', 'updatedAt'] },
+  Paper: { model: db.paper, name: 'Paper', label: 'Master Bahan', intFields: ['grammage'], floatFields: ['width', 'height', 'pricePerRim'], dateFields: ['createdAt', 'updatedAt'] },
   PrintingCost: { model: db.printingCost, name: 'PrintingCost', label: 'Master Ongkos Cetak', intFields: ['grammage', 'minimumPrintQuantity'], floatFields: ['printAreaWidth', 'printAreaHeight', 'pricePerColor', 'specialColorPrice', 'priceAboveMinimumPerSheet', 'platePricePerSheet'], dateFields: ['createdAt', 'updatedAt'] },
   Finishing: { model: db.finishing, name: 'Finishing', label: 'Master Finishing', intFields: ['minimumSheets'], floatFields: ['minimumPrice', 'additionalPrice', 'pricePerCm'], dateFields: ['createdAt', 'updatedAt'] },
   TokoPemasok: { model: db.tokoPemasok, name: 'TokoPemasok', label: 'Master Toko/Pemasok', dateFields: ['createdAt', 'updatedAt'] },

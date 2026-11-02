@@ -109,7 +109,7 @@ const GRUP_FITUR_SECTIONS: { judul: string; items: { id: string; label: string }
       { id: 'master-barang', label: 'Master Produk' },
       { id: 'barang', label: 'Barang' },
       { id: 'stock-bahan', label: 'Stok Bahan' },
-      { id: 'master-harga-kertas', label: 'Master Harga Kertas' },
+      { id: 'master-harga-kertas', label: 'Master Bahan' },
       { id: 'master-ongkos-cetak', label: 'Master Ongkos Cetak' },
       { id: 'master-finishing', label: 'Master Finishing' },
       { id: 'master-toko-pemasok', label: 'Master Suplier' },

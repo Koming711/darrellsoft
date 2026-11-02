@@ -1166,7 +1166,7 @@ function HitungCetakanPage() {
         pricePerSheet: sheet.toString(),
         pricePerKg: sheetToKgPrice(sheet, variant.width, variant.height, variant.grammage),
       }))
-      toast.success(`Harga ${cur.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+      toast.success(`Harga ${cur.name} mengikuti Master Bahan · ${variant.suplier}`)
     } else {
       setFormData(prev => ({ ...prev, paperId: '' }))
     }
@@ -2685,7 +2685,7 @@ function HitungCetakanPage() {
                       {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
                     </select>
                     {formData.namaSuplier && paperOptions.length === 0 && (
-                      <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Harga Kertas</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Bahan</p>
                     )}
                   </div>
                   <div>

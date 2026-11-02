@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const masterConfigs: Record<string, { model: any; uniqueField: string; label: string; compareFields?: string[] }> = {
       finishing: { model: db.finishing, uniqueField: 'name', label: 'Master Finishing', compareFields: ['minimumSheets', 'minimumPrice', 'additionalPrice', 'pricePerCm'] },
       customer: { model: db.customer, uniqueField: 'name', label: 'Master Customer', compareFields: ['companyName', 'phone', 'email'] },
-      paper: { model: db.paper, uniqueField: 'name', label: 'Master Harga Kertas', compareFields: ['grammage', 'width', 'height', 'pricePerRim'] },
+      paper: { model: db.paper, uniqueField: 'name', label: 'Master Bahan', compareFields: ['grammage', 'width', 'height', 'pricePerRim'] },
       printingCost: { model: db.printingCost, uniqueField: 'machineName', label: 'Master Ongkos Cetak', compareFields: ['grammage', 'printAreaWidth', 'printAreaHeight', 'pricePerColor'] },
     }
 

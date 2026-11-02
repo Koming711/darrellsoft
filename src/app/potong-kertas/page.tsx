@@ -504,7 +504,7 @@ function CalculatorPage() {
       p.name.trim().toLowerCase() === selectedPaper.name.trim().toLowerCase())
     if (variant) {
       setSelectedPaperId(variant.id) // effect selectedPaper → harga/gramatur/ukuran terisi dr master
-      toast.success(`Harga ${selectedPaper.name} mengikuti Master Harga Kertas · ${variant.suplier}`)
+      toast.success(`Harga ${selectedPaper.name} mengikuti Master Bahan · ${variant.suplier}`)
     } else {
       setSelectedPaperId('') // kertas terpilih bukan milik suplier ini → pilih ulang dari daftar suplier
     }
@@ -1716,7 +1716,7 @@ function CalculatorPage() {
                       </SelectTrigger>
                       <SelectContent className="max-h-64">
                         {bahanOptions.length === 0 && (
-                          <div className="px-3 py-2 text-xs text-slate-400 text-center">{namaSuplier ? `Tidak ada kertas milik ${namaSuplier}` : 'Belum ada bahan — isi Master Harga Kertas'}</div>
+                          <div className="px-3 py-2 text-xs text-slate-400 text-center">{namaSuplier ? `Tidak ada kertas milik ${namaSuplier}` : 'Belum ada bahan — isi Master Bahan'}</div>
                         )}
                         {bahanOptions.map((n) => (
                           <SelectItem key={n} value={n}><span className="text-[14px] capitalize">{n}</span></SelectItem>
@@ -1812,7 +1812,7 @@ function CalculatorPage() {
                       </div>
                     </SelectItem>
                     {namaSuplier && paperOptions.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-slate-400 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Harga Kertas</div>
+                      <div className="px-3 py-2 text-xs text-slate-400 text-center">Tidak ada kertas milik {namaSuplier} — isi kolom Suplier di Master Bahan</div>
                     )}
                     {paperOptions.map((p) => (<SelectItem key={p.id} value={p.id}><span className="text-[14px]">{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</span></SelectItem>))}
                   </SelectContent>
