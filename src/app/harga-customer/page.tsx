@@ -51,11 +51,13 @@ import {
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
+import { cn } from '@/lib/utils'
 import {
   BarangFormDialog,
   type BarangCustomerOption,
   type BarangFormSavedItem,
 } from '@/components/views/barang-form-dialog'
+import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
 
 /**
  * Halaman Harga Customer — daftar harga jual khusus per customer per barang.
@@ -108,6 +110,13 @@ interface BarangOpt {
 
 const rupiah = (n: number | null | undefined) =>
   `Rp ${(n ?? 0).toLocaleString('id-ID')}`
+
+/** Teks selisih bertanda: +Rp 1.000 / -Rp 500; 0 → '-' */
+const selisihText = (n: number) => {
+  if (!n) return '-'
+  const abs = Math.abs(n).toLocaleString('id-ID')
+  return n > 0 ? `+Rp ${abs}` : `-Rp ${abs}`
+}
 
 export default function HargaCustomerPage() {
   const [ready, setReady] = useState(false)
@@ -219,6 +228,13 @@ export default function HargaCustomerPage() {
   const openTambah = () => {
     void loadMaster()
     setAddOpen(true)
+  }
+
+  /** Data dipulihkan dr file backup (komponen BackupRestoreButtons) —
+   *  muat ulang daftar harga & master agar tampilan langsung freshest. */
+  const handleRestored = () => {
+    void loadRows()
+    void loadMaster()
   }
 
   /** Barang baru tersimpan dari popup "Tambah Barang" (BarangFormDialog).
@@ -385,41 +401,49 @@ export default function HargaCustomerPage() {
                 <SelectItem value="nonaktif">Nonaktif</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              onClick={openTambah}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto"
-              data-testid="harga-customer-tambah"
-            >
-              <Plus className="h-4 w-4 mr-1" /> Tambah
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Backup & Restore data barang + harga per pelanggan (.xlsx) */}
+              <BackupRestoreButtons onRestored={handleRestored} />
+              <Button
+                onClick={openTambah}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1 sm:flex-none"
+                data-testid="harga-customer-tambah"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Tambah
+              </Button>
+            </div>
           </div>
 
           {/* ===== Tabel (desktop) ===== */}
           <div className="hidden md:block rounded-lg border bg-card shadow-sm overflow-hidden">
             <div className="max-h-[600px] overflow-y-auto">
-              <Table>
+              {/* Tinggi baris presisi 9mm + zebra (baris ganjil abu slate-100, hover seragam
+                  lebih gelap) — konvensi sama dgn tabel /barang */}
+              <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                 <TableHeader className="sticky top-0 bg-muted/95 z-10">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="min-w-[150px]">Customer</TableHead>
-                    <TableHead className="min-w-[90px]">Kode</TableHead>
                     <TableHead className="min-w-[180px]">Nama Barang</TableHead>
+                    <TableHead className="text-center min-w-[90px]">Status</TableHead>
                     <TableHead className="text-right min-w-[110px]">Harga Standar</TableHead>
                     <TableHead className="text-right min-w-[120px]">Harga Khusus</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Selisih</TableHead>
+                    <TableHead className="text-right min-w-[100px]">HPP</TableHead>
+                    <TableHead className="text-right min-w-[100px]">Margin</TableHead>
                     <TableHead className="min-w-[70px]">Satuan</TableHead>
-                    <TableHead className="text-center min-w-[90px]">Status</TableHead>
                     <TableHead className="text-right min-w-[100px]">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={10} className="!py-10 text-center text-sm text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Memuat…
                       </TableCell>
                     </TableRow>
                   ) : rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-12 text-center">
+                      <TableCell colSpan={10} className="!py-12 text-center">
                         <PackageOpen className="h-10 w-10 mx-auto text-slate-300 mb-2" />
                         <p className="text-sm text-muted-foreground">
                           Belum ada harga khusus. Klik &quot;Tambah&quot; untuk menambah barang — pilih pelanggan agar harga khususnya terdaftar di sini.
@@ -427,23 +451,19 @@ export default function HargaCustomerPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((r) => (
-                      <TableRow key={r.id}>
+                    rows.map((r, idx) => {
+                      const selisih = r.harga - r.standardPrice
+                      const margin = marginOf(r)
+                      return (
+                      <TableRow
+                        key={r.id}
+                        className={cn(
+                          'h-[9mm]',
+                          idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                        )}
+                      >
                         <TableCell className="font-medium text-slate-700">{r.customerName}</TableCell>
-                        <TableCell className="text-slate-500 text-xs whitespace-nowrap">{r.kode || '-'}</TableCell>
                         <TableCell className="text-slate-700">{r.namaBarang}</TableCell>
-                        <TableCell className="text-right text-slate-500 whitespace-nowrap">
-                          {rupiah(r.standardPrice)}
-                          {r.hargaPokok > 0 && (
-                            <span className="block text-[10px] text-slate-400">
-                              Modal {rupiah(r.hargaPokok)} · Margin {rupiah(marginOf(r))}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold text-emerald-700 whitespace-nowrap">
-                          {rupiah(r.harga)}
-                        </TableCell>
-                        <TableCell className="text-slate-500">{r.satuan}</TableCell>
                         <TableCell className="text-center">
                           <button
                             onClick={() => toggleStatus(r)}
@@ -462,6 +482,44 @@ export default function HargaCustomerPage() {
                             </Badge>
                           </button>
                         </TableCell>
+                        <TableCell className="text-right text-slate-500 whitespace-nowrap">
+                          {rupiah(r.standardPrice)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-700 whitespace-nowrap">
+                          {rupiah(r.harga)}
+                        </TableCell>
+                        {/* Selisih = harga khusus − harga standar; hijau = naik, rose = turun */}
+                        <TableCell
+                          className={
+                            'text-right whitespace-nowrap tabular-nums ' +
+                            (selisih > 0
+                              ? 'text-emerald-600'
+                              : selisih < 0
+                                ? 'text-rose-600'
+                                : 'text-slate-400')
+                          }
+                        >
+                          {selisihText(selisih)}
+                        </TableCell>
+                        <TableCell className="text-right text-slate-600 whitespace-nowrap tabular-nums">
+                          {rupiah(r.hargaPokok)}
+                        </TableCell>
+                        {/* Margin = harga khusus − HPP; '-' bila HPP belum diisi (0) */}
+                        <TableCell
+                          className={
+                            'text-right whitespace-nowrap tabular-nums ' +
+                            (r.hargaPokok > 0
+                              ? margin > 0
+                                ? 'text-emerald-600'
+                                : margin < 0
+                                  ? 'text-rose-600'
+                                  : 'text-slate-500'
+                              : 'text-slate-400')
+                          }
+                        >
+                          {r.hargaPokok > 0 ? rupiah(margin) : '-'}
+                        </TableCell>
+                        <TableCell className="text-slate-500">{r.satuan}</TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex gap-1">
                             <Button
@@ -469,23 +527,24 @@ export default function HargaCustomerPage() {
                               size="sm"
                               onClick={() => openEdit(r)}
                               aria-label={`Edit harga ${r.namaBarang} untuk ${r.customerName}`}
-                              className="h-8 w-8 p-0"
+                              className="h-6 w-6 p-0"
                             >
-                              <Pencil className="h-4 w-4 text-slate-500" />
+                              <Pencil className="h-3.5 w-3.5 text-slate-500" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setDeleteTarget(r)}
                               aria-label={`Hapus harga ${r.namaBarang} untuk ${r.customerName}`}
-                              className="h-8 w-8 p-0"
+                              className="h-6 w-6 p-0"
                             >
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-3.5 w-3.5 text-red-500" />
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                      )
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -511,9 +570,7 @@ export default function HargaCustomerPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-slate-800 truncate">{r.customerName}</p>
-                      <p className="text-xs text-slate-500 truncate">
-                        {r.kode ? `${r.kode} · ` : ''}{r.namaBarang}
-                      </p>
+                      <p className="text-xs text-slate-500 truncate">{r.namaBarang}</p>
                     </div>
                     <Badge
                       variant="outline"
@@ -536,15 +593,44 @@ export default function HargaCustomerPage() {
                       <p className="font-semibold text-emerald-700">{rupiah(r.harga)}</p>
                     </div>
                     <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Selisih</p>
+                      <p
+                        className={
+                          r.harga - r.standardPrice > 0
+                            ? 'text-emerald-600'
+                            : r.harga - r.standardPrice < 0
+                              ? 'text-rose-600'
+                              : 'text-slate-400'
+                        }
+                      >
+                        {selisihText(r.harga - r.standardPrice)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">HPP</p>
+                      <p className="text-slate-600">{rupiah(r.hargaPokok)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400">Margin</p>
+                      <p
+                        className={
+                          r.hargaPokok > 0
+                            ? marginOf(r) > 0
+                              ? 'text-emerald-600'
+                              : marginOf(r) < 0
+                                ? 'text-rose-600'
+                                : 'text-slate-500'
+                            : 'text-slate-400'
+                        }
+                      >
+                        {r.hargaPokok > 0 ? rupiah(marginOf(r)) : '-'}
+                      </p>
+                    </div>
+                    <div>
                       <p className="text-[10px] uppercase tracking-wide text-slate-400">Satuan</p>
                       <p className="text-slate-600">{r.satuan}</p>
                     </div>
                   </div>
-                  {r.hargaPokok > 0 && (
-                    <p className="text-[11px] text-slate-400">
-                      Modal {rupiah(r.hargaPokok)} · Margin {rupiah(marginOf(r))}/unit
-                    </p>
-                  )}
                   <div className="flex gap-2 pt-1">
                     <Button variant="outline" size="sm" className="flex-1 h-9" onClick={() => openEdit(r)}>
                       <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
