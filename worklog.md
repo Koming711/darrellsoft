@@ -16151,3 +16151,20 @@ Work Log:
 
 Stage Summary:
 - Halaman yang dulu berjudul 'Master Harga Kertas' kini konsisten bernama 'Master Bahan' di judul halaman, cetak, menu, hak akses, grup, backup/restore, dan semua pesan/dialog terkait — struktur data, route, dan key tidak berubah sehingga risiko regresi nol.
+
+---
+Task ID: splash-1x-per-sesi-buka-menu-tanpa-splash
+Agent: Z.ai Code (main)
+Task: User: "buka semua menu tidak bisa, selalu muncul splash screen darrellsoft. buat buka menu langsung buka tanpa rendering/splashscreen."
+
+Work Log:
+- AKAR MASALAH: SplashScreen (layout root) sengaja dibuat tampil di SETIAP full page load (komentar "sekarang selalu tampil", 1500ms) DAN konten aplikasi dirender visibility:hidden di SSR HTML sampai React hydrate + timer 1,5 dtk selesai. Akibatnya setiap hard load (refresh, fallback hard-nav Next.js saat RSC prefetch gagal, window.location, buka langsung URL) memutar splash lagi; bila hydrate lambat/gagal (Preview Panel iframe, dev server restart, jaringan flaky) splash menutupi layar tanpa batas → "buka menu tidak bisa, selalu muncul splash". E2E awal membuktikan client-side nav (router.push/Link/sidebar/popup tile) bersih tanpa splash — masalah murni di full-load path.
+- FIX 1 (layout.tsx): script inline <head> pre-paint pre-hydration — bila sessionStorage 'ds_splash_shown' ada → <html data-splash="off">. Berlaku sebelum React boot & sebelum first paint.
+- FIX 2 (splash-screen.tsx): flag sessionStorage diisi SAAT splash mulai (bukan setelah selesai) sehingga navigasi apa pun sesudahnya langsung terbuka; class hook ds-splash-wrap (wrapper konten) & ds-splash-overlay (overlay biru); komentar didesain ulang; durasi 1500ms & pengecualian /daftar tetap.
+- FIX 3 (globals.css): (a) html[data-splash=off] .ds-splash-overlay display:none !important + .ds-splash-wrap visibility:visible !important — splash tak pernah terlihat & konten tampil instan meski React belum hydrate (!important author menang atas inline style & animasi); (b) FAILSAFE utk semua load: overlay memudar sendiri 3,5 dtk & konten dipaksa tampil 3,5 dtk via @keyframes — bila React gagal hydrate sekalipun, aplikasi tetap terlihat dan menu bisa diklik (SSR). Pada load normal React menyembunyikan splash di 1,5 dtk sehingga failsafe tak pernah terlihat.
+- LINT 2 file TSX → bersih.
+- E2E agent-browser: sesi segar (storage dibersihkan) load pertama → splash tampil 1x (overlay count 1) + flag sess='1' tertulis sejak awal; setelah 1,5 dtk overlay unmount; RELOAD → attr data-splash='off' terpasang pre-paint, overlay display:none, konten visibility:visible INSTAN. Desktop 1280: klik menu Hitung Cetakan → /hitung-cetakan, Barang → /barang, Invoice → /invoice — semua instan, observer mutasi hanya mencatat overlay ber-display:none. Mobile 390: popup Lainnya → tile Potong Kertas → /potong-kertas (flash=[]), bottom-nav Beranda → /pembukaan, hard reload → tanpa splash konten langsung. /daftar tetap tanpa splash (redirect login tetap jalan).
+- CATATAN: splash kini hanya momen branding di pembukaan aplikasi pertama kali per sesi browser (tab/PWA task); buka menu berikutnya, refresh, maupun hard-nav = langsung terbuka. Perilaku lama "tampil tiap refresh" diganti sesuai permintaan eksplisit user.
+
+Stage Summary:
+- Menu apa pun kini langsung terbuka tanpa splash screen: splash logo hanya muncul sekali di awal sesi sebagai pembuka aplikasi, semua load berikutnya dibebaskan via kill-switch CSS pre-paint, plus failsafe yang menjamin aplikasi tetap tampil (dan menu bisa dibuka) meski React gagal hydrate — akar "buka semua menu tidak bisa, selalu muncul splash" teratasi di semua jalur (client-nav, refresh, hard-nav).
