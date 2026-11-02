@@ -67,3 +67,6 @@ server.log
 /watchdog*.sh
 /.daemon.log
 /backups/invoice-gabungan-backup-*/
+# Runtime state watchdog (terus berubah, bukan kode)
+.zscripts/dev-main.pid
+.zscripts/dev-produk.pid
