@@ -681,6 +681,7 @@ export default function MasterHargaKertasPage() {
                 onEdit={canEdit ? handleEdit : undefined}
                 onDelete={canDelete ? handleDelete : undefined}
                 showAsButtons={true}
+                dense10mm
                 emptyMessage="Tidak ada data kertas ditemukan"
                 emptyIcon={<FileText className="w-16 h-16 mx-auto text-slate-400" />}
               />

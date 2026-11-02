@@ -26,6 +26,8 @@ interface MobileTableProps<T> {
   extraActions?: (item: T) => React.ReactNode
   mobileCardActions?: (item: T) => React.ReactNode
   onRowClick?: (item: T) => void
+  /** Mode padat khusus tabel desktop: baris presisi 10mm + zebra (konvensi tabel /barang). */
+  dense10mm?: boolean
 }
 
 export function MobileTable<T extends Record<string, any>>({
@@ -42,6 +44,7 @@ export function MobileTable<T extends Record<string, any>>({
   extraActions,
   mobileCardActions,
   onRowClick,
+  dense10mm = false,
 }: MobileTableProps<T>) {
   const [selectedItems, setSelectedItems] = useState<Set<any>>(new Set())
   const [isMobile, setIsMobile] = useState(false)
@@ -137,7 +140,10 @@ export function MobileTable<T extends Record<string, any>>({
 
       {/* Desktop Table */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full min-w-[600px]">
+        <table className={cn(
+          "w-full min-w-[600px]",
+          dense10mm && "[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50"
+        )}>
           <thead className="bg-slate-50">
             <tr>
               {columns.map((col) => (
@@ -160,7 +166,11 @@ export function MobileTable<T extends Record<string, any>>({
             {data.map((item, idx) => (
               <tr
                 key={String(item[keyField]) || idx}
-                className={cn("hover:bg-slate-50", onRowClick && "cursor-pointer")}
+                className={cn(
+                  dense10mm ? "h-[10mm]" : "hover:bg-slate-50",
+                  onRowClick && "cursor-pointer",
+                  dense10mm && idx % 2 === 1 && "bg-slate-100 dark:bg-zinc-800/60"
+                )}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
@@ -169,7 +179,10 @@ export function MobileTable<T extends Record<string, any>>({
                   </td>
                 ))}
                 <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-center gap-1">
+                  <div className={cn(
+                    "flex items-center justify-center gap-1",
+                    dense10mm && "[&_button]:h-6 [&_button]:w-6 [&_button]:p-0 [&_button_svg]:h-3.5 [&_button_svg]:w-3.5"
+                  )}>
                     <TableDropdownMenu
                       onEdit={onEdit ? () => onEdit(item) : undefined}
                       onDelete={onDelete ? () => onDelete(item) : undefined}

@@ -782,7 +782,10 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
           {/* ==== Desktop: tabel — tanpa kotak/bingkai (permintaan owner) ==== */}
           <div className="hidden sm:block">
             <div className="overflow-x-auto">
-              <table className={cn('w-full', isPotong ? 'min-w-[1240px]' : 'min-w-[1060px]')}>
+              <table className={cn(
+                'w-full [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50',
+                isPotong ? 'min-w-[1240px]' : 'min-w-[1060px]'
+              )}>
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     {([
@@ -802,10 +805,10 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredItems.map((item) => (
+                  {filteredItems.map((item, idx) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-slate-50 cursor-pointer"
+                      className={cn('cursor-pointer h-[10mm]', idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60')}
                       onClick={() => openPreview(item)}
                     >
                       <td className="px-4 py-2.5">
@@ -881,14 +884,14 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                           <button
                             onClick={() => openPreview(item)}
                             title={t('preview')}
-                            className="p-2 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors"
+                            className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleEdit(item)}
                             title="Edit perhitungan di kalkulator"
-                            className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                            className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
