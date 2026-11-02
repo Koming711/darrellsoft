@@ -9,6 +9,20 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      // Proxy mini-service produk-app (port 3010, basePath /produk-app) —
+      // dipakai iframe di halaman /produk. Tanpa ini iframe embed 404.
+      {
+        source: '/produk-app',
+        destination: 'http://localhost:3010/produk-app',
+      },
+      {
+        source: '/produk-app/:path*',
+        destination: 'http://localhost:3010/produk-app/:path*',
+      },
+    ];
+  },
   allowedDevOrigins: [
     '0.0.0.0',
     '127.0.0.1',
