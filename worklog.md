@@ -16184,3 +16184,19 @@ Work Log:
 
 Stage Summary:
 - Data yang rusak (1 barang hilang — wipe ke-3) dipulihkan dari backup workspace (11) milik user: Barang "tes" ITM-008 kembali muncul di /barang dgn data persis sblm hilang. Tidak ada kode yang diubah; DB saat ini yang lebih baru (riwayat 2 Nov) tetap utuh.
+
+---
+Task ID: kembali-halaman-terakhir-saat-refresh
+Agent: Z.ai Code (main)
+Task: User: "apabila di refresh maka kembali kehalaman terakhir sebelum direfresh. fix." — buka/refresh aplikasi harus kembali ke halaman terakhir user, bukan selalu Beranda.
+
+Work Log:
+- REKON: refresh di halaman modul (/barang, /hitung-cetakan, /invoice, dll) terbukti SUDAH bertahan di tempat (E2E langsung). Akar kehilangan halaman: PWA start_url = /?source=pwa & root '/' (src/app/page.tsx) SELALU router.replace('/pembukaan') utk user ber-sesi — setiap buka ulang aplikasi (ikon PWA / ketik domain / refresh di root) posisi terakhir hilang.
+- LIB BARU src/lib/last-route.ts: saveLastRoute/getLastRoute/clearLastRoute — kunci localStorage per user ds_last_route:<userId>; blocklist simpan & pulih: /, /login, /daftar, /pilih-paket, /checkout, prefix /panel-admin (funnel & konsol tak dicatat); validasi path (mulai '/', bukan '//', max 200 char); hanya pathname (tanpa query/hash).
+- src/components/dashboard-layout.tsx: useEffect [user?.id, pathname] → saveLastRoute — setiap rute aplikasi (semua halaman ber-DashboardLayout) tercatat otomatis saat dikunjungi.
+- src/lib/auth.ts: clearAuthUser() kini clearLastRoute(uid) dulu — SEMUA jalur logout (dashboard-layout, auth-context, admin-nav, panel-fetch) otomatis menghapus catatan; setelah logout buka ulang mulai dr Beranda lagi.
+- src/app/page.tsx: auto-login redirect root kini getLastRoute(uid) || '/pembukaan' — Beranda hanya fallback bila belum ada catatan (login baru / setelah logout).
+- LINT 4 file → bersih. E2E (agent-browser, persona user-admin): desktop 1280 — /barang → buka root '/' → mendarat /barang (dulu /pembukaan); pindah /hitung-cetakan → root → /hitung-cetakan; refresh di /hitung-cetakan tetap di halaman (noise ERR_CONNECTION_RESET kompilasi dev bukan bug); mobile 390 — /potong-kertas → root → /potong-kertas; logout via UI → auth=false, ds_last_route:null, landing tampil; sesi baru tanpa catatan → root → /pembukaan (fallback benar); dev.log bersih.
+
+Stage Summary:
+- Buka ulang/refresh aplikasi kini mengembalikan pengguna ke HALAMAN TERAKHIR sebelum ditutup/di-refresh (termasuk PWA start_url /?source=pwa & ketik domain); Beranda hanya fallback. Catatan per user, dibersihkan saat logout, rute funnel/konsol admin tidak diingat — perilaku login, popup langganan, dan alur funnel tidak berubah.
