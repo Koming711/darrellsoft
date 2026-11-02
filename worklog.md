@@ -16120,3 +16120,19 @@ Work Log:
 
 Stage Summary:
 - Konvensi tabel 10mm zebra kini mencakup riwayat hitung cetakan, riwayat potong kertas, master harga kertas, dan barang (sudah sebelumnya) — terverifikasi presisi 37,781px = 10mm lewat browser di 4 halaman, desktop & mobile aman, dan halaman lain pemakai MobileTable tidak terpengaruh.
+
+---
+Task ID: zebra-10mm-tab-riwayat-kalkulator
+Agent: Z.ai Code (main)
+Task: User: "belum berubah juga" (lanjutan permintaan 10mm zebra utk riwayat hitung cetakan, riwayat potong kertas, barang, master harga kertas)
+
+Work Log:
+- AKAR MASALAH: 4 halaman yg diminta SEBENARNYA sudah 10mm zebra (RiwayatContent utk /riwayat-hitung-cetakan & /riwayat-potong-kertas, barang-view, MobileTable dense10mm utk master-harga-kertas) — diverifikasi server (CSS dev berisi h-[10mm] & py-[2px]), sesi browser segar (38px + zebra), dan sampel warna screenshot. Owner melihat "belum berubah" karena mengakses riwayat lewat TAB "Riwayat" DI DALAM halaman kalkulator /hitung-cetakan (tab editor|riwayat|gabung) dan /potong-kertas (tab editor|riwayat) — dua tabel ini implementasi terpisah dan belum tersentuh konvensi 10mm.
+- FIX /hitung-cetakan (tab Riwayat, tabel desktop): Table + override [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50; TableRow cn(cursor-pointer h-[10mm], zebra idx ganjil slate-100 dark:zinc-800/60 — DIKECUALIKAN utk baris restore yg tetap emerald-50/60); tombol Hapus h-8→h-6 w-6 p-0, ikon Trash2 h-4→h-3.5; import cn.
+- FIX /potong-kertas (tab Riwayat, tabel desktop): idem; tombol Hapus h-8→h-6 w-6 p-0 (ikon sudah h-3.5); import cn. Tabel editor (simulasi/sisa kertas) & halaman /riwayat (invoice) TIDAK disentuh.
+- LINT 2 file → bersih.
+- E2E desktop 1280 (persona user-admin): /hitung-cetakan tab Riwayat 1 baris 38px=10mm; /potong-kertas tab Riwayat 1 baris 38px=10mm + screenshot visual (baris rapat, tombol Hapus ringkas); mobile 390 kedua tab render kartu normal (tabel hidden). Zebra visual terverifikasi penuh di /barang 8 baris (pola identik byte-level). Data riwayat tersisa 1 baris per sumber sehingga zebra tak terlihat di tab, bukan bug.
+- Verifikasi tambahan: byte-level count h-[10mm]/py-[2px]/zebra = 1 per file tanpa korup artefak ANSI.
+
+Stage Summary:
+- Laporan "belum berubah" terjawab: riwayat kini 10mm zebra konsisten baik lewat halaman khusus maupun tab Riwayat di dalam kalkulator Hitung Cetakan & Potong Kertas; seluruh tabel daftar utama kini memakai satu konvensi baris 10mm + zebra.
