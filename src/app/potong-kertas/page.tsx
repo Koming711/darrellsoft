@@ -29,6 +29,7 @@ import { captureElementAsJpg, fitBlobToA5, HIRES_PIXEL_RATIO } from '@/lib/captu
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { useDataChange } from '@/hooks/use-data-change'
+import { cn } from '@/lib/utils'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 import { CustomerFormDialog } from '@/components/views/customer-form-dialog'
 
@@ -2470,7 +2471,8 @@ function CalculatorPage() {
                   scroll internal (max-h-96) — permintaan owner: scrollbar di dalam
                   kotak tabel dihilangkan, tabel memanjang alami mengikuti isi halaman. */}
               <div className="hidden md:block">
-                <Table>
+                {/* Konvensi tabel 10mm zebra: baris presisi 10mm, ganjil abu-abu, hover seragam */}
+                <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                     <TableHeader className="bg-stone-50">
                       <TableRow className="bg-stone-50 hover:bg-stone-50">
                         <TableHead className="w-10">No.</TableHead>
@@ -2491,7 +2493,11 @@ function CalculatorPage() {
                       {filteredRiwayatList.slice(0, 100).map((r, i) => (
                         <TableRow
                           key={r.id}
-                          className={`cursor-pointer hover:bg-stone-50 ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                          className={cn(
+                            'cursor-pointer h-[10mm]',
+                            i % 2 === 1 && restoredRiwayatId !== r.id && 'bg-slate-100 dark:bg-zinc-800/60',
+                            restoredRiwayatId === r.id && 'bg-emerald-50/60'
+                          )}
                           onClick={() => handlePreviewRiwayat(r)}
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
@@ -2515,7 +2521,7 @@ function CalculatorPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                               onClick={() => handleDeleteRiwayat(r.id)}
                               title="Hapus"
                               aria-label={`Hapus ${r.nomorUrut || 'riwayat'}`}

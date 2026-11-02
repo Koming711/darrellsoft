@@ -36,6 +36,7 @@ import { notifyDataChange } from '@/lib/data-sync'
 import { authFetch } from '@/lib/auth-fetch'
 import { openWhatsApp } from '@/lib/whatsapp-business'
 import { useDataChange } from '@/hooks/use-data-change'
+import { cn } from '@/lib/utils'
 import { calculateCuts } from '@/lib/cutting-engine'
 import { RincianCetakanPreview, parseSimulasiCepat, type SimulasiCepatItem } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
@@ -3471,7 +3472,8 @@ function HitungCetakanPage() {
                 scroll internal (max-h-96) — permintaan owner: scrollbar di dalam
                 kotak tabel dihilangkan, tabel memanjang alami mengikuti isi halaman. */}
             <div className="hidden md:block">
-              <Table>
+              {/* Konvensi tabel 10mm zebra: baris presisi 10mm, ganjil abu-abu, hover seragam */}
+              <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                   <TableHeader className="bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
                       <TableHead className="w-10">No.</TableHead>
@@ -3494,7 +3496,11 @@ function HitungCetakanPage() {
                       return (
                         <TableRow
                           key={r.id}
-                          className={`cursor-pointer hover:bg-stone-50 ${restoredRiwayatId === r.id ? 'bg-emerald-50/60' : ''}`}
+                          className={cn(
+                            'cursor-pointer h-[10mm]',
+                            i % 2 === 1 && restoredRiwayatId !== r.id && 'bg-slate-100 dark:bg-zinc-800/60',
+                            restoredRiwayatId === r.id && 'bg-emerald-50/60'
+                          )}
                           onClick={() => handlePreviewRiwayat(r)}
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
@@ -3520,8 +3526,8 @@ function HitungCetakanPage() {
                           <TableCell className="text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap">Rp {Math.round(r.grandTotal || 0).toLocaleString('id-ID')}</TableCell>
                           <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Hapus" aria-label="Hapus" onClick={() => handleDeleteRiwayat(r.id)}>
-                                <Trash2 className="h-4 w-4" />
+                              <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" title="Hapus" aria-label="Hapus" onClick={() => handleDeleteRiwayat(r.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
