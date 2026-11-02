@@ -16136,3 +16136,18 @@ Work Log:
 
 Stage Summary:
 - Laporan "belum berubah" terjawab: riwayat kini 10mm zebra konsisten baik lewat halaman khusus maupun tab Riwayat di dalam kalkulator Hitung Cetakan & Potong Kertas; seluruh tabel daftar utama kini memakai satu konvensi baris 10mm + zebra.
+
+---
+Task ID: rename-master-harga-kertas-menjadi-master-bahan
+Agent: Z.ai Code (main)
+Task: User: "dihalaman master bahan, tulisan master harga kertas diganti jadi master bahan."
+
+Work Log:
+- KONTEKS: label menu sidebar sudah lama 'Master Bahan' (i18n menu_master_harga_kertas), tapi JUDUL halaman /master-harga-kertas masih 'Master Harga Kertas' (i18n master_harga_kertas — key duplikat di blok id line 41 & 269, keduanya diganti) — itulah tulisan yang dilihat owner saat membuka halaman dari menu.
+- DIGANTI 'Master Harga Kertas' → 'Master Bahan' pada SEMUA teks tampilan (19 file): (1) i18n id+en (master_harga_kertas → 'Master Bahan'/'Material Master' mengikuti label menu masing-masing bahasa; subtitle_daftar_kategori); (2) judul & h1 jendela CETAK tabel di master-harga-kertas; (3) label fitur permission-defaults & server-auth & halaman grup/grup-anggota (id tetap 'master-harga-kertas'); (4) pesan dialog daftar-kategori (tambah kategori & hapus kategori terpakai); (5) toast & hint suplier di hitung-cetakan, potong-kertas, hitung-harga-kertas (Harga … mengikuti Master Bahan · suplier; isi kolom Suplier di Master Bahan); (6) header grup dropdown "Master Bahan" & empty message di items-fields (dokupro); (7) pesan error API potong-kertas/optimize; (8) label tabel master di 6 route database (backup, backup-master, auto-backup, deduplicate, repair-user-data, restore-master) — murni display label, kunci tabel ('paper') tidak berubah sehingga backup/restore lama tetap kompatibel.
+- TIDAK DIUBAH: route /master-harga-kertas, key i18n & id permission, subtitle 'Kelola data harga kertas' (deskripsi fungsi), entri changelog historis, komentar kode.
+- LINT 18 file yang berubah → bersih; 5 error 'Cannot create components during render' di hitung-harga-kertas terbukti PRA-EKSISTING (lint versi HEAD = 5 error sama).
+- E2E desktop 1280 (persona user-admin): /master-harga-kertas judul 'Master Bahan' (screenshot), tidak ada lagi teks 'Master Harga Kertas' di menu/tombol halaman, tabel tetap 11 baris 38px (10mm zebra utuh). Mobile & halaman lain tidak tersentuh (perubahan teks saja).
+
+Stage Summary:
+- Halaman yang dulu berjudul 'Master Harga Kertas' kini konsisten bernama 'Master Bahan' di judul halaman, cetak, menu, hak akses, grup, backup/restore, dan semua pesan/dialog terkait — struktur data, route, dan key tidak berubah sehingga risiko regresi nol.
