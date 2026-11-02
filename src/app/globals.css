@@ -852,3 +852,37 @@ body:has([data-panel-admin]) {
 body:has([data-panel-admin]) .text-\[9px\] { font-size: calc(9px + 1pt); }
 body:has([data-panel-admin]) .text-\[10px\] { font-size: calc(10px + 1pt); }
 body:has([data-panel-admin]) .text-\[11px\] { font-size: calc(11px + 1pt); }
+
+/* =============================================================
+   SPLASH KILL-SWITCH — buka menu langsung, tanpa splash screen
+   =============================================================
+   Splash logo hanya tampil 1x per sesi browser. Script inline di
+   layout.tsx memasang data-splash="off" pada <html> SEBELUM first
+   paint (baca sessionStorage 'ds_splash_shown'). Dua aturan di bawah
+   memastikan load berikutnya langsung menampilkan aplikasi — bahkan
+   bila React lambat/gagal hydrate (dulu: splash menutupi layar dan
+   konten visibility:hidden sehingga menu tidak bisa dibuka). */
+html[data-splash='off'] .ds-splash-overlay {
+  display: none !important;
+}
+html[data-splash='off'] .ds-splash-wrap {
+  visibility: visible !important;
+}
+
+/* FAILSAFE (semua load): bila React gagal hydrate, splash tetap hilang
+   sendiri via CSS — overlay memudar 3,5 dtk, konten dipaksa tampil.
+   Pada load normal React sudah menyembunyikan splash di 1,5 dtk, jadi
+   failsafe ini tidak pernah terlihat. */
+@keyframes ds-splash-failsafe {
+  from { opacity: 1; visibility: visible; }
+  to { opacity: 0; visibility: hidden; }
+}
+.ds-splash-overlay {
+  animation: ds-splash-failsafe 0.4s ease 3.5s forwards;
+}
+@keyframes ds-content-failsafe {
+  to { visibility: visible; }
+}
+.ds-splash-wrap {
+  animation: ds-content-failsafe 0s linear 3.5s forwards;
+}

@@ -6,12 +6,24 @@ import { usePathname } from 'next/navigation'
 /** Rute tanpa splash screen — halaman pendaftaran (alur OTP) tidak memakai splash. */
 const SPLASH_EXCLUDED_ROUTES = ['/daftar']
 
+/** Key sessionStorage — penanda splash sudah tampil di sesi browser ini. */
+const SPLASH_SESSION_KEY = 'ds_splash_shown'
+
 /**
- * Splash logo DarrellSoft — TAMPIL DI SETIAP REFRESH / pembukaan aplikasi.
- * Sebelumnya hanya 1x per sesi (sessionStorage) — sekarang selalu tampil agar
- * setiap refresh memberi pengalaman loading berlogo www.darrellsoft.com
- * (menggantikan kesan "halaman verifikasi" yang pernah muncul saat Vercel
- * mengaktifkan security challenge sementara).
+ * Splash logo DarrellSoft — hanya tampil SATU KALI per sesi browser
+ * (pembukaan aplikasi pertama kali). Setelah itu SEMUA pembukaan menu,
+ * refresh, maupun hard-navigation membuka aplikasi LANGSUNG tanpa splash.
+ *
+ * Cara kerja:
+ * 1. Saat splash pertama mulai tampil, sessionStorage 'ds_splash_shown' langsung
+ *    diisi. Bila pengguna berpindah halaman sebelum splash selesai, load
+ *    berikutnya tetap langsung terbuka.
+ * 2. Script inline di layout.tsx membaca key itu SEBELUM first paint dan
+ *    memasang atribut data-splash="off" pada <html>.
+ * 3. CSS di globals.css memakai atribut tersebut untuk menyembunyikan overlay
+ *    splash & memaksa konten terlihat — bahkan bila React lambat/gagal
+ *    hydrate. Mencegah "menu tidak bisa dibuka, selalu muncul splash".
+ *
  * Halaman pendaftaran (/daftar) TANPA splash sesuai permintaan.
  */
 export function SplashScreen({ children }: { children: React.ReactNode }) {
@@ -24,8 +36,15 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (skipSplash) return
 
-    // Selalu tampil di setiap load halaman penuh (refresh), durasi singkat
-    // supaya tidak mengganggu penggunaan rutin.
+    // Tandai sesi ini sudah melihat splash — SEKARANG (bukan setelah timer),
+    // agar navigasi apapun sesudahnya langsung terbuka tanpa splash.
+    try {
+      sessionStorage.setItem(SPLASH_SESSION_KEY, '1')
+    } catch {
+      /* storage penuh / private mode — splash berperilaku seperti dulu */
+    }
+
+    // Durasi singkat supaya pembukaan aplikasi tetap berlogo namun tidak mengganggu.
     const timer = setTimeout(() => {
       setShowSplash(false)
     }, 1500)
@@ -40,13 +59,16 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
     <>
       {/* Always render children so data fetching starts immediately,
           even while splash overlay is visible */}
-      <div style={{ visibility: showSplash ? 'hidden' : 'visible' }}>
+      <div className="ds-splash-wrap" style={{ visibility: showSplash ? 'hidden' : 'visible' }}>
         {children}
       </div>
 
       {/* Splash overlay on top - does NOT block children from mounting */}
       {showSplash && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: '#074290' }}>
+        <div
+          className="ds-splash-overlay fixed inset-0 z-[9999] flex items-center justify-center"
+          style={{ background: '#074290' }}
+        >
           <div className="flex flex-col items-center animate-splash">
             <img
               src="/logo-ds.png"

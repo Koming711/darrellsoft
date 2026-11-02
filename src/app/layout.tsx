@@ -68,6 +68,17 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* SPLASH KILL-SWITCH (pre-paint, pre-hydration):
+            Splash logo hanya tampil SATU KALI per sesi browser. Setelah itu
+            semua pembukaan menu / refresh / hard-nav membuka aplikasi LANGSUNG
+            tanpa splash — CSS di globals.css memakai atribut ini untuk
+            menyembunyikan overlay & memaksa konten tampil bahkan sebelum
+            React selesai hydrate. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem("ds_splash_shown")){document.documentElement.setAttribute("data-splash","off")}}catch(e){}`,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} font-sans antialiased bg-background text-foreground`}
