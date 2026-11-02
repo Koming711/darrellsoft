@@ -8,6 +8,7 @@ import {
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import { onDataChange } from '@/lib/data-sync'
+import { cn } from '@/lib/utils'
 import type { Customer, SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -194,7 +195,9 @@ export default function CustomersView({
           <EmptyState filtered={query !== ''} />
         ) : (
           <div className="max-h-96 overflow-y-auto scrollbar-thin">
-            <Table>
+            {/* Tinggi baris presisi 10mm + zebra (baris ganjil abu slate-100, hover seragam
+                lebih gelap) — konvensi sama dgn tabel /barang & /harga-customer */}
+            <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
               <TableHeader className="sticky top-0 z-10 bg-stone-50">
                 <TableRow className="bg-stone-50 hover:bg-stone-50">
                   <TableHead>Kode</TableHead>
@@ -207,7 +210,7 @@ export default function CustomersView({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((c) => (
+                {customers.map((c, idx) => (
                   <TableRow
                     key={c.id}
                     tabIndex={0}
@@ -223,7 +226,10 @@ export default function CustomersView({
                     }}
                     aria-label={`Lihat daftar invoice ${c.name}`}
                     title="Klik baris untuk melihat daftar invoice pelanggan ini"
-                    className="cursor-pointer"
+                    className={cn(
+                      'cursor-pointer h-[10mm]',
+                      idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                    )}
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-nowrap">{c.code}</TableCell>
                     <TableCell className="font-medium">{c.name}</TableCell>
@@ -241,37 +247,37 @@ export default function CustomersView({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9"
+                          className="h-6 w-6 p-0"
                           disabled={!canEdit}
                           onClick={() => openEdit(c)}
                           aria-label={`Edit ${c.name}`}
                           title="Edit"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                         </Button>
                         {(c.invoiceCount ?? 0) > 0 && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-9 w-9"
+                            className="h-6 w-6 p-0"
                             disabled={!canEdit}
                             onClick={() => void handleToggleActive(c)}
                             aria-label={c.isActive ? `Nonaktifkan ${c.name}` : `Aktifkan ${c.name}`}
                             title={c.isActive ? 'Nonaktifkan' : 'Aktifkan'}
                           >
-                            {c.isActive ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
+                            {c.isActive ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 text-destructive hover:text-destructive"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                           disabled={!canDelete}
                           onClick={() => setDeleteTarget(c)}
                           aria-label={`Hapus ${c.name}`}
                           title="Hapus"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
