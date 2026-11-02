@@ -897,9 +897,9 @@ function DataBahanTab({
         <EmptyState text={canAdd ? 'Belum ada bahan — klik "Tambah Bahan" untuk mulai.' : 'Belum ada bahan.'} />
       ) : (
         <>
-          {/* Desktop */}
+          {/* Desktop — tinggi baris presisi 10mm + zebra (baris ganjil abu slate-100) — konvensi tabel /barang */}
           <div className="hidden max-h-[560px] overflow-y-auto rounded-lg border md:block">
-            <Table>
+            <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
               <TableHeader className="sticky top-0 bg-background">
                 <TableRow>
                   <TableHead>Kode</TableHead>
@@ -913,23 +913,29 @@ function DataBahanTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((b) => (
-                  <TableRow key={b.id}>
+                {filtered.map((b, idx) => (
+                  <TableRow
+                    key={b.id}
+                    className={cn(
+                      'h-[10mm]',
+                      idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                    )}
+                  >
                     <TableCell className="whitespace-nowrap font-mono text-xs">{b.kode}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{b.nama}</div>
+                      <div className="font-medium leading-4">{b.nama}</div>
                       {(b.pemasok || b.keterangan) && (
-                        <div className="max-w-56 truncate text-xs text-muted-foreground">
+                        <div className="max-w-56 truncate text-xs leading-3.5 text-muted-foreground">
                           {[b.pemasok, b.keterangan].filter(Boolean).join(' · ')}
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">{b.kategori || '—'}</TableCell>
                     <TableCell className="whitespace-nowrap text-right">
-                      <span className={cn('font-semibold', b.stok <= 0 ? 'text-red-600' : b.stokMin > 0 && b.stok <= b.stokMin ? 'text-amber-600' : '')}>
+                      <span className={cn('font-semibold leading-4', b.stok <= 0 ? 'text-red-600' : b.stokMin > 0 && b.stok <= b.stokMin ? 'text-amber-600' : '')}>
                         {fmtNum(b.stok)} {b.satuan}
                       </span>
-                      {b.stokMin > 0 && <div className="text-[11px] text-muted-foreground">min {fmtNum(b.stokMin)}</div>}
+                      {b.stokMin > 0 && <div className="text-[11px] leading-3 text-muted-foreground">min {fmtNum(b.stokMin)}</div>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right text-sm">{formatIDR(b.hargaSatuan)}</TableCell>
                     <TableCell className="text-sm">{b.lokasi || '—'}</TableCell>

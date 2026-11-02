@@ -8,6 +8,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggal, formatTanggalShort } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
+import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import {
   History,
@@ -473,7 +474,8 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
             {/* Desktop table */}
             <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
               <div className="max-h-96 overflow-y-auto scrollbar-thin">
-                <Table>
+                {/* Tinggi baris presisi 10mm + zebra (baris ganjil abu slate-100) — konvensi tabel /barang */}
+                <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                   <TableHeader className="sticky top-0 z-10 bg-stone-50">
                     <TableRow className="bg-stone-50 hover:bg-stone-50">
                       <TableHead className="w-10">No.</TableHead>
@@ -493,7 +495,10 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                         <TableRow
                           key={entry.id}
                           onClick={() => onOpenDetail(entry.id)}
-                          className="cursor-pointer"
+                          className={cn(
+                            'cursor-pointer h-[10mm]',
+                            i % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                          )}
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                           <TableCell className="whitespace-nowrap"><span className="font-mono text-xs">{entry.nomor || '-'}</span></TableCell>
@@ -511,11 +516,11 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
                                   <PackageCheck className="h-3 w-3" /> Diterima
                                 </span>
                               ) : (
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => void handleReceive(entry.id, entry.nomor)} disabled={receivingId === entry.id} aria-label={`Terima barang ${entry.nomor}`} title="Terima barang — stok bahan otomatis bertambah">
-                                  {receivingId === entry.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => void handleReceive(entry.id, entry.nomor)} disabled={receivingId === entry.id} aria-label={`Terima barang ${entry.nomor}`} title="Terima barang — stok bahan otomatis bertambah">
+                                  {receivingId === entry.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PackageCheck className="h-3.5 w-3.5" />}
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteConfirmId(entry.id)} aria-label={`Hapus ${entry.nomor}`} title="Hapus"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           </TableCell>
                         </TableRow>

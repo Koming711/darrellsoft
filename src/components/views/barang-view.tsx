@@ -7,7 +7,7 @@
  * Adaptasi ke aplikasi Darrellsoft (data tetap SATU sumber: tabel Barang via
  * /api/items — tanpa master baru, sesuai aturan spec):
  * - Sumber data : GET /api/items?active=all → dipetakan ke bentuk Product
- *                 (qty→stock, hpp→costPrice, jual→sellPrice, customers[]→customerPrices).
+ *                 (code→kode, qty→stock, hpp→costPrice, jual→sellPrice, customers[]→customerPrices).
  * - Mutasi      : POST/PUT/DELETE /api/items (kode ITM-xxx otomatis dr server).
  * - Toast       : sonner (standar aplikasi ini) menggantikan @/hooks/use-toast.
  * - TanStack Query dipertahankan; QueryClientProvider dipasang lokal di /barang.
@@ -19,6 +19,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
 import { notifyDataChange } from '@/lib/data-sync'
@@ -71,33 +72,40 @@ const api = {
 // ===== Bentuk Product (dr file sumber) + pemetaan dr Item (/api/items) =====
 interface Product {
   id: string
+  /** Kode barang (ITM-xxx, otomatis dr server) — ditampilkan di kolom Kode */
+  kode: string
   name: string
   unit: string
   stock: number
   costPrice: number
   sellPrice: number
+  keterangan: string
   /** Dipakai sbg jumlah harga khusus (badge) — di aplikasi ini = customers[] */
   customerPrices: { id: string }[]
 }
 
 interface ItemResponse {
   id: string
+  code?: string
   name: string
   unit: string
   qty: number
   hpp: number
   standardPrice: number
+  keterangan?: string
   customers?: { id: string }[]
 }
 
 function toProduct(it: ItemResponse): Product {
   return {
     id: it.id,
+    kode: it.code ?? '',
     name: it.name,
     unit: it.unit || 'pcs',
     stock: it.qty ?? 0,
     costPrice: it.hpp ?? 0,
     sellPrice: it.standardPrice ?? 0,
+    keterangan: it.keterangan ?? '',
     customerPrices: (it.customers ?? []).map((c) => ({ id: c.id })),
   }
 }
@@ -114,9 +122,17 @@ interface ProductFormState {
   costPrice: string
   sellPrice: string
   stock: string
+  keterangan: string
 }
 
-const EMPTY_FORM: ProductFormState = { name: '', unit: '', costPrice: '', sellPrice: '', stock: '' }
+const EMPTY_FORM: ProductFormState = {
+  name: '',
+  unit: '',
+  costPrice: '',
+  sellPrice: '',
+  stock: '',
+  keterangan: '',
+}
 
 const fmtPct = (n: number) =>
   new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(n)
@@ -154,7 +170,11 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     const q = search.trim().toLowerCase()
     if (!q) return products
     return products.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.unit.toLowerCase().includes(q)
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.kode.toLowerCase().includes(q) ||
+        p.unit.toLowerCase().includes(q) ||
+        p.keterangan.toLowerCase().includes(q)
     )
   }, [products, search])
 
@@ -179,6 +199,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         standardPrice: Number(payload.data.sellPrice),
         hpp: Number(payload.data.costPrice),
         qty: Number(payload.data.stock || 0),
+        keterangan: payload.data.keterangan.trim(),
       }
       return payload.id
         ? api.put<ItemResponse>(`/api/items/${payload.id}`, body)
@@ -226,6 +247,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
       costPrice: String(p.costPrice ?? ''),
       sellPrice: String(p.sellPrice ?? ''),
       stock: String(p.stock ?? ''),
+      keterangan: p.keterangan ?? '',
     })
     setFormError('')
     setDialogOpen(true)
@@ -250,7 +272,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
       return
     }
     if (!Number.isFinite(stock) || stock < 0) {
-      setFormError('Stok tidak valid (minimal 0)')
+      setFormError('Qty tidak valid (minimal 0)')
       return
     }
     setFormError('')
@@ -274,12 +296,20 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
             className="pl-9"
           />
         </div>
-        {canAdd && (
-          <Button onClick={openAdd} className="shrink-0">
-            <Plus aria-hidden />
-            Tambah Barang
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Backup & Restore data barang + harga per pelanggan (.xlsx) */}
+          {canEdit && (
+            <BackupRestoreButtons
+              onRestored={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
+            />
+          )}
+          {canAdd && (
+            <Button onClick={openAdd} className="shrink-0">
+              <Plus aria-hidden />
+              Tambah Barang
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Konten */}
@@ -305,26 +335,39 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         </div>
       ) : (
         <>
-          {/* Tabel (desktop) */}
+          {/* Tabel (desktop) — tinggi baris presisi 10mm + baris zebra
+              (baris ganjil abu slate-100, genap putih; hover seragam lebih gelap) */}
           <div className="hidden overflow-x-auto rounded-md border md:block">
-            <Table>
+            <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
               <TableHeader>
                 <TableRow>
+                  <TableHead>Kode</TableHead>
                   <TableHead>Nama</TableHead>
                   <TableHead>Satuan</TableHead>
-                  <TableHead className="text-right">Stok</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
                   <TableHead className="text-right">Harga Modal</TableHead>
                   <TableHead className="text-right">Harga Jual</TableHead>
                   <TableHead className="text-right">Margin</TableHead>
                   <TableHead className="text-center">Harga Khusus</TableHead>
+                  <TableHead>Keterangan</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p) => {
+                {filtered.map((p, idx) => {
                   const margin = (p.sellPrice ?? 0) - (p.costPrice ?? 0)
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow
+                      key={p.id}
+                      className={cn(
+                        'h-[10mm]',
+                        idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                      )}
+                    >
+                      {/* Kode — konvensi sama dgn items-view: mono kecil redup */}
+                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                        {p.kode || '-'}
+                      </TableCell>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-muted-foreground">{p.unit}</TableCell>
                       <TableCell
@@ -351,27 +394,35 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <div
+                          className="max-w-[200px] truncate text-muted-foreground"
+                          title={p.keterangan || undefined}
+                        >
+                          {p.keterangan || '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           {canEdit && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-11 w-11 p-0"
+                              className="h-6 w-6 p-0"
                               aria-label={`Edit barang ${p.name}`}
                               onClick={() => openEdit(p)}
                             >
-                              <Pencil className="text-muted-foreground" aria-hidden />
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
                             </Button>
                           )}
                           {canDelete && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-11 w-11 p-0"
+                              className="h-6 w-6 p-0"
                               aria-label={`Hapus barang ${p.name}`}
                               onClick={() => setDeleteTarget(p)}
                             >
-                              <Trash2 className="text-rose-600" aria-hidden />
+                              <Trash2 className="h-3.5 w-3.5 text-rose-600" aria-hidden />
                             </Button>
                           )}
                         </div>
@@ -393,6 +444,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="font-medium leading-snug">{p.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{p.kode || '-'}</p>
                         <p className="text-sm text-muted-foreground">Satuan: {p.unit || '-'}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
@@ -422,7 +474,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                     </div>
                     <div className="flex flex-col gap-1 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Stok</span>
+                        <span className="text-muted-foreground">Qty</span>
                         <span
                           className={cn(
                             'font-semibold tabular-nums',
@@ -456,6 +508,15 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                         <Badge variant={p.customerPrices?.length ? 'secondary' : 'outline'}>
                           {p.customerPrices?.length ?? 0}
                         </Badge>
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="shrink-0 text-muted-foreground">Keterangan</span>
+                        <span
+                          className="min-w-0 truncate text-right"
+                          title={p.keterangan || undefined}
+                        >
+                          {p.keterangan || '-'}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -535,7 +596,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="product-stock">Stok (Qty)</Label>
+              <Label htmlFor="product-stock">Qty (Stok)</Label>
               <Input
                 id="product-stock"
                 type="number"
@@ -549,9 +610,20 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               />
               <p className="text-xs text-muted-foreground">
                 {editing
-                  ? 'Stok saat ini tercantum di kolom Stok — ubah lewat kolom ini bila perlu.'
-                  : 'Stok awal barang; kelola harga & stok di tabel barang.'}
+                  ? 'Qty (stok) saat ini tercantum di kolom Qty — ubah lewat kolom ini bila perlu.'
+                  : 'Qty awal (stok) barang; kelola harga & qty di tabel barang.'}
               </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="product-keterangan">Keterangan</Label>
+              <Input
+                id="product-keterangan"
+                value={form.keterangan}
+                onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
+                placeholder="Keterangan tambahan (opsional)"
+                maxLength={500}
+                autoComplete="off"
+              />
             </div>
             {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}
             <DialogFooter className="flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">

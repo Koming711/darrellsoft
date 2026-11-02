@@ -19,6 +19,7 @@ import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { hasSubPermission } from '@/lib/permissions'
 import { notifyDataChange } from '@/lib/data-sync'
+import { cn } from '@/lib/utils'
 import { useDataChange } from '@/hooks/use-data-change'
 
 interface TokoPemasok {
@@ -353,7 +354,8 @@ export default function MasterTokoPemasokPage() {
             <>
               {/* Desktop Table */}
               <div className="hidden lg:block overflow-auto">
-                <Table>
+                {/* Tinggi baris presisi 10mm + zebra (baris ganjil abu slate-100) — konvensi tabel /barang */}
+                <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[50px] text-center">#</TableHead>
@@ -366,7 +368,13 @@ export default function MasterTokoPemasokPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredData.map((item, idx) => (
-                      <TableRow key={item.id} className="group">
+                      <TableRow
+                        key={item.id}
+                        className={cn(
+                          'group h-[10mm]',
+                          idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                        )}
+                      >
                         <TableCell className="text-center text-slate-400 text-xs">{idx + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2.5">
