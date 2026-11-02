@@ -766,6 +766,57 @@ function CalculatorPage() {
     }
   }
 
+  // ===== KLIK LANGSUNG "Hitung Cetakan Lengkap" (permintaan owner): hitung
+  // potongan otomatis bila hasil belum ada / input berubah (needsRecalc) —
+  // tombol tidak lagi menuntut klik "Hitung Potongan" / "Hitung & Pilih
+  // Terbaik" lebih dulu. Return hasil segar (+ paperId kandidat utk mode
+  // otomatis) atau null bila input belum cukup untuk menghitung.
+  const autoCalcFreshResults = async (): Promise<{ res: CuttingResult; paperId: string } | null> => {
+    const cw = parseFloat(cutWidth)
+    const ch = parseFloat(cutHeight)
+    const qty = parseInt(computedQuantity || quantity) || 0
+    if (cutMode === 'otomatis') {
+      if (!autoBahan || !(parseInt(autoGrammage) > 0) || !(cw > 0) || !(ch > 0) || qty <= 0) return null
+      setOptimizeLoading(true)
+      setOptimizeMessage('')
+      try {
+        const res = await fetcher('/api/potong-kertas/optimize', {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bahan: autoBahan,
+            grammage: parseInt(autoGrammage),
+            cutWidth: cw,
+            cutHeight: ch,
+            quantity: qty,
+            setelanKertas: parseInt(setelanKertas) || 0,
+            suplier: namaSuplier || '',
+            optimizationMode,
+            customerName: selectedCustomer?.name || '',
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok || !data?.ok || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+          setOptimizeMessage(data?.message || '')
+          return null
+        }
+        const list: CandidateResult[] = data.candidates
+        setCandidates(list)
+        applyCandidate(list[0], 0) // isi form kertas + results + needsRecalc=false
+        return { res: list[0].result, paperId: list[0].paperId }
+      } catch { return null }
+      finally { setOptimizeLoading(false) }
+    }
+    // Mode manual: hitung lokal dari input form (tanpa mengubah pilihan kertas)
+    const fresh = await recalcForSave()
+    if (!fresh) return null
+    justCalculatedRef.current = true
+    setResults(fresh)
+    localStorage.setItem(STORAGE_RESULTS_KEY(), JSON.stringify(fresh))
+    setNeedsRecalc(false)
+    return { res: fresh, paperId: selectedPaperId && selectedPaperId !== 'custom' ? selectedPaperId : '' }
+  }
+
   // ===== Area sisa aktif: dari hasil optimasi (wasteAreas) atau dihitung geometri dari blok =====
   const activeWasteAreas: WasteArea[] = useMemo(() => {
     if (!results) return []
@@ -903,26 +954,28 @@ function CalculatorPage() {
     input.click()
   }
 
-  const buildPayload = (resOverride?: CuttingResult | null) => {
+  const buildPayload = (resOverride?: CuttingResult | null, paperIdOverride?: string) => {
     // resOverride: hasil hitung SEGAR saat menyimpan dari alur otomatis
-    // (Buka Hitung Cetakan) — state `results` bisa masih lama pada tick yang sama.
+    // (Buka/Hitung Cetakan Lengkap dgn auto-hitung) — state `results` bisa masih
+    // lama pada tick yang sama. Field kertas juga diutamakan dari hasil aktif
+    // karena state pilihan kertas bisa basi saat auto-hitung baru selesai.
     const activeRes = resOverride === undefined ? results : resOverride
     return ({
       namaCustomer: selectedCustomer?.name || '-',
       resultData: activeRes ? JSON.stringify(activeRes) : '',
       namaCetakan: printName || '-',
-      paperName: selectedPaper?.name || restoredPaperName || 'Custom',
-      paperId: selectedPaper?.id || '',
-      grammage: grammage || '0',
-      paperWidth: paperWidth || '0',
-      paperHeight: paperHeight || '0',
-      cutWidth: cutWidth || '0',
-      cutHeight: cutHeight || '0',
+      paperName: activeRes?.paperMaterial || selectedPaper?.name || restoredPaperName || 'Custom',
+      paperId: paperIdOverride || selectedPaper?.id || '',
+      grammage: (activeRes && activeRes.grammage > 0 ? String(activeRes.grammage) : grammage) || '0',
+      paperWidth: (activeRes ? String(activeRes.paperWidth) : paperWidth) || '0',
+      paperHeight: (activeRes ? String(activeRes.paperHeight) : paperHeight) || '0',
+      cutWidth: (activeRes ? String(activeRes.cutWidth) : cutWidth) || '0',
+      cutHeight: (activeRes ? String(activeRes.cutHeight) : cutHeight) || '0',
       quantity: quantity || '0',
       setelanKertas: setelanKertas || '0',
       sheetsNeeded: activeRes?.sheetsNeeded?.toString() || '0',
       totalPrice: activeRes?.totalPrice || 0,
-      pricePerSheet: parseFloat(pricePerSheet) || 0,
+      pricePerSheet: (activeRes && activeRes.pricePerSheet > 0 ? Math.round(activeRes.pricePerSheet) : parseFloat(pricePerSheet)) || 0,
       efficiency: activeRes?.efficiency || 0,
       strategy: activeRes?.strategy || '',
       jumlahPesanan: jumlahPesanan || '',
@@ -2027,11 +2080,32 @@ function CalculatorPage() {
                 router.push(`/hitung-cetakan?loadRiwayat=${pkHcLink.hcId}&fromPotongKertas=1`)
                 return
               }
-              if (!results) {
-                toast.error('Hitung potongan terlebih dahulu!')
+              if (preparingHc) return
+              // === KLIK LANGSUNG (permintaan owner): bila hasil potongan belum ada
+              // / input berubah (needsRecalc), hitung OTOMATIS dulu di sini — tombol
+              // tidak lagi menuntut klik "Hitung Potongan"/"Hitung & Pilih Terbaik"
+              // terlebih dahulu. Bila input belum cukup utk menghitung, tetap
+              // lanjut membawa data form yang ada (tanpa angka hasil potongan).
+              const needAutoCalc = !results || needsRecalc
+              let freshCalc: { res: CuttingResult; paperId: string } | null = null
+              if (needAutoCalc) {
+                setPreparingHc(true)
+                freshCalc = await autoCalcFreshResults()
+                setPreparingHc(false)
+                if (freshCalc) toast.success('Potongan dihitung otomatis')
+              }
+              // Hasil aktif: dari auto-hitung barusan; bila hasil lama basi
+              // (needsRecalc) dan hitung ulang gagal → pakai data form mentah saja,
+              // jangan membawa angka basi.
+              const activeRes: CuttingResult | null = freshCalc?.res ?? (needsRecalc ? null : results)
+              // Form kosong total & tak ada yang bisa dihitung → jangan pindah halaman
+              const hasAnyData = !!printName || !!selectedCustomerId || !!jumlahPesanan ||
+                !!(parseFloat(cutWidth) > 0) || !!(parseFloat(cutHeight) > 0) ||
+                !!(parseInt(computedQuantity || quantity) > 0)
+              if (!activeRes && !hasAnyData) {
+                toast.error('Isi data potongan terlebih dahulu!')
                 return
               }
-              if (preparingHc) return
               // Navigasi langsung ke hitung cetakan
               const params = new URLSearchParams()
               if (selectedCustomer?.name) params.set('customerName', selectedCustomer.name)
@@ -2044,16 +2118,38 @@ function CalculatorPage() {
               if (jumlahPesanan) params.set('jumlahPesanan', jumlahPesanan)
               if (berapaMata) params.set('berapaMata', berapaMata)
               if (setelanKertas) params.set('setelanKertas', setelanKertas)
-              if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
-              if (selectedPaper?.name) params.set('paperName', selectedPaper.name)
-              if (grammage) params.set('grammage', grammage)
-              if (pricePerSheet) params.set('pricePerSheet', pricePerSheet)
-              if (cutWidth) params.set('cutWidth', cutWidth)
-              if (cutHeight) params.set('cutHeight', cutHeight)
-              if (results?.totalPrice) params.set('totalPaperPrice', results.totalPrice.toString())
-              if (results?.sheetsNeeded) params.set('sheetsNeeded', results.sheetsNeeded.toString())
-              if (results?.totalPieces) params.set('totalPieces', results.totalPieces.toString())
-              if (results?.efficiency) params.set('efficiency', results.efficiency.toString())
+              // === Ukuran kertas/potongan & angka hasil: utamakan dari hasil hitung
+              // aktif (lama atau hasil auto-hitung barusan) — state form di closure
+              // bisa basi saat auto-hitung mode otomatis baru selesai (ukuran kertas
+              // diisi dari kandidat Master Kertas).
+              if (activeRes) {
+                params.set('paperLength', String(activeRes.paperWidth))
+                params.set('paperWidth', String(activeRes.paperHeight))
+                params.set('cutWidth', String(activeRes.cutWidth))
+                params.set('cutHeight', String(activeRes.cutHeight))
+                const activePaperId = freshCalc?.paperId || (selectedPaperId && selectedPaperId !== 'custom' ? selectedPaperId : '')
+                if (activePaperId) params.set('paperId', activePaperId)
+                const activePaperName = activeRes.paperMaterial || selectedPaper?.name || restoredPaperName || ''
+                if (activePaperName) params.set('paperName', activePaperName)
+                const activeGrammage = activeRes.grammage > 0 ? String(activeRes.grammage) : (grammage || '')
+                if (activeGrammage) params.set('grammage', activeGrammage)
+                const activePrice = activeRes.pricePerSheet > 0 ? String(Math.round(activeRes.pricePerSheet)) : (pricePerSheet || '')
+                if (activePrice) params.set('pricePerSheet', activePrice)
+                if (activeRes.totalPrice) params.set('totalPaperPrice', activeRes.totalPrice.toString())
+                if (activeRes.sheetsNeeded) params.set('sheetsNeeded', activeRes.sheetsNeeded.toString())
+                if (activeRes.totalPieces) params.set('totalPieces', activeRes.totalPieces.toString())
+                if (activeRes.efficiency) params.set('efficiency', activeRes.efficiency.toString())
+              } else {
+                // Tidak ada hasil hitung → bawa data form mentah apa adanya
+                if (paperWidth) params.set('paperLength', paperWidth)
+                if (paperHeight) params.set('paperWidth', paperHeight)
+                if (cutWidth) params.set('cutWidth', cutWidth)
+                if (cutHeight) params.set('cutHeight', cutHeight)
+                if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
+                if (selectedPaper?.name) params.set('paperName', selectedPaper.name)
+                if (grammage) params.set('grammage', grammage)
+                if (pricePerSheet) params.set('pricePerSheet', pricePerSheet)
+              }
               params.set('fromPotongKertas', '1')
               params.set('reset', '1')
 
@@ -2065,7 +2161,7 @@ function CalculatorPage() {
               // c) data baru → simpan riwayatnya DULU (tunggu sebentar) supaya id-nya jelas;
               //    bila gagal simpan, tetap lanjut tanpa link (tidak memblokir pekerjaan).
               let pkIdToLink: string | null = restoredRiwayatId
-              if (!pkIdToLink) {
+              if (!pkIdToLink && activeRes) {
                 const same = findSameRiwayat()
                 if (same) pkIdToLink = same.id
               }
@@ -2085,13 +2181,16 @@ function CalculatorPage() {
                   }
                 } catch {}
               }
-              if (!pkIdToLink && !isDataSameAsAnyRiwayat()) {
+              // Auto-simpan riwayat hanya bila ada hasil hitung (riwayat tanpa
+              // hasil = data tidak lengkap); kirim hasil segar agar payload
+              // konsisten — state `results` bisa basi saat auto-hitung baru jalan.
+              if (activeRes && !pkIdToLink && !isDataSameAsAnyRiwayat()) {
                 setPreparingHc(true)
                 try {
                   const res = await fetcher('/api/riwayat-potong-kertas', {
                     method: 'POST',
                     headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify(buildPayload())
+                    body: JSON.stringify(buildPayload(activeRes, freshCalc?.paperId))
                   })
                   if (res.ok) {
                     const saved = await res.json().catch(() => null)
@@ -2112,13 +2211,14 @@ function CalculatorPage() {
               // via sessionStorage — data ini berasal dari riwayat Potong Kertas yang
               // ter-link (pkRiwayatId), bukan dikarang. Data URL terlalu besar utk query.
               try {
-                const activeRes = results
                 if (activeRes) {
-                  const wasteAreas = activeWasteAreas
+                  const wasteAreas: WasteArea[] = (Array.isArray(activeRes.wasteAreas) && activeRes.wasteAreas.length > 0)
+                    ? activeRes.wasteAreas
+                    : (() => { try { return computeWasteAreas(activeRes.paperWidth, activeRes.paperHeight, activeRes.blocks || [], activeRes.cutWidth, activeRes.cutHeight) } catch { return [] as WasteArea[] } })()
                   sessionStorage.setItem('pk-to-hc-cutInfo', JSON.stringify({
                     nomorPotong: pkIdToLink ? (riwayatList.find(x => x.id === pkIdToLink)?.nomorUrut || nextPotongKertasNumber || '') : (nextPotongKertasNumber || ''),
-                    bahan: selectedPaper?.name || restoredPaperName || 'Custom',
-                    grammage: grammage || '0',
+                    bahan: activeRes.paperMaterial || selectedPaper?.name || restoredPaperName || 'Custom',
+                    grammage: activeRes.grammage > 0 ? String(activeRes.grammage) : (grammage || '0'),
                     ukuranKertas: `${activeRes.paperWidth} × ${activeRes.paperHeight} cm`,
                     ukuranPotongan: `${activeRes.cutWidth} × ${activeRes.cutHeight} cm`,
                     potonganPerLembar: activeRes.totalPieces,
@@ -2141,7 +2241,7 @@ function CalculatorPage() {
               if (pkIdToLink) resetFormFields()
               router.push(`/hitung-cetakan?${params.toString()}`)
             }}
-            disabled={!results || preparingHc || (!pkHcLink?.hcId && needsRecalc)}
+            disabled={preparingHc}
             style={{
               background: ((results && !needsRecalc) || pkHcLink?.hcId) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}

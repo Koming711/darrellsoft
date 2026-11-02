@@ -931,6 +931,10 @@ function HitungCetakanPage() {
     window.history.replaceState({}, '', '/hitung-cetakan')
     if (pkRiwayatId) {
       toast('Form Hitung Cetakan direset otomatis — hanya data Potong Kertas yang terisi.')
+    } else if (fromPotong === '1') {
+      // Data dibawa langsung dari Potong Kertas tanpa riwayat (input belum cukup
+      // dihitung) → jangan klaim "di-restore dari riwayat".
+      toast.success('Data Potong Kertas diterapkan ke form Hitung Cetakan.')
     } else {
       toast.success('Data berhasil di-restore dari riwayat!')
     }
