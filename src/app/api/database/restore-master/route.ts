@@ -138,26 +138,44 @@ export async function POST(req: NextRequest) {
     const tableConfig = MASTER_TABLES[table]
     const restoreMode = 'replace'
 
+    // HARDENING (insiden wipe 2x di endpoint restore lain — 1 & 2 Nov 2026):
+    // 1) File backup KOSONG ditolak — tidak ada yang bisa dipulihkan, jangan
+    //    hapus data lama hanya untuk menggantinya dengan 0 baris.
+    if (backupData.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'File backup kosong — tidak ada baris untuk dipulihkan. Data lama TIDAK diubah — ' +
+            'periksa file backup / unduh backup baru lalu coba lagi.',
+        },
+        { status: 400 }
+      )
+    }
+
+    // 2) Cast baris SEBELUM menyentuh database — file salah kolom/tipe
+    //    dibatalkan di sini tanpa menghapus apa pun.
+    const castedData = backupData.map((r: any) => {
+      const casted = castRowBySchema(r, tableConfig.modelName)
+      // Ensure userId belongs to current user
+      casted.userId = user.id
+      // Apply extra defaults (like docType: 'invoice')
+      if (tableConfig.extraDefaults) {
+        Object.assign(casted, tableConfig.extraDefaults)
+      }
+      return casted
+    })
+
     // Build the delete filter: userId + any extra filters (like docType)
     const deleteFilter: Record<string, any> = { userId: user.id, ...tableConfig.extraFilter }
 
-    // Only delete the current user's records (not all users')
-    await tableConfig.model.deleteMany({ where: deleteFilter })
-
-    if (backupData.length > 0) {
-      const castedData = backupData.map((r: any) => {
-        const casted = castRowBySchema(r, tableConfig.modelName)
-        // Ensure userId belongs to current user
-        casted.userId = user.id
-        // Apply extra defaults (like docType: 'invoice')
-        if (tableConfig.extraDefaults) {
-          Object.assign(casted, tableConfig.extraDefaults)
-        }
-        return casted
-      })
-
+    // 3) delete + create ATOMIK (satu transaksi): bila create gagal (mis. data
+    //    bentrok constraint), delete ikut di-rollback — data lama tetap utuh.
+    await db.$transaction(async (tx) => {
+      // Only delete the current user's records (not all users')
+      await tableConfig.model.deleteMany({ where: deleteFilter })
       await tableConfig.model.createMany({ data: castedData })
-    }
+    })
 
     return NextResponse.json({
       success: true,

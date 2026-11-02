@@ -88,7 +88,20 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(buffer)
+    try {
+      await workbook.xlsx.load(buffer)
+    } catch {
+      // Bukan zip/xlsx (file lain / rusak) → 400 ramah, bukan 500 teknis
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'File tidak dapat dibaca — pastikan mengunggah file .xlsx hasil backup ' +
+            '(tombol Backup) dan tidak rusak. Data lama TIDAK diubah.',
+        },
+        { status: 400 }
+      )
+    }
 
     const barangRaw = readSheet(workbook, 'Data')
     if (barangRaw.length === 0) {
