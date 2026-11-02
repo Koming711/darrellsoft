@@ -16168,3 +16168,19 @@ Work Log:
 
 Stage Summary:
 - Menu apa pun kini langsung terbuka tanpa splash screen: splash logo hanya muncul sekali di awal sesi sebagai pembuka aplikasi, semua load berikutnya dibebaskan via kill-switch CSS pre-paint, plus failsafe yang menjamin aplikasi tetap tampil (dan menu bisa dibuka) meski React gagal hydrate — akar "buka semua menu tidak bisa, selalu muncul splash" teratasi di semua jalur (client-nav, refresh, hard-nav).
+
+---
+Task ID: restore-barang-wipe3-workspace11
+Agent: Z.ai Code (main)
+Task: User: "extract file ini. betulkan yang rusak dengan file ini" + 5 part workspace-...(11).tar.001-.005 — ekstrak backup workspace & pulihkan data yang hilang.
+
+Work Log:
+- 5 part split tar digabung berurutan (cat .001-.005) → satu stream tar.gz utuh (exit 0, tanpa error) → diekstrak ke restore-staging (241MB, termasuk .git, src, db).
+- Arsip = snapshot workspace 1 Nov 2026 07:21 (HEAD e4d03d4 "worklog: catat hapus kolom Berlaku harga customer"). Verifikasi git: merge-base dgn main = 2840bde; arsip hanya +1 worklog commit yang isinya ternyata SUDAH ada di worklog.md saat ini (identik, baris 15911) — kode main jauh lebih baru (10mm zebra, Master Bahan, splash fix) → tidak ada kode yang perlu dipulihkan.
+- Perbandingan DB menyeluruh (semua tabel, by id): SATU-SATUNYA data di arsip yang hilang dr DB saat ini = 1 baris Barang: cmvjo87n90008u65f90np4bo2 "tes" (ITM-008, pcs, qty 5000, modal 1000, jual 1200) — pola wipe ke-3. Tabel lain identik (RiwayatCetakan/PotongKertas +1 di DB saat ini = aktivitas normal yg lebih baru).
+- Snapshot pra-restore db/custom.db.pre-restore-20261102-152119 → insert 1 baris tsb (semua 13 kolom, nilai persis dr arsip) → total Barang kembali 9.
+- E2E (agent-browser, persona user-admin, desktop 1280): /barang render 9 baris; ITM-008 tes muncul dgn nilai lengkap (5.000 pcs, Rp 1.000, Rp 1.200, margin Rp 200); dev.log bersih tanpa error; page 200.
+- restore-staging dibersihkan setelah verifikasi; file upload arsip tetap di /upload.
+
+Stage Summary:
+- Data yang rusak (1 barang hilang — wipe ke-3) dipulihkan dari backup workspace (11) milik user: Barang "tes" ITM-008 kembali muncul di /barang dgn data persis sblm hilang. Tidak ada kode yang diubah; DB saat ini yang lebih baru (riwayat 2 Nov) tetap utuh.
