@@ -15921,3 +15921,170 @@ Work Log:
 
 Stage Summary:
 - Kolom "Berlaku" dihapus dr daftar Harga Customer (desktop & mobile) sesuai permintaan; periode berlaku tetap berfungsi (data validFrom/validUntil utuh, diatur lewat dialog Edit, tetap dipakai auto-apply harga di invoice).
+
+---
+Task ID: jarak-baris-8mm-halaman-barang
+Agent: Z.ai Code (main)
+Task: User: "dihalaman barang. rubah jarak baris jadi 8mm" — tinggi baris tabel /barang jadi 8mm.
+
+Work Log:
+- TABEL DESKTOP /barang (barang-view.tsx): TableRow body diberi h-[8mm] (30,24px, satuan mm literal sesuai permintaan); padding sel Table → [&_td]:py-[2px]; tombol aksi Edit/Hapus h-11 w-11 (44px) → h-6 w-6 (24px, icon h-3.5) supaya konten ≤ tinggi baris; baris terakhir dipaksa tetap ber-border ([&_tbody_tr:last-child]:border-b) agar pitch seragam.
+- PRESISI TERVERIFIKASI via agent-browser: pitch antar baris (top→top) 30,23px = 8,00mm seragam utk SEMUA 8 baris (border 1px terpaint dlm pitch; tinggi konten 28px < 30,24px sehingga spec tr yang menentukan). Header tetap h-10.
+- CATATAN PROSES: eksperimen h-[calc(8mm-1px)] + border-collapse → pitch 29,23px (7,73mm, border tidak terhitung dlm rect tr pd model separate) — dikembalikan ke h-[8mm]; sat insidental `sed` sempat merusak string class (terbaca "h-m]") — terverifikasi pulih via Read (file benar; output rg/cat menyesatkan krn race cache) + pengukuran ulang bersih pitch 8,00mm.
+- CATATAN REPO: antar sesi terdapat amend commit worklog (e4d03d4→c7f5ac0) yg menyertakan db/custom.db — berisi penghapusan barang "ITM-008 tes" oleh USER via aplikasi (mtime 07:21/07:52) = aksi normal, bukan wipe; Barang 9→8 sesuai kehendak user, registrasi tetap 5. File dgn perubahan MODE saja (644→755: barang/page.tsx, harga-customer API, dll) + dev.pid sengaja TIDAK di-commit (noise).
+- Kartu mobile tidak diubah (bukan "baris"); smoke test 390px: 8 kartu render + tombol Tambah Barang.
+- LINT 1 file → bersih. Page error 0.
+
+Stage Summary:
+- Tabel barang di /barang kini rapat ala desktop: setiap baris tepat 8mm (terverifikasi terukur), header tetap, kartu HP tak berubah.
+
+---
+Task ID: zebra-tabel-barang
+Agent: Z.ai Code (main)
+Task: User: "dihalaman barang, buat tabel baris model zebra" — baris tabel /barang diberi warna selang-seling (zebra).
+
+Work Log:
+- TABEL DESKTOP /barang (barang-view.tsx): map filtered kini dgn idx; TableRow className jadi cn('h-[8mm]', idx % 2 === 1 && 'bg-slate-50/50 dark:bg-zinc-800/30') — baris ganjil (ke-2,4,6,…) abu tipis, genap putih; konvensi warna sama dgn zebra rekap-penjualan; dark mode didukung (zinc-800/30); hover:bg-muted/50 bawaan TableRow tetap berfungsi sbg feedback hover.
+- Tinggi baris 8mm dr task sebelumnya TIDAK diubah (h-[8mm] dipertahankan dlm cn); kartu mobile tidak disentuh (bukan tabel).
+- LINT 1 file → bersih. dev.log bersih (page error 0).
+- E2E (agent-browser, persona user-admin): desktop 1280 — computed bg tr selang-seling terverifikasi utk 8 baris (r0 transparan → r1 oklab slate-50/50% → r2 transparan → r3 abu …) + screenshot konfirmasi visual; filter pencarian "paperbowl" (3 hasil) → zebra reset mulai baris-1 putih, baris-2 abu; mobile 390 — tabel tersembunyi, 8 kartu render normal.
+- CATATAN PROSES: viewport agent-browser bertahan dr sesi lama (390px) sehingga screenshot desktop pertama sebenarnya mobile; diulang setelah `set viewport 1280 800` — pelajaran: selalu set viewport eksplisit sebelum screenshot.
+
+Stage Summary:
+- Tabel barang di /barang kini bergaya zebra (baris selang-seling putih–abu tipis, ikut dark mode) tanpa mengubah tinggi baris 8mm maupun kartu mobile.
+
+---
+Task ID: backup-restore-barang-hc + zebra-9mm-qty-keterangan
+Agent: Z.ai Code (main)
+Task: User: "tambahkan backup dan restore di halaman barang dan halaman harga customer. dihalaman barang, buat jarak baris jadi 9mm. tampilan zebra belum muncul di baris. kolom stock diganti jadi qty. tambahkan kolom keterangan. check and fix."
+
+Work Log:
+- KOMPONEN BERSAMA BARU src/components/views/backup-restore-buttons.tsx: tombol Backup (unduh .xlsx via GET /api/database/backup-harga-per-customer — blob + Content-Disposition) & Restore (pilih file .xlsx → AlertDialog konfirmasi "DIGANTI" → POST multipart restore-harga-per-customer → toast jumlah (barang, harga khusus, skipped) → onRestored + notifyDataChange('items')). Dipasang di /barang (gate canEdit, invalidasi query products) & /harga-customer (handleRestored → loadRows+loadMaster). Pemakaian endpoint harga-per-customer pada kedua halaman sengaja: keduanya mengelola sumber data sama (Barang + BarangCustomer); backup mencakup barang + registrasi harga sekaligus (restore-master TIDAK cocok utk /barang karena tidak menyertakan registrasi → berisiko hilang harga khusus).
+- ZEBRA DIPERKUAT (keluhan "belum muncul"): warna lama bg-slate-50/50 (oklab 0.984/50%) nyaris tak terbedakan dr putih → diganti bg-slate-100 dark:bg-zinc-800/60; hover seragam dr Table level ([&_tbody_tr:hover]:bg-slate-200/70 dark:zinc-700/50) agar hover selalu lebih gelap dr stripe. Terverifikasi computed: baris genap transparan, ganjil lab(96.29) — jelas terlihat di screenshot.
+- JARAK BARIS 8mm→9mm: TableRow h-[9mm] → terukur 34.0156px = 9,00mm presisi (inspektur getComputedStyle).
+- STOK→QTY: TableHead "Stok"→"Qty", label kartu mobile, label dialog "Stok (Qty)"→"Qty (Stok)", helper text & pesan error form ikut disesuaikan.
+- KOLOM KETERANGAN: Product/ItemResponse + toProduct memetakan keterangan (GET /api/items sudah mengirim; POST/PUT sudah menerima — tidak ada perubahan API items); tabel desktop kolom ke-8 (max-w-[200px] truncate + title tooltip, '-' bila kosong), kartu mobile baris Keterangan, dialog edit field #product-keterangan (maxLength 500), body mutasi menyertakan keterangan, pencarian kini juga menyaring keterangan.
+- CHECK & FIX (hardening lanjutan warisan insiden wipe 2x): (a) restore-master — dulu deleteMany JALAN DULU baru cast/create (file rusak/kosong = wipe) → kini file kosong ditolak 400, cast SEBELUM db, delete+create dibungkus db.$transaction (create gagal → delete di-rollback); (b) restore-harga-per-customer — file bukan-zip/xlsx dulu 500 pesan teknis → kini 400 ramah "File tidak dapat dibaca… Data lama TIDAK diubah."
+- LINT 5 file → bersih. E2E (agent-browser + curl, persona user-admin):
+  - Desktop 1280 /barang: thead = Nama|Satuan|Qty|Harga Modal|Harga Jual|Margin|Harga Khusus|Keterangan|Aksi; 8 baris; zebra selang-seling terverifikasi computed + visual; tinggi baris 34.0156px; tombol Backup/Restore/Tambah tampil; screenshot.
+  - Backup: curl dgn header auth → 200, 11.018 byte, magic PK (xlsx valid).
+  - Restore file sampah (teks): 400 ramah, Barang 8 & BarangCustomer 5 TETAP UTUH (prerilaku lama: delete dulu → wipe).
+  - UI edit keterangan: dialog field ada → isi "Uji Ket E2E" → Simpan → kolom tampil "Uji Ket E2E".
+  - UI restore round-trip: upload backup (diambil SEBELUM edit) → dialog konfirmasi → "Ya, Restore" → toast "Restore berhasil (8 barang, 5 harga khusus)" → 8 baris, keterangan kembali kosong (backup memang praedUK) → DB final 8+5 identik HEAD (file db di-restore dr git agar tree bersih).
+  - /harga-customer desktop & mobile: Backup/Restore/Tambah tampil, 5 harga khusus render; /barang mobile 390: 8 kartu dgn label Qty & Keterangan (tanpa "Stok"), tombol tampil.
+Stage Summary:
+- Halaman Barang & Harga Customer kini punya tombol Backup (unduh .xlsx) & Restore (unggah + konfirmasi) yang memulihkan barang + harga per pelanggan sekaligus; zebra baris tabel barang kini benar-benar terlihat (slate-100), tinggi baris presisi 9mm, kolom Stok berganti Qty, dan kolom Keterangan baru tersedia dr tabel, kartu mobile, sampai dialog edit. Dua endpoint restore lama di-hardening (tolak file kosong/rusak sebelum menghapus + transaksi atomik) — kelanjutan pencegahan insiden wipe.
+
+---
+Task ID: kolom-kode-tabel-barang
+Agent: Z.ai Code (main)
+Task: User: "dihalaman barang, tambahkan di tabel kolom kode yg isinya kode barang."
+
+Work Log:
+- BARANG-VIEW (src/components/views/barang-view.tsx): interface Product diberi field kode (dari ItemResponse.code — GET /api/items sudah mengirim code: it.kode, TIDAK ada perubahan API); toProduct memetakan kode: it.code ?? ''.
+- TABEL DESKTOP: kolom Kode disisip paling kiri sebelum Nama (TableHead + TableCell); styling mengikuti konvensi items-view: font-mono text-xs text-muted-foreground whitespace-nowrap, '-' bila kosong.
+- KARTU MOBILE: kode tampil sebagai baris mono kecil di bawah nama barang.
+- PENCARIAN: filter kini juga mencocokkan kode (p.kode) — cari "ITM-009" langsung menemukan barangnya.
+- LINT 1 file → bersih. dev.log: hanya request 200 normal.
+- E2E (agent-browser, persona user-admin): desktop 1280 — thead = Kode|Nama|Satuan|Qty|Harga Modal|Harga Jual|Margin|Harga Khusus|Keterangan|Aksi; 8 baris; sel pertama ITM-009 dst; tinggi baris 34.0156px (= 9mm, tidak berubah); zebra selang-seling utuh (transparan / lab 96.29); tombol Backup/Restore/Tambah tampil; pencarian "ITM-009" → 1 baris, dikosongkan → kembali 8 baris (diuji via native setter + event input — CATATAN TOOL: `fill ""` agent-browser mengosongkan DOM tanpa memicu event React sehingga state filter tak ikut kosong; BUKAN bug app); screenshot visual OK. Mobile 390 — tabel hidden, 8 kartu dengan kode mono di bawah nama; screenshot OK.
+- CATATAN REPO: db/custom.db ditemukan modified (id barang & barangId registrasi berganti — efek round-trip restore E2E sesi sebelumnya; data logis identik 8 barang + 5 registrasi, tidak ada tabel lain yang mereferensikan id lama) → dikembalikan dari git agar working tree bersih.
+
+Stage Summary:
+- Tabel barang di /barang kini menampilkan kolom Kode (ITM-xxx) di posisi paling kiri — lengkap di desktop, kartu mobile, dan kotak pencarian; tanpa perubahan API maupun skema database.
+
+---
+Task ID: harga-customer-hapus-kode-status-selisih-hpp-margin
+Agent: Z.ai Code (main)
+Task: User: "di halaman harga customer, delete kolom kode. kolom status dipindahin kesebelah kanan nama barang. tambahkan kolom selisih yang isinya selisih harga. tambahkan kolom HPP dan Margin. fix"
+
+Work Log:
+- TABEL DESKTOP /harga-customer (src/app/harga-customer/page.tsx): kolom Kode DIHAPUS; kolom Status (badge toggle Aktif/Nonaktif) dipindah tepat di kanan Nama Barang; TIGA kolom baru setelah Harga Khusus: Selisih = harga khusus − harga standar (bertanda +Rp/−Rp, '-' bila 0; hijau = naik, rose = turun), HPP = hargaPokok (Barang.modal), Margin = harga khusus − HPP (emerald/rose, '-' bila HPP 0/belum diisi). Urutan kini: Customer | Nama Barang | Status | Harga Standar | Harga Khusus | Selisih | HPP | Margin | Satuan | Aksi (10 kolom; colSpan loading/empty 8→10).
+- Sub-teks kecil "Modal X · Margin Y" di bawah Harga Standar DIHAPUS (kini redundan dengan kolom HPP/Margin).
+- KARTU MOBILE: kode dihapus dari subjudul (kini hanya nama barang); grid kini 6 field: Harga Standar, Harga Khusus, Selisih, HPP, Margin, Satuan; baris kecil "Modal · Margin/unit" dihapus (tergantikan field HPP/Margin). Badge status tetap di kanan atas kartu.
+- HELPER baru selisihText() (bertanda, format id-ID). marginOf() lama dipakai ulang (harga − hargaPokok). Tidak ada perubahan API/skema — semua data memang sudah dikirim /api/harga-customer.
+- LINT 1 file → bersih. dev.log: hanya request 200.
+- E2E (agent-browser, persona user-admin): desktop 1280 — thead = Customer|Nama Barang|Status|Harga Standar|Harga Khusus|Selisih|HPP|Margin|Satuan|Aksi, tanpa Kode; 5 baris; matematika terverifikasi: Banner Flexi khusus 23.000 vs standar 26.000 → −Rp 3.000 (rose), margin 23.000−15.000 = Rp 8.000; Radio 300.000 vs 300.000 → '-'; paperbowl 5.000 vs 1.000 → +Rp 4.000 (emerald), margin Rp 4.300 (HPP 700); screenshot visual OK. Mobile 390 (innerWidth terverifikasi 390) — tabel hidden (diverifikasi via wrapper grandparent), 5 kartu dengan field baru, screenshot OK.
+- CATATAN PROSES: pengukuran awal "tableParentDisplay: block" pada mobile = artefak selector (parentElement table-container = div scroll max-h-600 tanpa kelas responsif, bukan wrapper hidden md:block); diverifikasi ulang lewat grandparent + screenshot visual — bukan bug aplikasi.
+
+Stage Summary:
+- Halaman Harga Customer kini tanpa kolom Kode, badge Status tepat di kanan Nama Barang, plus kolom Selisih (harga khusus vs standar, bertanda & berwarna), HPP, dan Margin — konsisten di tabel desktop maupun kartu mobile; matematika terverifikasi E2E; tanpa perubahan API/database.
+
+---
+Task ID: harga-customer-9mm-zebra
+Agent: Z.ai Code (main)
+Task: User: "dihalaman harga customer. rubah jarak baris menjadi 9mm zebra. fix."
+
+Work Log:
+- TABEL DESKTOP /harga-customer (src/app/harga-customer/page.tsx): pola persis tabel /barang — (a) Table className += [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:zinc-700/50 (hover seragam selalu lebih gelap dr stripe); (b) TableRow body: cn('h-[9mm]', idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60') — baris ganjil abu, genap putih; import cn ditambahkan; (c) tombol aksi Edit/Hapus h-8 w-8 (32px, ikon h-4) → h-6 w-6 p-0 + ikon h-3.5 w-3.5 agar muat di baris 34px; (d) sel state loading/empty py-10/py-12 → !py-10/!py-12 (important) supaya padding vertikalnya tidak ditimpa [&_td]:py-[2px] level Table (spesifisitas selector tabel lebih tinggi).
+- Kartu mobile TIDAK diubah (bukan "baris tabel"); header sticky tetap h-10 + bg-muted/95.
+- LINT 1 file → bersih. dev.log: hanya request 200.
+- E2E (agent-browser, persona user-admin): desktop 1280 — 5 baris body TINGGI SERAGAM 34.016px = 9,00mm presisi; zebra computed selang-seling (r0/r2/r4 transparan, r1/r3 lab 96.29 = slate-100); header 40px; screenshot visual OK (stripe jelas terlihat, konten muat). Mobile 390 — innerWidth 390, wrapper tabel display none, 5 kartu tampil normal; screenshot OK. Tidak ada mutasi data (toggle status sengaja tidak diklik).
+
+Stage Summary:
+- Tabel Harga Customer kini rapat & konsisten dgn tabel Barang: setiap baris tepat 9mm + zebra selang-seling (slate-100, dark mode didukung), hover seragam lebih gelap; kartu HP dan header tak berubah.
+
+---
+Task ID: master-pelanggan-10mm-zebra
+Agent: Z.ai Code (main)
+Task: User: "dihalaman master pelanggan, rubah jarak baris menjadi 10mm zebra. fix."
+
+Work Log:
+- TABEL DESKTOP MASTER PELANGGAN (src/components/views/customers-view.tsx, halaman /master-customer "Master Customer — Kelola data pelanggan"): pola persis tabel /barang & /harga-customer — (a) Table className += [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:zinc-700/50 (hover seragam selalu lebih gelap dr stripe); (b) TableRow body: cn('cursor-pointer h-[10mm]', idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60') — baris ganjil abu, genap putih, dark mode didukung; import cn ditambahkan; perilaku klik-baris/keyboard/aria TIDAK berubah; (c) tombol aksi Edit/Nonaktifkan/Hapus h-9 w-9 (36px) → h-6 w-6 p-0 + ikon h-4 → h-3.5 agar muat di baris 10mm (~37,8px; 36px + padding lama = 52px pasti melebihi).
+- Kartu mobile TIDAK diubah (bukan "baris tabel"); header sticky bg-stone-50 tetap.
+- LINT 1 file → bersih. dev.log: hanya request 200.
+- E2E (agent-browser, persona user-admin): desktop 1280 — 6 baris body TINGGI SERAGAM 37,781px = 10mm presisi; zebra computed selang-seling (r0/r2/r4 transparan, r1/r3/r5 lab 96.29 = slate-100); tombol aksi 24px; padding td 2px; screenshot visual OK (stripe jelas terlihat). Mobile 390 — wrapper tabel display:none, kartu tampil normal (tinggi kartu ±194px, ikon & tombol penuh); screenshot OK. Tidak ada mutasi data.
+- CATATAN PROSES: MultiEdit pertama berhenti di 1 edit gagal (indentasi baris PowerOff 28 spasi) namun edit sebelumnya tetap ter-apply (non-atomik) → import cn terduplikasi; dibersihkan + edit sisa dilengkapi, diverifikasi ulang penuh (byte-accurate) sebelum lint.
+
+Stage Summary:
+- Tabel Master Pelanggan kini rapat & konsisten dgn tabel Barang & Harga Customer: setiap baris tepat 10mm + zebra selang-seling (slate-100), hover seragam lebih gelap, tombol aksi ringkas 24px; kartu HP dan perilaku klik baris tak berubah.
+
+---
+Task ID: riwayat-invoice-10mm-zebra
+Agent: Z.ai Code (main)
+Task: User: "dihalaman riwayat invoice, rubah jarak baris menjadi 10mm zebra. fix."
+
+Work Log:
+- TABEL TAB "RIWAYAT INVOICE" (src/app/invoice/page.tsx, halaman /invoice — tab pertama "Riwayat Invoice"; bukan tab Pembayaran/Sampah): pola persis tabel /barang, /harga-customer & /master-customer — (a) Table className += [&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:zinc-700/50; (b) baris INVOICE (parent, map groupedRows dgn idx baru): cn('cursor-pointer h-[10mm]', idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60') — zebra dihitung per GRUP invoice sehingga baris pelunasannya selalu nempel di induknya; (c) baris PELUNASAN (child): += h-[10mm], warna emerald-50/40 (dark emerald-950/20) DIPERTAHANKAN sesuai grup DP/pelunasan yg diminta owner sebelumnya — tidak ikut zebra.
+- Tidak ada tombol aksi di tabel ini (hanya chevron), jadi tidak ada perubahan ukuran tombol; klik baris → detail invoice & keyboard/aria tidak berubah. Kartu mobile TIDAK diubah. cn & Fragment sudah ter-import.
+- LINT 1 file → bersih (9 insertions, 4 deletions).
+- E2E (agent-browser, persona user-admin): desktop 1280 — tab "Riwayat Invoice" aktif, 5 baris tbody TINGGI SERAGAM 37,781px = 10mm presisi (satu nilai unik utk parent+child); bg selang-seling: parent-g0 transparan, parent-g1 slate-100, child emerald (oklab 0.979/-0.020/0.005/0.4), parent-g2 transparan, dst; padding td 2px; screenshot visual OK (stripe terlihat, baris PEL/10/26/0003 tetap hijau muda). Mobile 390 — tabel hidden, 4 kartu invoice tampil normal; screenshot OK. Tanpa mutasi data; dev.log bersih.
+
+Stage Summary:
+- Tabel Riwayat Invoice kini rapat & konsisten dgn tabel-tabel lain: setiap baris (invoice & pelunasan) tepat 10mm; baris invoice zebra selang-seling (slate-100, dark mode didukung), baris pelunasan tetap hijau muda sebagai penanda grup DP/pelunasan; kartu HP & perilaku klik tak berubah.
+
+---
+Task ID: tabel-10mm-zebra-7-halaman
+Agent: Z.ai Code (main)
+Task: User: "dihalaman riwayat surat jalan, dihalaman riwayat purchase order, dihalaman barang, dihalaman master bahan, dihalaman master ongkos cetak, dihalaman master finishing, dihalaman master suplier, rubah jarak baris menjadi 10mm zebra. fix."
+
+Work Log:
+- TUJUAN: seragamkan 7 tabel ke konvensi baris presisi 10mm + zebra (ganjil slate-100 dark:zinc-800/60, hover seragam slate-200/70 dark:zinc-700/50, td py-[2px], border-b last-child) — pola yang sama dgn /barang, /harga-customer, /master-customer, /invoice.
+- 1. /barang (barang-view.tsx): upgrade 9mm → 10mm (TableRow cn h-[10mm]) + komentar diperbarui. Tombol aksi sudah h-6.
+- 2. /surat-jalan (page.tsx): Table className override; TableRow cn('cursor-pointer h-[10mm]', i%2 zebra) memakai indeks map lama (i, dipakai nomor urut); tombol Hapus h-8 → h-6 w-6 p-0 + ikon Trash2 h-4 → h-3.5; import cn.
+- 3. /purchase-order (page.tsx): idem; tombol Terima (emerald) & Hapus h-8 → h-6 w-6 p-0, ikon Loader2/PackageCheck/Trash2 → h-3.5; badge "Diterima" tidak diubah; import cn.
+- 4. /stock-bahan tab "Data Bahan" (stock-bahan-view.tsx): Table override; map filtered (b, idx) + TableRow cn h-[10mm] zebra; tombol aksi h-8 (32px+4px padding = 36px) MUAT di 10mm — tidak diubah. Khusus: sel Nama (2 baris: nama + pemasok/keterangan) & sel Stok (stok + "min X") membuat baris 41px > 10mm → dipadatkan leading: nama leading-4, sub-line text-xs leading-3.5, stok leading-4, min text-[11px] leading-3 — semua info tetap tampil, baris kembali tepat 10mm. Tab lain (Dashboard Stock, Stok Masuk/Keluar, Penyesuaian, Riwayat, Laporan) TIDAK diubah — hanya tabel "Data Bahan" (master bahan).
+- 5. /master-ongkos-cetak: Table override; TableRow cn('group h-[10mm]', zebra); 10 TableCell py-2.5 DIHAPUS (spesifisitas setara dgn [&_td]:py-[2px] — bisa menang lewat urutan CSS, berbahaya); ikon kotak w-7 h-7 & tombol h-7 muat; import cn.
+- 6. /master-finishing & 7. /master-toko-pemasok: Table override; TableRow cn('group h-[10mm]', zebra); kotak ikon w-8 h-8 (36px total) & tombol h-7 w-7 p-0 muat; import cn.
+- LINT 7 file → bersih.
+- E2E (agent-browser, persona user-admin): desktop 1280 — surat-jalan 1 baris 37,781px; purchase-order 5 baris semua 37,781 + zebra; barang 8 baris semua 37,781 (upgrade 9mm terverifikasi) + zebra; stock-bahan (klik tab "Data Bahan") 5 baris: awal [41,37.781] → setelah padat leading menjadi semua 37,781 + zebra; master-ongkos-cetak 3 baris 37,781 + zebra; master-finishing 5 baris 37,781 + zebra; master-toko-pemasok 3 baris 37,781 + zebra; td padding 2px di semua. Mobile 390 — barang & surat-jalan & master-finishing tabel hidden, kartu normal. Screenshot barang/surat-jalan/stock-bahan OK.
+- VERIFIKASI DATA stock-bahan (awalnya kosong): buat 2 bahan uji via API (stok 0 → tanpa mutasi), ukur tabel, lalu HAPUS via Prisma (deleteMany nama 'TEST E2E%'; API DELETE 404 utk persona karena window id hilang saat reload — bukan bug app). db/custom.db di-restore (git checkout) agar bebas churn.
+- CATATAN PROSES: default tab /stock-bahan = "Dashboard Stock" (bukan tabel bahan) — tabel master bahan ada di tab "Data Bahan"; MultiEdit non-atomik sempat menduplikasi import cn di surat-jalan (sudah dibersihkan).
+
+Stage Summary:
+- Tujuh tabel kini seragam: baris tepat 10mm + zebra selang-seling (slate-100, dark mode didukung) + hover seragam lebih gelap + tombol aksi ringkas; /barang naik dari 9mm ke 10mm; info dua-baris di Stock Bahan tetap tampil dgn leading rapat; kartu mobile & perilaku klik tidak berubah.
+
+---
+Task ID: perbaikan-preview-panel + proxy-produk-app
+Agent: Z.ai Code (main)
+Task: User: "preview tidak muncul. fix"
+
+Work Log:
+- DIAGNOSA: sandbox restart (±07.02) mematikan seluruh proses termasuk daemon keepalive double-fork (pola commit 6ae540c tidak selamat dr reboot sandbox); saat owner membuka Preview Panel, dev server sedang mati/booting → preview tidak muncul. Setelah boot ulang platform server port 3000 hidup kembali; semua route diuji curl satu per satu → 200 semua (/, /surat-jalan, /purchase-order, /barang, /stock-bahan, /master-ongkos-cetak, /master-finishing, /master-toko-pemasok, /harga-customer, /invoice, /master-customer); dev.log bersih tanpa error.
+- FIX 1 (akar masalah): daemon keepalive dihidupkan ulang via .zscripts/spawn-daemon.py (double-fork + setsid, PPID 1 — kebal reaper platform): terverifikasi ps "bash .zscripts/dev-keepalive.sh" dgn PPID 1; bila port 3000 mati lagi akan respawn otomatis ≤ ±25 dtk.
+- VERIFIKASI JALUR PREVIEW penuh (gateway caddy :81 → localhost:3000, persis jalur Preview Panel): curl :81/ dan :81/api/health → 200; agent-browser desktop 1280 via http://localhost:81 — landing publik render (title "Darrell Soft - Kalkulator Hitung Cetakan", console bersih); persona user-admin (cookies userId/userRole + localStorage auth) → /barang: 8 baris SEMUA 37,781px = 10mm presisi, zebra selang-seling (transparan / lab 96.29 = slate-100), td padding 2px — konversi zebra 7 halaman terverifikasi ulang lewat jalur preview; screenshot OK. Mobile 390: wrapper tabel display none, kartu normal ("Tambah Barang" tampil); screenshot OK. agent-browser errors kosong.
+- FIX 2 (menyempurnakan WIP sesi terputus): halaman /produk meng-embed iframe src="/produk-app" yang selalu 404 karena rewrite proxy TIDAK ADA di next.config.ts (komentar kode menyebut rewrites, file tidak memilikinya), padahal mini-services/produk-app (port 3010, basePath /produk-app) sehat — 3010/produk-app → 200. Ditambahkan async rewrites() di next.config.ts (/produk-app & /produk-app/:path* → http://localhost:3010/produk-app/:path*); src iframe diganti tanpa trailing slash (hindari 308 trailing-slash Next). next dev menerapkan perubahan config tanpa restart manual: proxy /produk-app → 200 dgn title "Darrellsoft — Penjualan & Harga Customer".
+- E2E /produk via gateway :81: desktop — iframe 1201×670px berisi app mini utuh (1102 char teks); mobile 390 — iframe 358×714 (940 char); screenshot OK. CATATAN: menu sidebar BELUM menautkan /produk (WIP sesi terputus tanpa entri worklog) — sengaja tidak di-wire, menunggu arahan owner.
+- LINT 17 file terlibat → bersih. .zscripts/dev.pid di-restore (nilai stale, tak dipakai siapa pun). db/custom.db utama tidak tersentuh (E2E read-only).
+
+Stage Summary:
+- Preview Panel kini hidup & terjaga: keepalive daemon aktif kembali (auto-respawn bila server mati) dan seluruh jalur gateway→server→halaman diverifikasi end-to-end di desktop & mobile. Sekalian melengkapi proxy /produk-app yang hilang sehingga embed di halaman /produk tidak lagi 404; seluruh pekerjaan tertunda dr sesi sebelumnya (harga customer, zebra master pelanggan/invoice/7 tabel, backup&restore, fitur produk) diverifikasi ulang lalu di-commit.
