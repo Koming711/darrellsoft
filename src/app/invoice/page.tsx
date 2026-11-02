@@ -1469,7 +1469,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                 {/* Desktop table — bergrup: baris invoice DP diikuti baris pelunasannya */}
                 <div className="hidden md:block rounded-xl border border-stone-200 bg-white overflow-hidden">
                   <div className="max-h-96 overflow-y-auto scrollbar-thin">
-                    <Table>
+                    {/* Tinggi baris presisi 10mm + zebra (baris invoice ganjil abu slate-100,
+                        baris pelunasan tetap hijau muda) — konvensi tabel /barang & /harga-customer */}
+                    <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                       <TableHeader className="sticky top-0 z-10 bg-stone-50">
                         <TableRow className="bg-stone-50 hover:bg-stone-50">
                           <TableHead>Nomor</TableHead>
@@ -1483,7 +1485,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {groupedRows.slice(0, 100).map((group) => {
+                        {groupedRows.slice(0, 100).map((group, idx) => {
                           const entry = group.entry
                           const info = parseDocInfo(entry)
                           const st = getInvoiceStatus(info)
@@ -1499,7 +1501,10 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   }
                                 }}
                                 aria-label={`Buka invoice ${entry.nomor || ''}`}
-                                className="cursor-pointer"
+                                className={cn(
+                                  'cursor-pointer h-[10mm]',
+                                  idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
+                                )}
                               >
                                 <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
                                 <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
@@ -1531,7 +1536,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                       }
                                     }}
                                     aria-label={`Buka pelunasan ${child.nomor || ''}`}
-                                    className="cursor-pointer bg-emerald-50/40 dark:bg-emerald-950/20"
+                                    className="cursor-pointer h-[10mm] bg-emerald-50/40 dark:bg-emerald-950/20"
                                   >
                                     <TableCell className="whitespace-nowrap pl-6">
                                       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
