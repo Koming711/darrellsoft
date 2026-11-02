@@ -16218,3 +16218,17 @@ Work Log:
 
 Stage Summary:
 - Penyebab download besar = riwayat git menumpuk salinan db (559MB blob) + screenshot (64MB) + arsip upload lama. Kini dibersihkan: download workspace ±78MB (dari 241MB). Riwayat commit ditulis ulang (hash berubah, isi & jumlah commit utuh); GitHub sudah di-force-push sinkron. Snapshot db & arsip lama dipindah ke /home/z/workspace-archive (luar workspace, tidak ikut download). .gitignore diperkuat agar ke depannya tetap ramping — snapshot db & screenshot tak akan ter-commit lagi; yang tumbuh hanya db/custom.db aktif (kecil, ter-pack).
+
+---
+Task ID: kecilkan-download-workspace-lanjutan
+Agent: Z.ai Code (main)
+Task: Lanjutan — GitHub Push Protection menolak push worklog: token Vercel PAT lama tercatat di worklog.md (entri task deploy lama, baris 14617).
+
+Work Log:
+- Push worklog ditolak GH013 (Vercel Personal Access Token di worklog.md:14617 — blob worklog baru ter-scan ulang krn isi file berubah).
+- Token diekstrak tanpa ditampilkan → git filter-repo --replace-text: token diganti ***REDACTED*** di SELURUH riwayat; scan pola rahasia lain (ghp_, github_pat_, sk-, AKIA, xox*, vercel_*) = bersih; .env hanya berisi DATABASE_URL (tampilan masked, tidak dipindah — dibutuhkan runtime).
+- Remote origin dipulihkan lg dr backup config → git push --force origin main SUKSES (cd64179...3e49915).
+- Verifikasi akhir: fsck bersih; .git 46MB; isi download ±79MB; 1177 commit; app 200.
+
+Stage Summary:
+- Riwayat git kini ramping & bebas rahasia: .git 46MB (dari 199MB), isi download workspace ±79MB (dari 241MB). GitHub sinkron. CATATAN KEAMANAN: token Vercel lama sudah lama terpapar di riwayat (lokal & GitHub) — SEBAIKNYA DI-ROTATE di dashboard Vercel meski sudah di-scrub dr repo.
