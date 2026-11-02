@@ -70,3 +70,24 @@ server.log
 # Runtime state watchdog (terus berubah, bukan kode)
 .zscripts/dev-main.pid
 .zscripts/dev-produk.pid
+
+# ==== Jaga ukuran download workspace kecil (ops: 2 Nov 2026) ====
+# Snapshot DB: hanya db/custom.db yang hidup; salinan historis jangan di-commit
+/db/custom.db.backup
+/db/custom.db.before-index-fix
+/db/custom.db.pre-restore-*
+/db/custom.db.wiped-snapshot-*
+# Screenshot verifikasi E2E (artefak sesi, bukan kode)
+/.zscreens/
+/.verify/
+.zscripts/*.png
+# Salinan lama sebelum restrukturisasi src/ + backup data root
+/components/
+/lib/
+/custom.db
+/pelunasan-print-test.pdf
+/_temp/
+/backup-*.json
+/backup-*.xlsx
+/auto-backup-*.json
+/auto-backup-*.xlsx
