@@ -35,7 +35,10 @@ function rowOf(reg: {
   return {
     id: reg.id,
     customerId: reg.customerId,
-    customerName: reg.customer?.companyName?.trim() || reg.customer?.name || '',
+    // Nama pelanggan = nama yang terisi di Master Customer (Customer.name) —
+    // sama persis dgn tampilan halaman Master Customer. companyName hanya
+    // fallback bila nama kosong, agar tidak muncul nama lain di tabel.
+    customerName: reg.customer?.name || reg.customer?.companyName?.trim() || '',
     barangId: reg.barangId,
     kode: reg.barang?.kode ?? '',
     namaBarang: reg.barang?.nama ?? '',

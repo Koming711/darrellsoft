@@ -212,14 +212,6 @@ export default function HargaCustomerPage() {
     void loadMaster()
   }, [ready, loadMaster])
 
-  const customerName = useCallback(
-    (id: string) => {
-      const c = customers.find((x) => x.id === id)
-      return c ? c.companyName?.trim() || c.name : ''
-    },
-    [customers]
-  )
-
   const selectedBarang = useMemo(
     () => barangList.find((b) => b.id === fBarangId) ?? null,
     [barangList, fBarangId]
@@ -373,7 +365,8 @@ export default function HargaCustomerPage() {
                 <SelectItem value="all">Semua customer</SelectItem>
                 {customers.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.companyName?.trim() || c.name}
+                    {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                    {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -697,7 +690,8 @@ export default function HargaCustomerPage() {
                 <SelectContent className="max-h-64">
                   {customers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.companyName?.trim() || c.name}
+                      {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

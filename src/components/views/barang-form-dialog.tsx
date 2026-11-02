@@ -344,7 +344,8 @@ export function BarangFormDialog({
                     <SelectContent>
                       {customers.filter((c) => c.id === customerFilter).map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                          {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -361,7 +362,8 @@ export function BarangFormDialog({
                       <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
                       {customers.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
-                          {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                          {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -387,7 +389,8 @@ export function BarangFormDialog({
                     <SelectItem value="keep">— Tidak berubah —</SelectItem>
                     {customers.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.name}{c.companyName ? ` — ${c.companyName}` : ''}
+                        {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
