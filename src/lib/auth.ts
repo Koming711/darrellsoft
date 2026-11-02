@@ -1,5 +1,7 @@
 // Authentication utility functions
 
+import { clearLastRoute } from './last-route'
+
 export interface User {
   id?: string
   username: string
@@ -115,6 +117,15 @@ export function setAuthUser(user: User): void {
 
 export function clearAuthUser(): void {
   if (typeof window === 'undefined') return
+  // Hapus catatan halaman terakhir milik user ini — setelah logout, buka
+  // ulang aplikasi kembali mulai dari Beranda (bukan halaman user sebelumnya).
+  try {
+    const raw = localStorage.getItem('auth')
+    const uid = raw ? (JSON.parse(raw) as User)?.id : null
+    if (uid) clearLastRoute(String(uid))
+  } catch {
+    // ignore
+  }
   localStorage.removeItem('auth')
   // Hapus juga cache RBAC grup perusahaan
   try {

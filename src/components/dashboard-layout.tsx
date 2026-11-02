@@ -9,6 +9,7 @@ import { SubscriptionWaitingPopup } from './subscription-waiting-popup'
 import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
+import { saveLastRoute } from '@/lib/last-route'
 import { setGrupInfo } from '@/lib/permissions'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
@@ -162,6 +163,17 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     window.addEventListener('permissions-updated', handler)
     return () => window.removeEventListener('permissions-updated', handler)
   }, [])
+
+  // === CATAT HALAMAN TERAKHIR ===
+  // Setiap rute aplikasi yang dikunjungi dicatat per user (localStorage).
+  // Dipakai root '/' (termasuk start_url PWA /?source=pwa): membuka/refresh
+  // aplikasi mengembalikan pengguna ke halaman terakhir sebelum ditutup/
+  // di-refresh — bukan selalu ke Beranda. Rute funnel (login/daftar/checkout)
+  // & /panel-admin tidak dicatat (filter di saveLastRoute).
+  useEffect(() => {
+    if (!user?.id || !pathname) return
+    saveLastRoute(String(user.id), pathname)
+  }, [user?.id, pathname])
 
   // === LOGOUT HANDLER ===
   const handleLogout = useCallback(() => {

@@ -63,6 +63,8 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useLanguage } from '@/contexts/language-context';
+import { getAuthUser } from '@/lib/auth';
+import { getLastRoute } from '@/lib/last-route';
 import { releaseVersionLabel } from '@/lib/changelog';
 
 
@@ -965,13 +967,18 @@ export default function Home() {
   const router = useRouter();
 
   // Auto-login: user yang sudah punya sesi (pernah login) langsung dibawa ke
-  // Beranda — landing page tidak ditampilkan. Pemeriksaan sinkron dari
-  // localStorage + cookie, jadi bekerja juga saat offline.
+  // halaman terakhirnya — Beranda (/pembukaan) hanya fallback. Pemeriksaan
+  // sinkron dari localStorage + cookie, jadi bekerja juga saat offline.
   // FIX: cukup SALAH SATU penanda sesi (localStorage ATAU cookie) — dulu
   // mewajibkan keduanya sehingga user bisa terjebak di landing ketika browser
   // menghapus cookie tetapi localStorage masih ada (atau sebaliknya). Server
   // mengautentikasi dari cookie ATAU header (x-user-id), jadi salah satunya
   // saja sudah cukup untuk dianggap login.
+  // FIX 2: target redirect kini HALAMAN TERAKHIR user (ds_last_route:<userId>,
+  // dicatat DashboardLayout tiap rute) sesuai permintaan "apabila di refresh
+  // maka kembali ke halaman terakhir sebelum di refresh" — mencakup buka ulang
+  // PWA (start_url /?source=pwa) & refresh di root. Rute funnel (login/
+  // daftar/checkout/panel-admin) tidak pernah dicatat — filter di last-route.
   // Overlay menutupi landing selama pemeriksaan agar tidak ada kedipan.
   const [authChecking, setAuthChecking] = useState(true);
   useEffect(() => {
@@ -982,7 +989,9 @@ export default function Home() {
       } catch {}
       const hasCookie = /(?:^|;\s*)userId=/.test(document.cookie);
       if (hasAuth || hasCookie) {
-        router.replace('/pembukaan');
+        const u = getAuthUser();
+        const last = u?.id ? getLastRoute(String(u.id)) : null;
+        router.replace(last || '/pembukaan');
         return;
       }
     } catch {}
