@@ -16246,3 +16246,18 @@ Work Log:
 
 Stage Summary:
 - Alur potong kertas → hitung cetakan kini SATU KLIK: klik "Hitung Cetakan Lengkap" pada form terisi langsung menghitung potongan (bila belum/basi) dan membawa seluruh datanya ke halaman Hitung Cetakan. Riwayat PK yang tersimpan otomatis kini punya metadata kertas yang benar. Commit 9c67dff.
+
+---
+Task ID: nama-pelanggan-master-customer-di-harga-customer
+Agent: Z.ai Code (main)
+Task: "di halaman harga customer. apabila di klik tambah barang. nama pelanggan adalah nama yang isinya di master customer. di tabel harga customer juga. fix"
+
+Work Log:
+- ANALISIS: satu customer tampil dengan 3 nama berbeda antar halaman — Master Customer menampilkan Customer.name (mis. "Budi Susanto"), tabel Harga Customer memakai companyName||name (tampil "PT. Maju berkah"), popup Tambah Barang menampilkan "name — companyName". Data DB konfirmasi: Customer punya name + companyName (isi lama/seed), form Master Customer hanya punya field "Nama".
+- FIX src/app/api/harga-customer/route.ts + [id]/route.ts: rowOf().customerName kini Customer.name dulu (fallback companyName hanya bila nama kosong) — tabel desktop/kartu HP, aria-label & teks konfirmasi hapus ikut benar.
+- FIX src/app/harga-customer/page.tsx: dropdown filter customer & dialog Edit Harga kini menampilkan c.name (bukan companyName||name); helper customerName mati dihapus.
+- FIX src/components/views/barang-form-dialog.tsx: 3 select pelanggan (mode terkunci, bebas, edit "Tambah Untuk Pelanggan") kini hanya menampilkan c.name — konsisten dgn Master Customer & combobox pelanggan Buat Invoice; toast simpan sudah memakai name.
+- LINT 4 file → bersih. E2E (agent-browser, admin/268899, desktop 1280 + mobile 390, viewport terverifikasi): tabel Customer kolom = "Budi Susanto/Jaya Wijaya/Lunggan/Siti Rohana" (bukan PT/UD/CV/skewer); popup Tambah → dropdown hanya nama master; alur lengkap: pilih Budi Susanto → isi "Buku Tulis E2E" harga 7000 → Simpan → toast "Barang berhasil ditambahkan untuk Budi Susanto" → baris baru "Budi Susanto | Buku Tulis E2E | Aktif | Rp 7.000"; filter & dialog edit juga hanya nama master; hapus baris uji via UI (konfirmasi tampil "milik Budi Susanto") → bersih; mobile 390: kartu tampil nama master + popup dropdown benar. Console & dev.log bersih.
+
+Stage Summary:
+- Nama pelanggan di seluruh halaman Harga Customer (tabel, filter, dialog edit, popup Tambah Barang) kini SELALU = nama yang terisi di Master Customer (Customer.name), bukan lagi nama perusahaan/suffiks campuran. Konsisten juga di popup Tambah Barang yang dipakai Master Barang & Buat Invoice. Commit cdea8e8.
