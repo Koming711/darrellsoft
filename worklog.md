@@ -16335,3 +16335,28 @@ Work Log:
 
 Stage Summary:
 - DEPLOY TERTAHAN: token Vercel invalid (403 invalidToken). 21 commit terbaru SUDAH AMAN di GitHub (origin/main = 4f9f23d). Produksi masih build lama (tanpa /barang, /harga-customer, sidebar MASTER, dll). Begitu token baru diberikan, deploy 2 perintah + verifikasi 4 poin (sw/barang/sidebar/login) + cleanup.
+
+---
+Task ID: deploy-v164-offline-cache
+Agent: Main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com. token vcp_60MW…" (token baru) — setelah sesi sebelumnya tertahan karena token invalid.
+
+Work Log:
+- BUILD ERROR DILAPORKAN USER: "Module not found: Can't resolve './local-cache'" di src/lib/smart-fetch.ts (386) — modul local-cache.ts TIDAK PERNAH ter-commit: (a) sesi PROMPT MASTER terpotong sebelum menulisnya; (b) AKAR: .gitignore rule `local-*` (line 43) menelan src/lib/local-cache.ts sehingga auto-commit pun tak akan menyimpannya. HEAD sebelum fix = TIDAK BISA build (deploy pun akan gagal).
+- FIX: buat src/lib/local-cache.ts (213 baris) sesuai konvensi offline-queue.ts — IDB "darrell-local-cache" (stores: entries[keyPath k, index uid/at] + meta[uid]), API lengkap sesuai pemakaian smart-fetch & connectivity-keeper: CacheEntry{k,uid,entity,url,data,at}, cacheGet/cacheSet/cacheDelete, invalidateEntity(uid,'*'|entity), clearUserCache(uid)→count, touchLastSync(uid) sinkron-memori+IDB fire-forget, getLastSyncAt(uid) SINKRON (banner offline), cacheStats SINGLETON via window.__dsCacheStatsShared (anti multi-instance Turbopack agar pengukuran akurat). Keamanan: isolasi per-user (kunci k = "<uid>|GET|<path+query>" + filter uid), purge entri >7 hari saat startup, cap 1000 entri/user (evict tertua, tiap 64 tulisan), fallback memori bila IDB rusak, TIDAK menyentuh DB antrian darrell-offline-queue (data pending selalu aman).
+- RILIS v164: public/sw.js darrell-soft-v163→v164; APP_VERSION 2026-11-03-v164; CURRENT_VERSION 2026-11-03-v164 + entri changelog "Mode Offline & Cache Cerdas" (3 item id+en) — popup What's New akan muncul sekali.
+- .gitignore: +`!src/lib/local-cache.ts` (pengecualian presisi setelah rule local-*).
+- LINT local-cache/changelog/sw-registration = 0 error; tsc: hanya baseline lama (pdf/theme-context/examples) — 0 error di file cache. Commit 3f5fbfa push origin/main.
+- E2E LOKAL (agent-browser, admin): build compile ✓; login → dashboard ter-serve dari cache (memoryHits≥1, IDB 6 entri warm-up); banner OFFLINE: "Anda offline … · Sinkron terakhir 14.07" (getLastSyncAt sinkron dari meta IDB) ✓; i18n 8 key offline/sync ternyata SUDAH ada (rg awal false-negative).
+- DEPLOY PRODUKSI: token divalidasi API (/v2/user → koming711 ✓) → vercel link --project darrellsoft (prj_ZoKYf7… ✓, jebakan dual-project dihindari) → `vercel --prod --yes` → darrellsoft-c8p2o7wof Ready in 2m → cleanup rm .env.local + rm -rf .vercel.
+- VERIFIKASI PRODUKSI (curl + agent-browser 1440×900 & 390×844):
+  - root 200; /api/health healthy (uptime 8s = deployment baru); sw.js = darrell-soft-v164 ✓; SW controlling + caches = [darrell-soft-v164, darrell-api-runtime-v2] (v163 terhapus) ✓
+  - /barang 200 (SEBELUMNYA 404!) judul "Daftar Barang" ✓ (tabel kosong = DB produksi memang 0 barang); /harga-customer 200 (sebelumnya 404) ✓
+  - Sidebar grup "MASTER" live (MASTER CETAK hilang) ✓; popup "Versi Baru! v164" ✓
+  - SMART CACHE AKTIF: IDB darrell-local-cache 6 entri warm-up (beranda, customers?q=, items?q=&active=all, papers, printing-costs, finishings) ✓; klik PERTAMA /hitung-cetakan: memoryHits=3 (papers/printing-costs/finishings 0 request) + 4 endpoint baru ikut ter-cache (network4/writes4) ✓; SWR jalan (staleFallback+bgRefresh) ✓; load ke-2 /pembukaan: performance entries = HANYA never-cache (verify-session/settings/notifications) + beranda SWR — customers/items/papers/printing-costs/finishings NOL request ✓
+  - Banner offline produksi: "Anda offline … · Sinkron terakhir 14.18" ✓; offline-warmup PWA precache jalan (offline_warmup_last_run tercatat) ✓
+  - Mobile 390×844 /barang: judul ✓, tanpa overflow horizontal ✓; 0 page error.
+- CATATAN COVERAGE: sisa endpoint non-warmup (riwayat-cetakan, toko-pemasok, dsb) ter-cache otomatis saat pertama dibuka (network4/writes4 bukti) — akan memanfaatkan cache pada kunjungan berikutnya; penghematan penuh tumbuh seiring pemakaian.
+
+Stage Summary:
+- DEPLOY v164 SUKSES ke www.darrellsoft.com membawa SELURUH sistem Cache Cerdas & Mode Offline: local-cache.ts (modul yang hilang & mengblokir build) kini ada & ter-commit (root cause .gitignore `local-*` ditemukan & diperbaiki), warm-up 6 master data, klik-pertama-menu terbuka instan (3 request terhemat terukur di Hitung Cetakan), antrian tulis offline + banner offline + sinkron waktu terakhir, PWA precache semua halaman, SW v164 menjangkau perangkat lama, popup What's New v164. Semua verifikasi produksi (routes, sidebar, cache, SWR, offline, mobile) LOLOS 0 error.
