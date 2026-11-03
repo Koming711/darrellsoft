@@ -16319,3 +16319,19 @@ Work Log:
 
 Stage Summary:
 - Sidebar (desktop & mobile): menu Master Customer kini berada di grup MASTER (sebelumnya MASTER CETAK / DOKUMEN), dan judul grup diganti menjadi "MASTER". Susunan menu lain tidak berubah.
+
+---
+Task ID: deploy-blocked-token-invalid-20261103
+Agent: Main (Z.ai Code)
+Task: "deploy ke www.darrellsoft.com. token vcp_3VxM…" (token diberikan di sesi ini)
+
+Work Log:
+- STATE: HEAD 4f9f23d (working tree bersih), 21 commit unpushed (sidebar MASTER, Daftar Barang, harga-customer nama, dropdown barang buat invoice, dll) → KEAMANAN: push origin main SUKSES (90fd1ed..4f9f23d) sesuai pelajaran entri 12935 (anti FS-rollback).
+- DIAGNOSA PRODUKSI (read-only): www.darrellsoft.com UP (200, login admin OK, dashboard render) TAPI berjalan build LAMA — /barang 404, /harga-customer 404, /riwayat-cetakan 404 (padahal rute tsb ada sejak 2026-09-05 di lineage manapun ≥90fd1ed), sidebar masih "MASTER CETAK" (perubahan 2dee340 belum live), sw.js = darrell-soft-v163 (versi sama dgn lokal, konten kode beda). Bukti DOM: body mengandung "MASTER CETAK", tidak ada "MASTER". Kesimpulan: deployment live TERTINGGAL dari origin/main; wajib deploy CLI.
+- BLOCKER: token vcp_3VxM… (60 char) DITOLAK — `npx vercel link --project darrellsoft --yes --token <t>` → "Error: The token provided via the `--token` option is not valid."; API langsung `GET /v2/user` → HTTP 403 {"error":{"code":"forbidden","invalidToken":true}}; varian tanpa prefix "vcp_" & endpoint /v2teams → sama 403. Token EXPIRED/REVOKED. Tidak ada auth CLI tersimpan di sandbox (~/.local/share/com.vercel.cli/config.json usedBefore=false).
+- PROSEDUR SIAP (satu perintah begitu token valid ada): `npx vercel link --project darrellsoft --yes --token <TOKEN> && npx vercel --prod --yes --token <TOKEN>` → verifikasi: sw.js v163, /barang 200 (judul "Daftar Barang"), sidebar "MASTER", login admin OK → cleanup rm .env.local + rm -rf .vercel. PENTING: project HARUS "darrellsoft" (prj_ZoKYf7…), bukan "my-project" (jebakan dual-project entri 14857).
+- Cleanup sesi: tidak ada .vercel/.env.local tertinggal (link gagal sebelum menulis file); dev lokal :3000 tetap 200.
+- Owner diminta buat token BARU: https://vercel.com/account/settings/tokens → Create Token → paste ke chat.
+
+Stage Summary:
+- DEPLOY TERTAHAN: token Vercel invalid (403 invalidToken). 21 commit terbaru SUDAH AMAN di GitHub (origin/main = 4f9f23d). Produksi masih build lama (tanpa /barang, /harga-customer, sidebar MASTER, dll). Begitu token baru diberikan, deploy 2 perintah + verifikasi 4 poin (sw/barang/sidebar/login) + cleanup.
