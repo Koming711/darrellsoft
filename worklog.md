@@ -16360,3 +16360,19 @@ Work Log:
 
 Stage Summary:
 - DEPLOY v164 SUKSES ke www.darrellsoft.com membawa SELURUH sistem Cache Cerdas & Mode Offline: local-cache.ts (modul yang hilang & mengblokir build) kini ada & ter-commit (root cause .gitignore `local-*` ditemukan & diperbaiki), warm-up 6 master data, klik-pertama-menu terbuka instan (3 request terhemat terukur di Hitung Cetakan), antrian tulis offline + banner offline + sinkron waktu terakhir, PWA precache semua halaman, SW v164 menjangkau perangkat lama, popup What's New v164. Semua verifikasi produksi (routes, sidebar, cache, SWR, offline, mobile) LOLOS 0 error.
+
+---
+Task ID: fix-harga-customer-prod-p2022
+Agent: Main (Z.ai Code)
+Task: "di online isi harga customer tidak bisa. Gagal memuat daftar harga customer"
+
+Work Log:
+- DIAGNOSA PRODUKSI: /harga-customer page 200 (v164 live) tapi GET /api/harga-customer → 500 {"error":"Kolom tidak ditemukan"} = Prisma P2022. GET /api/customer-items juga 500 P2022; /api/items & lainnya normal. Akar: fitur Harga Customer (c4983fe) menambah kolom validFrom/validUntil/isActive di BarangCustomer, tapi kolom TIDAK terdaftar di migrasi runtime PG (migrateExistingTablesPg) — DB produksi (Supabase PG) tidak pernah di-push schema baru, Prisma findMany selalu SELECT semua kolom model → P2022 di SEMUA query BarangCustomer.
+- FIX auto-seed.ts: (1) 4 entri migrasi kolom BarangCustomer: validFrom TEXT, validUntil TEXT, isActive BOOLEAN NOT NULL DEFAULT true, userId TEXT; (2) BarangCustomer masuk missingTableChecks (CREATE TABLE IF NOT EXISTS PG lengkap semua kolom baru — cover DB baru); (3) CREATE UNIQUE INDEX IF NOT EXISTS BarangCustomer_barangId_customerId_key(barangId,customerId) — cover tabel lama & upsert Prisma; (4) export ensurePgSchema() (guard isPostgreSQL, no-op di SQLite lokal).
+- SELF-HEAL route: api-error.ts +isSchemaMissingError(err) (P2021/P2022). GET /api/harga-customer & GET /api/customer-items dipecah loadHargaCustomer()/loadFlat() → catch schema-error → ensurePgSchema() → RETRY SEKALI. Efek: user yang masih login TIDAK perlu logout/login — request pertama ke halaman otomatis memigrasi lalu sukses. Migrasi juga jalan via ensureSeedData (public-settings dipanggil tiap app load).
+- LOKAL: eslint 4 file fix = 0 error; login+GET harga-customer 200 data nyata; customer-items 200; dev.log hanya warning kategoriId yang memang by-design.
+- DEPLOY: vercel link darrellsoft + --prod --yes (token vcp_60MW…) → darrellsoft-c0ejdrj3t Ready in 2m → alias www.darrellsoft.com; cleanup .env.local + .vercel.
+- VERIFIKASI PRODUKSI (curl round-trip penuh): GET harga-customer [] HTTP 200 (self-heal migrasi sukses pada request pertama!) → POST /api/items {name TES-VERIFY-HARGA, standardPrice 15000, customerId angel} 200 (upsert BarangCustomer + kolom baru + unique index LOLOS) → GET harga-customer menampilkan baris dgn validFrom/validUntil/isActive benar → DELETE registrasi 200 + DELETE barang 200 → GET harga-customer & barang kembali [] (DB bersih, tanpa data tes tersisa). /harga-customer page 200.
+
+Stage Summary:
+- HARGA CUSTOMER PRODUKSI DIPERBAIKI: P2022 (kolom BarangCustomer belum termigrasi di PG Supabase) → migrasi runtime + self-heal retry di route. CRUD harga customer produksi terverifikasi end-to-end (create→list→delete) tanpa data tersisa. Pelajaran: setiap kolom/tabel baru di schema.prisma HARUS ikut didaftarkan ke migrateExistingTablesPg/missingTableChecks — db push lokal SQLite tidak pernah menyentuh DB produksi.
