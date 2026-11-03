@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { containsI } from '@/lib/search'
 
 // GET /api/cutting-records — daftar riwayat potong kertas
 export async function GET(request: NextRequest) {
@@ -15,8 +16,8 @@ export async function GET(request: NextRequest) {
     if (paperName) where.paperName = paperName
     if (search) {
       where.OR = [
-        { paperName: { contains: search } },
-        { cutWidth: { contains: search } },
+        { paperName: containsI(search) },
+        { cutWidth: containsI(search) },
       ]
     }
 

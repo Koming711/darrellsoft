@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth , requireGroupMenu } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { containsI } from '@/lib/search'
 
 /**
  * GET /api/customers?q= — daftar customer milik user (array, kompatibel konsumen lama).
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = { ...filter }
     if (q) {
       where.OR = [
-        { name: { contains: q } },
-        { code: { contains: q } },
-        { phone: { contains: q } },
+        { name: containsI(q) },
+        { code: containsI(q) },
+        { phone: containsI(q) },
       ]
     }
 

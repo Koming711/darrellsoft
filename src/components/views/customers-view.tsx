@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
-import { onDataChange } from '@/lib/data-sync'
+import { onDataChange, notifyDataChange } from '@/lib/data-sync'
 import { cn } from '@/lib/utils'
 import type { Customer, SessionUser } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
@@ -125,6 +125,9 @@ export default function CustomersView({
         body: JSON.stringify({ isActive: !c.isActive }),
       })
       toast.success(c.isActive ? `${c.name} dinonaktifkan` : `${c.name} diaktifkan`)
+      // Invalidasi smart-cache 'customers' (tab ini + tab lain) agar halaman
+      // lain yang memakai cache (mis. dropdown invoice) memuat data segar.
+      notifyDataChange('customers')
       void load()
     } catch (e) {
       toast.error(errText(e))
@@ -138,6 +141,8 @@ export default function CustomersView({
       await apiFetch<{ ok: boolean }>(`/api/customers/${deleteTarget.id}`, { method: 'DELETE' })
       toast.success('Pelanggan berhasil dihapus')
       setDeleteTarget(null)
+      // Invalidasi smart-cache 'customers' — daftar berikutnya selalu segar.
+      notifyDataChange('customers')
       void load()
     } catch (e) {
       // 409 → pelanggan punya invoice, tampilkan pesan server
@@ -160,7 +165,7 @@ export default function CustomersView({
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Master Pelanggan</h1>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Master Customer</h1>
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">

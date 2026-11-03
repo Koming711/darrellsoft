@@ -1057,7 +1057,7 @@ export default function PembukaanPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {canSeeFinance && (
               <>
-                <QuickLink icon={Users} title="Master Pelanggan" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
+                <QuickLink icon={Users} title="Master Customer" desc="Data & kontak pelanggan" onClick={() => navigate('/master-customer')} />
                 <QuickLink icon={Package} title="Barang" desc="Harga standar & HPP" onClick={() => navigate('/barang')} />
               </>
             )}

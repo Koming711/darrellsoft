@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { sanitizeError } from '@/lib/api-error'
+import { containsI } from '@/lib/search'
 
 /**
  * GET /api/items?q=&active=&customerId=&all=1 — list barang (versi lama "Master Barang").
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = { userId: user.id }
     if (q) {
-      where.OR = [{ nama: { contains: q } }, { kode: { contains: q } }]
+      where.OR = [{ nama: containsI(q) }, { kode: containsI(q) }]
     }
     if (activeParam !== '0' && activeParam !== 'all') where.isActive = true
     if (customerId && customerId !== 'all') {

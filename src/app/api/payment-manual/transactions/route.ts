@@ -9,6 +9,7 @@ import {
   createPaymentNotification,
 } from '@/lib/payment-manual'
 import { sanitizeError } from '@/lib/api-error'
+import { containsI } from '@/lib/search'
 
 // GET /api/payment-manual/transactions
 // - Customer  : hanya transaksi miliknya (match userId cookie ATAU email Pengguna)
@@ -30,9 +31,9 @@ export async function GET(request: NextRequest) {
       if (status && status !== 'SEMUA') where.paymentStatus = status
       if (q) {
         where.OR = [
-          { customerName: { contains: q } },
-          { customerEmail: { contains: q } },
-          { transactionNumber: { contains: q } },
+          { customerName: containsI(q) },
+          { customerEmail: containsI(q) },
+          { transactionNumber: containsI(q) },
         ]
       }
       const transactions = await db.paymentTransaction.findMany({
@@ -63,8 +64,8 @@ export async function GET(request: NextRequest) {
         { OR: where.OR },
         {
           OR: [
-            { transactionNumber: { contains: q } },
-            { planName: { contains: q } },
+            { transactionNumber: containsI(q) },
+            { planName: containsI(q) },
           ],
         },
       ]

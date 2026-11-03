@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth } from '@/lib/server-auth'
 import { generateDocNumber } from '@/lib/doc-number'
+import { containsI } from '@/lib/search'
 
 // GET all surat jalan (per-user isolation)
 export async function GET(request: NextRequest) {
@@ -19,8 +20,8 @@ export async function GET(request: NextRequest) {
     if (status && status !== 'all') where.status = status
     if (search) {
       where.OR = [
-        { customerName: { contains: search } },
-        { suratJalanNumber: { contains: search } },
+        { customerName: containsI(search) },
+        { suratJalanNumber: containsI(search) },
       ]
     }
 

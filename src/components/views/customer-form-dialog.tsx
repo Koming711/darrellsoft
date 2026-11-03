@@ -26,6 +26,7 @@ import { useEffect, useState } from 'react'
 import { BookUser } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
+import { notifyDataChange } from '@/lib/data-sync'
 import type { Customer } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -221,6 +222,11 @@ export function CustomerFormDialog({
           ? { id: c.id, code: c.code, name: c.name, phone: c.phone, email: c.email, address: c.address }
           : null
       }
+      // Invalidasi smart-cache 'customers' (tab ini + tab lain) supaya halaman
+      // Master Customer & dropdown customer di halaman lain memuat data segar
+      // (tanpa ini daftar master bisa menampilkan cache basi hingga 10 menit
+      // — customer baru terlihat "tidak masuk" padahal sudah tersimpan).
+      notifyDataChange('customers')
       onOpenChange(false)
       onSaved?.(saved)
     } catch (e) {

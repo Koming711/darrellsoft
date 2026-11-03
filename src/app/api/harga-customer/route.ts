@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, requireGroupMenu, canAccessRecord } from '@/lib/server-auth'
 import { sanitizeError, isSchemaMissingError } from '@/lib/api-error'
 import { ensurePgSchema } from '@/lib/auto-seed'
+import { containsI } from '@/lib/search'
 
 /**
  * HARGA CUSTOMER — daftar harga jual khusus per customer per barang.
@@ -71,10 +72,10 @@ async function loadHargaCustomer(
   else if (status === 'nonaktif') where.isActive = false
   if (q) {
     where.OR = [
-      { customer: { is: { name: { contains: q } } } },
-      { customer: { is: { companyName: { contains: q } } } },
-      { barang: { is: { nama: { contains: q } } } },
-      { barang: { is: { kode: { contains: q } } } },
+      { customer: { is: { name: containsI(q) } } },
+      { customer: { is: { companyName: containsI(q) } } },
+      { barang: { is: { nama: containsI(q) } } },
+      { barang: { is: { kode: containsI(q) } } },
     ]
   }
 
