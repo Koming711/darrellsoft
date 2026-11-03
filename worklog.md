@@ -16290,3 +16290,17 @@ Work Log:
 
 Stage Summary:
 - Halaman Barang: kolom kini berjudul "Nama Barang" & popup Tambah Barang memakai label "Qty". Popup Tambah Barang di halaman Harga Customer kini menampilkan dropdown berisi barang dari halaman Barang: pilih barang yang sudah ada → simpan langsung jadi harga khusus customer tanpa menduplikasi master barang; opsi "+ Barang baru" tetap tersedia untuk membuat barang baru.
+
+---
+Task ID: judul-daftar-barang-qty-tanpa-satuan
+Agent: Z.ai Code (main)
+Task: "dihalaman barang, ganti tulisan barang dengan daftar barang. di kolom qty, isi kolom qty hanya angka tanpa satuan. fix"
+
+Work Log:
+- ANALISIS: 2 permintaan di halaman /barang — (1) judul halaman (DashboardLayout) masih "Barang"; (2) sel kolom Qty menempelkan satuan ("1 pcs", "1.000 pcs") padahal sudah ada kolom Satuan tersendiri.
+- FIX src/app/barang/page.tsx: DashboardLayout title "Barang" → "Daftar Barang" (subtitle tidak berubah).
+- FIX src/components/views/barang-view.tsx: sel Qty tabel desktop & kartu mobile — `{formatNum(p.stock)} {p.unit}` → hanya `{formatNum(p.stock)}` (tanpa satuan; satuan tetap tampil di kolom/label Satuan tersendiri).
+- LINT 2 file → bersih. E2E (agent-browser, admin, desktop 1280 + mobile 390): judul halaman "Daftar Barang" ✓; header kolom Kode|Nama Barang|Satuan|Qty utuh, isi Qty = 1/0/12/1.000 (murni angka, tanpa "pcs") ✓; mobile 390 judul "Daftar Barang" ✓ & nilai Qty kartu = 1/0/12 tanpa satuan ✓; screenshot desktop diverifikasi visual. Console & errors bersih.
+
+Stage Summary:
+- Halaman Barang kini berjudul "Daftar Barang". Kolom Qty (tabel desktop & kartu mobile) hanya menampilkan angka tanpa satuan — satuan tetap tersedia di kolom Satuan tersendiri.
