@@ -97,6 +97,27 @@ const memoryLastSync = new Map<string, number>()
 let idbBroken = false
 let writeCounter = 0
 
+/**
+ * Watermark invalidasi per "<uid>|<entity>" — waktu invalidasi TERAKHIR.
+ *
+ * RACE YANG DICEGAH: notifyDataChange → (invalidasi async mulai) → view
+ * segera load() → cacheGet() masih membaca entri LAMA dari memori/IDB
+ * karena penghapusan fisik baru jalan setelah await (microtask/IO IDB).
+ * Akibatnya daftar yang di-refresh SESAAT setelah tambah/edit/hapus masih
+ * menampilkan data basi.
+ *
+ * Solusi: invalidateEntity mencatat watermark SINKRON (sebelum await apa
+ * pun). cacheGet membandingkan entry.at dgn watermark — entri yang lebih
+ * tua dianggap tidak ada meski fisiknya belum sempat dihapus.
+ */
+const invalidationWatermark = new Map<string, number>()
+
+/** Entri stale bila dibuat SEBELUM invalidasi terakhir entity-nya. */
+function isInvalidated(e: CacheEntry): boolean {
+  const wm = invalidationWatermark.get(`${e.uid}|${e.entity ?? ''}`)
+  return wm !== undefined && e.at <= wm
+}
+
 /** Selesai saat meta & entri dari sesi sebelumnya sudah dimuat (atau gagal) */
 let readyPromise: Promise<void> | null = null
 
@@ -234,15 +255,38 @@ if (typeof window !== 'undefined') void initOnce()
 /** Ambil salinan cache. Memori dulu → IDB. Null bila tidak ada. */
 export async function cacheGet(key: string): Promise<CacheEntry | null> {
   const mem = memoryEntries.get(key)
-  if (mem) return mem
+  if (mem) {
+    // Entri se-invalidasi terakhir dianggap tidak ada (lihat watermark).
+    if (isInvalidated(mem)) {
+      memoryEntries.delete(key)
+    } else {
+      return mem
+    }
+  }
   await initOnce()
   const mem2 = memoryEntries.get(key)
-  if (mem2) return mem2
+  if (mem2) {
+    if (isInvalidated(mem2)) {
+      memoryEntries.delete(key)
+    } else {
+      return mem2
+    }
+  }
   const row = await withStores<CacheEntry>(
     [ENTRIES], 'readonly',
     get => get(ENTRIES).get(key) as IDBRequest<CacheEntry>
   )
   if (row && row.k) {
+    // Salinan IDB bisa saja basi (belum sempat dihapus invalidasi) —
+    // buang senyap + jangan tulis balik ke memori.
+    if (isInvalidated(row)) {
+      memoryEntries.delete(key)
+      void withStores(
+        [ENTRIES], 'readwrite',
+        get => get(ENTRIES).delete(key)
+      )
+      return null
+    }
     cacheStats.idbHits += 1
     memoryEntries.set(row.k, row)
     return row
@@ -281,6 +325,10 @@ export async function cacheDelete(key: string): Promise<void> {
  */
 export async function invalidateEntity(uid: string, entity: string): Promise<number> {
   if (!uid) return 0
+  // Watermark dicatat SINKRON sebelum await apa pun — penanda paling awal
+  // agar cacheGet yang berjalan berbarengan langsung menganggap entri lama
+  // tidak ada (lihat komentar invalidationWatermark di atas).
+  invalidationWatermark.set(`${uid}|${entity}`, Date.now())
   await initOnce()
   const targets: string[] = []
   memoryEntries.forEach((e, k) => {
