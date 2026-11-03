@@ -16261,3 +16261,17 @@ Work Log:
 
 Stage Summary:
 - Nama pelanggan di seluruh halaman Harga Customer (tabel, filter, dialog edit, popup Tambah Barang) kini SELALU = nama yang terisi di Master Customer (Customer.name), bukan lagi nama perusahaan/suffiks campuran. Konsisten juga di popup Tambah Barang yang dipakai Master Barang & Buat Invoice. Commit cdea8e8.
+
+---
+Task ID: dropdown-nama-barang-harga-customer-buat-invoice
+Agent: Z.ai Code (main)
+Task: "di halaman buat invoice baru. item nama barang isinya yang ada di halaman harga customer sesuai dengan nama customer. fix"
+
+Work Log:
+- ANALISIS: dropdown "Nama Barang" di layar Buat Invoice memuat SEMUA barang master — fetch /api/items?customerId=X&active=1&all=1 (all=1 = semua barang, harga khusus dihitung server). Owner ingin isinya = barang yang TERDAFTAR di halaman Harga Customer untuk customer terpilih (registrasi BarangCustomer). Konfigurasi admin saat itu: 12 barang master vs hanya 2-4 terdaftar per customer → dropdown penuh barang tak relevan.
+- FIX src/components/dokupro/invoice-editor.tsx: tetap SATU fetch all=1 untuk 2 kebutuhan — (1) dropdown difilter: hanya barang dgn registrasi customer ini (r.customers.some(id===found.id)); (2) jalankanReprice (ganti customer saat invoice sudah berisi item) tetap pakai daftar LENGKAP agar baris lama tak terdaftar tetap turun ke harga standar (perilaku repricing tidak berubah). handleBarangCreated tetap benar (barang baru utk customer ini masuk dropdown). emptyBarangMessage → "Belum ada barang di Harga Customer untuk customer ini — pakai tombol Tambah Barang".
+- FIX src/components/dokupro/invoice-pelunasan-editor.tsx (Buat Invoice Pelunasan): fetch dibuang all=1 → langsung hanya barang terdaftar (tanpa logika reprice); empty message sama.
+- LINT 2 file → bersih. E2E (agent-browser, admin, desktop 1280 + mobile 390): seed 3 registrasi via API (Budi: Radio 300k + paperbowl 5k; Jaya: paperbowl 4.8k) — dropdown Budi = HANYA Radio+paperbowl (dgn tanda "harga khusus"), bukan 12 barang; pilih Radio → auto-isi (12 pcs, 300.000, modal 200.000); dropdown Jaya = HANYA paperbowl 4.800 khusus; reprice ganti customer Jaya→Budi: baris paperbowl 4.800→5.000 + toast "Harga 1 baris diperbarui"; customer "angel" (tanpa registrasi): baris turun ke harga standar 1.000/700 + dropdown kosong dgn pesan baru; mobile 390 dropdown terfilter sama. Data uji (3 registrasi) dihapus via API — BarangCustomer kembali 0 (kondisi ditinggal user). Console & dev.log bersih.
+
+Stage Summary:
+- Dropdown "Nama Barang" di Buat Invoice (reguler & pelunasan) kini hanya berisi barang yang terdaftar untuk customer terpilih di halaman Harga Customer; harga khusus tetap otomatis & perilaku repricing saat ganti customer tidak berubah (baris tak terdaftar kembali ke harga standar). Commit 458e449.
