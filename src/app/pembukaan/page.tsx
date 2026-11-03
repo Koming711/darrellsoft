@@ -43,7 +43,7 @@ import {
   YAxis,
 } from 'recharts'
 import { DashboardLayout } from '@/components/dashboard-layout'
-import { authFetch } from '@/lib/auth-fetch'
+import { smartGet } from '@/lib/smart-fetch'
 import { formatRupiah } from '@/lib/format'
 import { hasProfitAccess } from '@/lib/permissions'
 import { startNavigation } from '@/components/navigation-progress'
@@ -294,23 +294,42 @@ export default function PembukaanPage() {
   const router = useRouter()
   const [data, setData] = useState<BerandaData | null>(null)
   const [loading, setLoading] = useState(true)
+  // Waktu data diperbarui (dari cache lokal atau server) — label transparansi
+  // supaya pengguna tahu bila yang tampil adalah salinan tersimpan.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
   const [chartMode, setChartMode] = useState<'monthly' | 'daily'>('monthly')
   // Izin grup: anggota tanpa centangan "Profit (Laba Invoice)" tidak melihat Laba Kotor
   const [bisaLihatProfit, setBisaLihatProfit] = useState(true)
   useEffect(() => { setBisaLihatProfit(hasProfitAccess()) }, [])
 
-  const refresh = useCallback(() => {
+  /**
+   * Muat data beranda lewat SMART CACHE: tampil instan dari data lokal bila
+   * masih segar (hemat request), refresh diam-diam bila basi, dan tetap
+   * tersedia saat offline (salinan IndexedDB). Tombol muat-ulang = force
+   * (pasti ke server).
+   */
+  const load = useCallback((force = false) => {
     setLoading(true)
-    authFetch('/api/beranda')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Gagal memuat data'))))
-      .then(setData)
+    smartGet('/api/beranda', { force })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Gagal memuat data')
+        const json = await r.json()
+        setData(json)
+        const cacheSource = r.headers.get('x-cache')
+        const cacheAge = Number(r.headers.get('x-cache-age') || 0)
+        setUpdatedAt(cacheSource === 'hit' || cacheSource === 'stale-idb' ? Date.now() - cacheAge : Date.now())
+      })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Terjadi kesalahan'))
       .finally(() => setLoading(false))
   }, [])
 
+  const refresh = useCallback(() => {
+    load(true)
+  }, [load])
+
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    load()
+  }, [load])
 
   const navigate = useCallback(
     (path: string) => {
@@ -374,7 +393,15 @@ export default function PembukaanPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{todayLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {todayLabel}
+              {updatedAt ? (
+                <span className="ml-2 text-[11px] text-muted-foreground/70">
+                  · Diperbarui{' '}
+                  {new Date(updatedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(':', '.')}
+                </span>
+              ) : null}
+            </p>
             {/* Motivasi usaha harian — berganti otomatis setiap hari */}
             <div
               className="mt-2 inline-flex max-w-full items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 dark:border-amber-900 dark:bg-amber-950/30"

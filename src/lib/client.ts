@@ -8,6 +8,7 @@
  * (x-user-id / x-user-role from localStorage 'auth').
  */
 import { getAuthHeaders } from '@/lib/auth-fetch'
+import { smartGetJSON } from '@/lib/smart-fetch'
 
 export class ApiError extends Error {
   status: number
@@ -17,8 +18,29 @@ export class ApiError extends Error {
   }
 }
 
-/** Fetch JSON ke API internal. Lempar ApiError jika gagal. */
+/**
+ * Fetch JSON ke API internal. Lempar ApiError jika gagal.
+ *
+ * SMART CACHE (GET): request GET menuju endpoint data yang aman di-cache
+ * dilayani lewat lib/smart-fetch (memori → IndexedDB → network, TTL per
+ * entity, dedupe, invalidasi otomatis via data-change). Menu terasa instan
+ * dan request server jauh berkurang. Endpoint sensitif tidak pernah
+ * di-cache. Pakai `?nocache` di URL untuk memaksa network.
+ */
 export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+
+  // GET data → lapisan cache pintar (kontrak & pesan error tetap sama)
+  if (method === 'GET') {
+    try {
+      return await smartGetJSON<T>(url)
+    } catch (e) {
+      if (e instanceof ApiError) throw e
+      // Network gagal total & tanpa cache offline → samakan dengan perilaku lama
+      throw new ApiError(e instanceof Error ? e.message : 'Terjadi kesalahan pada server', 0)
+    }
+  }
+
   const res = await fetch(url, {
     ...init,
     headers: {

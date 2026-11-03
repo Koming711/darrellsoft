@@ -13,6 +13,7 @@
 export type DataEntity =
   | 'items'
   | 'papers'
+  | 'master-kertas'
   | 'printing-costs'
   | 'finishings'
   | 'customers'
@@ -27,6 +28,10 @@ export type DataEntity =
   | 'biaya'
   | 'kategori'
   | 'toko-pemasok'
+  | 'stock-bahan'
+  | 'harga-customer'
+  | 'beranda'
+  | 'laporan'
 
 // BroadcastChannel for cross-tab sync
 let channel: BroadcastChannel | null = null
@@ -45,9 +50,23 @@ try {
 /**
  * Call this after any data mutation (POST/PUT/DELETE) 
  * to notify all listeners that data has changed.
+ *
+ * SMART CACHE: juga mengirim event 'data-change-local' di tab ini —
+ * didengarkan lib/smart-fetch untuk menghapus cache entity terkait,
+ * sehingga load berikutnya mengambil data segar dari server.
+ * (Handler UI lama tidak mendengarkan nama event ini → tidak ada
+ * perubahan perilaku halaman.)
  */
 export function notifyDataChange(entity: DataEntity) {
-  // Broadcast to other tabs only - same-tab updates are handled by optimistic state
+  // Invalidasi cache lokal tab ini (smart-fetch)
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('data-change-local', { detail: { entity, source: 'local' } }))
+    }
+  } catch {
+    // Ignore
+  }
+  // Broadcast to other tabs - same-tab updates are handled by optimistic state
   try {
     channel?.postMessage({ entity })
   } catch {

@@ -108,6 +108,7 @@ export const translations = {
     sync_all_done: 'Semua data telah tersinkronkan',
     offline_saved_toast: 'Tersimpan offline — otomatis masuk database saat internet kembali',
     sync_done_toast: 'Perubahan offline berhasil disinkron ke database',
+    last_sync_label: 'Sinkron terakhir',
 
     // Page Subtitles
     subtitle_dashboard: 'Selamat datang di Darrell Soft',
@@ -772,6 +773,7 @@ export const translations = {
     sync_all_done: 'All data has been synced',
     offline_saved_toast: 'Saved offline — goes to the database automatically when internet returns',
     sync_done_toast: 'Offline changes synced to database',
+    last_sync_label: 'Last sync',
 
     // Page Subtitles
     subtitle_dashboard: 'Welcome to Darrell Soft',

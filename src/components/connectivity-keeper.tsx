@@ -6,6 +6,19 @@ import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/language-context'
 import type { DataEntity } from '@/lib/data-sync'
 import { getQueueCount, isQueueableWrite, onQueueChange, queueAndSynthesize, replayQueue } from '@/lib/offline-queue'
+import { scheduleDataWarmup } from '@/lib/data-warmup'
+import { getLastSyncAt } from '@/lib/local-cache'
+import { currentUid } from '@/lib/smart-fetch'
+
+/** Format "HH.MM" untuk label waktu sinkron terakhir */
+function fmtTime(ms: number): string {
+  if (!ms) return ''
+  try {
+    return new Date(ms).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(':', '.')
+  } catch {
+    return ''
+  }
+}
 
 /**
  * ConnectivityKeeper — membuat aplikasi "selalu on" & selalu up-to-date:
@@ -53,6 +66,7 @@ export function ConnectivityKeeper() {
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
   const [showSyncDone, setShowSyncDone] = useState(false)
+  const [lastSyncText, setLastSyncText] = useState('')
   const { t } = useLanguage()
   const pendingRef = useRef(0)
   const hadNetworkErrorRef = useRef(false)
@@ -78,6 +92,12 @@ export function ConnectivityKeeper() {
 
   useEffect(() => {
     setOffline(!navigator.onLine)
+
+    // SMART CACHE: siapkan data master inti saat idle (sekali per 30 menit)
+    scheduleDataWarmup()
+    // Setelah login/logout, coba warm-up lagi (data dikunci per akun)
+    const handleAuthChange = () => scheduleDataWarmup()
+    window.addEventListener('auth-change', handleAuthChange)
 
     // Antrian awal + ikuti perubahan antrian dari mana pun
     getQueueCount().then(n => {
@@ -212,7 +232,15 @@ export function ConnectivityKeeper() {
         refreshVisibleData()
       }, 1200)
     }
-    const handleOffline = () => setOffline(true)
+    const handleOffline = () => {
+      setOffline(true)
+      // Ambil waktu sinkron sukses terakhir utk ditampilkan di banner OFFLINE
+      const uid = currentUid()
+      if (uid) {
+        const txt = fmtTime(getLastSyncAt(uid))
+        setLastSyncText(txt)
+      }
+    }
     const handleVisibility = () => {
       if (document.visibilityState === 'visible' && navigator.onLine) {
         if (pendingRef.current > 0) runSync()
@@ -238,6 +266,7 @@ export function ConnectivityKeeper() {
       window.removeEventListener('offline-sync-complete', handleSyncComplete)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('auth-change', handleAuthChange)
       document.removeEventListener('visibilitychange', handleVisibility)
       if (swHandler && 'serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', swHandler)
@@ -261,6 +290,7 @@ export function ConnectivityKeeper() {
           <span className="min-w-0 flex-1 truncate">
             {t('offline_banner')}
             {pending > 0 ? ` · ${pending} ${t('offline_pending')}` : ''}
+            {lastSyncText ? ` · ${t('last_sync_label')} ${lastSyncText}` : ''}
           </span>
           {pending > 0 && (
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5" aria-hidden="true">

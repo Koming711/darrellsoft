@@ -23,6 +23,8 @@ export interface QueuedRequest {
   body: string | null
   entity: DataEntity | null
   createdAt: number
+  /** Kunci idempotensi — SAMA untuk semua retry entry ini (cegah data ganda) */
+  idempotencyKey?: string
 }
 
 const DB_NAME = 'darrell-offline-queue'
@@ -40,6 +42,7 @@ const NEVER_QUEUE_PREFIXES = [
   '/api/backup',
   '/api/import-master-data',
   '/api/midtrans',
+  '/api/payment-manual', // PENTING: uang masuk wajib online — cegah transaksi ganda
   '/api/upload-logo',
   '/api/app-icon',
   '/api/export',
@@ -58,7 +61,7 @@ const ENTITY_MAP: Array<[string, DataEntity]> = [
   ['/api/items', 'items'],
   ['/api/barang', 'items'],
   ['/api/papers', 'papers'],
-  ['/api/master-kertas', 'papers'],
+  ['/api/master-kertas', 'master-kertas'],
   ['/api/printing-costs', 'printing-costs'],
   ['/api/finishings', 'finishings'],
   ['/api/invoices', 'invoice'],
@@ -73,6 +76,10 @@ const ENTITY_MAP: Array<[string, DataEntity]> = [
   ['/api/pengguna', 'pengguna'],
   ['/api/calon-pembeli', 'calon-pembeli'],
   ['/api/pembeli', 'pembeli'],
+  ['/api/kategori', 'kategori'],
+  ['/api/toko-pemasok', 'toko-pemasok'],
+  ['/api/stock-bahan', 'stock-bahan'],
+  ['/api/harga-customer', 'harga-customer'],
 ]
 
 export function entityForUrl(url: string): DataEntity | null {
@@ -120,6 +127,13 @@ export async function queueAndSynthesize(
     let serialized: string | null = null
     if (typeof body === 'string') serialized = body
     else if (body != null) serialized = JSON.stringify(body)
+    // Idempotensi: kunci dibuat SEKALI saat masuk antrian dan dipakai ulang
+    // di SEMUA retry entry yang sama — server (kapan pun siap) bisa
+    // mengenali pengiriman ganda dari kunci ini.
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`
     await enqueueWrite({
       url,
       method,
@@ -127,6 +141,7 @@ export async function queueAndSynthesize(
       body: serialized,
       entity: entityForUrl(url),
       createdAt: Date.now(),
+      idempotencyKey,
     })
     registerBackgroundSync()
     if (typeof window !== 'undefined') {
@@ -338,7 +353,9 @@ export async function replayQueue(force = false): Promise<{ synced: number; fail
         // request replay ikut diantrikan ulang oleh patch global.
         const res = await rawFetch(entry.url, {
           method: entry.method,
-          headers: entry.headers,
+          headers: entry.idempotencyKey
+            ? { ...entry.headers, 'x-idempotency-key': entry.idempotencyKey }
+            : entry.headers,
           body: entry.body,
           cache: 'no-store',
         })

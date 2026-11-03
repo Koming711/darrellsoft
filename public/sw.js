@@ -40,6 +40,20 @@ self.addEventListener('message', (event) => {
   // asset aplikasi tersimpan → aplikasi tetap bisa dibuka saat offline.
   if (event.data && event.data.type === 'PRECACHE_URLS' && Array.isArray(event.data.urls)) {
     event.waitUntil(precacheUrls(event.data.urls));
+    return;
+  }
+
+  // CLEAR_API_CACHE: logout / ganti akun → buang semua salinan data API
+  // milik user tersebut agar data perusahaan tidak bisa diintip akun lain
+  // di perangkat yang sama. (Cache data lokal di IndexedDB dibersihkan
+  // terpisah oleh lib/smart-fetch via clearAuthUser.)
+  if (event.data && event.data.type === 'CLEAR_API_CACHE' && event.data.uid) {
+    event.waitUntil(clearApiCacheForUser(String(event.data.uid)));
+    return;
+  }
+  if (event.data && event.data.type === 'CLEAR_ALL_API_CACHE') {
+    event.waitUntil(caches.delete(API_CACHE_NAME));
+    return;
   }
 });
 
@@ -166,6 +180,25 @@ async function trimApiCache() {
     if (keys.length > MAX_API_CACHE_ENTRIES) {
       await cache.delete(keys[0]);
     }
+  } catch (e) {
+    // ignore
+  }
+}
+
+/** Logout/ganti akun: hapus entri cache API milik satu user (kunci __uid) */
+async function clearApiCacheForUser(uid) {
+  try {
+    const cache = await caches.open(API_CACHE_NAME);
+    const keys = await cache.keys();
+    await Promise.all(
+      keys.map((req) => {
+        try {
+          const u = new URL(req.url);
+          if (u.searchParams.get('__uid') === uid) return cache.delete(req);
+        } catch (e) { /* ignore */ }
+        return Promise.resolve();
+      })
+    );
   } catch (e) {
     // ignore
   }

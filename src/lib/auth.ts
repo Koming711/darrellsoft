@@ -123,6 +123,18 @@ export function clearAuthUser(): void {
     const raw = localStorage.getItem('auth')
     const uid = raw ? (JSON.parse(raw) as User)?.id : null
     if (uid) clearLastRoute(String(uid))
+    // SMART CACHE: bersihkan cache data lokal milik user ini (IndexedDB +
+    // memori) dan cache API di service worker — data perusahaan tidak bocor
+    // ke akun berikutnya di perangkat yang sama. Antrean offline yang belum
+    // tersinkron TIDAK ikut dihapus (disimpan di IndexedDB terpisah).
+    if (uid) {
+      void import('@/lib/smart-fetch')
+        .then(m => m.clearCurrentUserCache())
+        .catch(() => {})
+      try {
+        navigator.serviceWorker?.controller?.postMessage({ type: 'CLEAR_API_CACHE', uid: String(uid) })
+      } catch { /* SW tidak aktif — abaikan */ }
+    }
   } catch {
     // ignore
   }

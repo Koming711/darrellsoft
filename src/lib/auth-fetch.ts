@@ -16,6 +16,7 @@
  */
 
 import { isQueueableWrite, queueAndSynthesize } from './offline-queue'
+import { smartGet } from './smart-fetch'
 
 export function getAuthHeaders(): Record<string, string> {
   try {
@@ -35,6 +36,12 @@ export function getAuthHeaders(): Record<string, string> {
  * Wrapper around native fetch that adds auth headers.
  * GET requests use cache: 'no-store' to always get fresh data from server.
  * Write requests saat offline otomatis masuk antrian sinkronisasi.
+ *
+ * SMART CACHE (GET): GET ke endpoint data yang aman di-cache dilayani lewat
+ * lib/smart-fetch (memori → IndexedDB → network, TTL per entity, dedupe,
+ * SWR, invalidasi otomatis). Endpoint sensitif (auth/backup/payment/dll)
+ * tidak pernah di-cache — tetap network langsung. Pakai `?nocache` di URL
+ * untuk melewati cache.
  */
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const authHeaders = getAuthHeaders()
@@ -51,6 +58,13 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   // For GET requests, force no-cache to prevent stale data
   const isGet = !options.method || options.method === 'GET'
   const cacheOption: RequestCache = isGet ? 'no-store' : 'default'
+
+  // ---- SMART CACHE: GET data aman → lapisan cache pintar ----
+  // (melempar error network bila benar-benar gagal & tak ada cache offline —
+  // perilaku error sama seperti jalur lama, tanpa fetch dobel)
+  if (isGet) {
+    return await smartGet(url, { headers: mergedHeaders as Record<string, string> })
+  }
 
   const method = (options.method ?? 'GET').toUpperCase()
   const canQueue = isQueueableWrite(url, method, options.body)
