@@ -16304,3 +16304,18 @@ Work Log:
 
 Stage Summary:
 - Halaman Barang kini berjudul "Daftar Barang". Kolom Qty (tabel desktop & kartu mobile) hanya menampilkan angka tanpa satuan — satuan tetap tersedia di kolom Satuan tersendiri.
+
+---
+Task ID: sidebar-master-customer-ke-grup-master
+Agent: Z.ai Code (main)
+Task: "di sidebar menu, master customer dipindahin ke judul master cetak. tulisan master cetak di sidebar menu diganti jadi master."
+
+Work Log:
+- ANALISIS: 2 permintaan sidebar — (1) menu Master Customer pindah grup dari DOKUMEN ke MASTER CETAK; (2) label grup "MASTER CETAK" diganti "MASTER". Sidebar ada 2 komponen: sidebar-desktop.tsx (rail desktop, label grup tampil saat hover) & sidebar.tsx (drawer/popup mobile, grup hanya pemisah garis).
+- FIX src/components/sidebar-desktop.tsx: item Master Customer dipindah dari grup 'dokumen' ke grup 'master_cetakan' (posisi pertama grup, sebelum Master Bahan).
+- FIX src/components/sidebar.tsx: sama — item Master Customer dipindah ke grup 'master_cetakan' (posisi pertama) agar urutan drawer/popup "Lainnya" mobile konsisten.
+- FIX src/lib/i18n.ts: section_print_master 'MASTER CETAK' → 'MASTER' (ID) & 'PRINT MASTER' → 'MASTER' (EN). Kunci i18n dipertahankan (hanya nilai diganti).
+- LINT 3 file → bersih. E2E (agent-browser, admin, desktop 1280 + mobile 390): desktop hover rail — label grup "MASTER" berisi Master Customer, Master Bahan, Kategori, Master Ongkos Cetak, Master Finishing, Master Suplier, Stock Bahan; grup DOKUMEN tinggal Invoice, Surat Jalan, Purchase Order, Barang, Harga Customer ✓ (screenshot visual). Mobile 390 popup "Lainnya": urutan ... Barang | Harga Customer | Master Customer | Master Bahan | Kategori ... ✓. Console & dev.log bersih.
+
+Stage Summary:
+- Sidebar (desktop & mobile): menu Master Customer kini berada di grup MASTER (sebelumnya MASTER CETAK / DOKUMEN), dan judul grup diganti menjadi "MASTER". Susunan menu lain tidak berubah.
