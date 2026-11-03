@@ -223,8 +223,10 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
       .catch(() => setCustomerList([]));
   }, []);
 
-  // Muat Master Barang milik customer invoice terpilih — dropdown Nama Barang
-  // (pola sama dengan editor Regular: nama customer → id → /api/items).
+  // Muat barang untuk dropdown "Nama Barang" — HANYA barang yang terdaftar
+  // di halaman Harga Customer utk customer invoice terpilih (registrasi
+  // BarangCustomer — pola sama dengan editor Regular: nama customer → id →
+  // /api/items).
   useEffect(() => {
     const nama = (invoiceData?.client?.nama || '').trim().toLowerCase();
     const found = nama
@@ -236,9 +238,9 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
       return;
     }
     let cancelled = false;
-    // all=1 → SEMUA barang master (bukan hanya yang terdaftar customer);
-    // customerPrice = harga khusus aktif & berlaku utk customer invoice ini.
-    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1&all=1`, { headers: getAuthHeaders() })
+    // Tanpa all=1 → hanya barang TERDAFTAR customer ini (halaman Harga
+    // Customer); customerPrice = harga khusus aktif & berlaku.
+    fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         if (cancelled) return;
@@ -1025,7 +1027,7 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
             barangOptions={pelunasanBarangList}
             emptyBarangMessage={
               invoiceData.client.nama.trim()
-                ? 'Belum ada barang untuk customer ini — pakai tombol "Tambah Barang"'
+                ? 'Belum ada barang di Harga Customer untuk customer ini — pakai tombol "Tambah Barang"'
                 : 'Pilih invoice terlebih dahulu'
             }
             onPickBarang={handlePickBarangPelunasan}

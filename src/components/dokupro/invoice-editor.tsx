@@ -180,8 +180,10 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
   useEffect(() => { fetchRiwayatCetakan() }, [fetchRiwayatCetakan]);
   useEffect(() => { fetchCustomers() }, [fetchCustomers]);
 
-  // Muat daftar barang milik customer terpilih (Master Barang per pelanggan).
-  // Jika customer tidak dikenal / belum memilih, daftar barang = kosong.
+  // Muat daftar barang untuk dropdown "Nama Barang" — HANYA barang yang
+  // terdaftar di halaman Harga Customer untuk customer terpilih (registrasi
+  // BarangCustomer), sesuai permintaan owner. Jika customer tidak dikenal /
+  // belum memilih, daftar barang = kosong.
   useEffect(() => {
     const nama = invoice.client.nama.trim().toLowerCase();
     const found = nama
@@ -213,16 +215,20 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       return;
     }
     let cancelled = false;
-    // all=1 → SEMUA barang master tampil di dropdown (bukan hanya barang
-    // terdaftar customer). Harga khusus customer yang aktif & berlaku sudah
-    // dihitung server (customerPrice) — barang tanpa harga khusus otomatis
-    // memakai harga standar Master Produk (aturan prioritas harga).
+    // Satu fetch all=1 untuk DUA kebutuhan:
+    // 1) Dropdown "Nama Barang" → difilter: hanya barang yang TERDAFTAR di
+    //    halaman Harga Customer utk customer ini (ada registrasi
+    //    BarangCustomer) — bukan semua barang master.
+    // 2) Reprice (ganti customer saat invoice sudah berisi item) → butuh
+    //    daftar LENGKAP semua barang master agar semua baris lama ikut
+    //    menyesuaikan harga (khusus customer bila terdaftar, selain itu
+    //    harga standar — aturan prioritas harga dihitung server).
     fetch(`/api/items?customerId=${encodeURIComponent(found.id)}&active=1&all=1`, { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         if (cancelled) return;
         const rows = Array.isArray(data?.items) ? data.items : [];
-        const mapped = rows.map((r: { id: string; name: string; unit: string; standardPrice: number; customerPrice?: number | null; hpp: number | null; qty?: number }) => ({
+        const toOption = (r: { id: string; name: string; unit: string; standardPrice: number; customerPrice?: number | null; hpp: number | null; qty?: number }) => ({
           id: r.id,
           name: r.name,
           unit: r.unit || 'pcs',
@@ -230,11 +236,17 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           customerPrice: r.customerPrice ?? null,
           hpp: r.hpp ?? null,
           qty: r.qty ?? 0,
-        }));
-        setBarangList(mapped);
+        });
+        // Dropdown = barang milik customer ini saja (terdaftar di Harga Customer)
+        const rowsCustomer = rows.filter(
+          (r: { customers?: { id: string }[] }) =>
+            Array.isArray(r?.customers) && r.customers.some((c) => c.id === found.id)
+        );
+        setBarangList(rowsCustomer.map(toOption));
         if (repricePendingRef.current) {
           repricePendingRef.current = false;
-          jalankanReprice(mapped);
+          // Reprice tetap pakai daftar LENGKAP (semua barang master)
+          jalankanReprice(rows.map(toOption));
         }
       })
       .catch(() => { if (!cancelled) setBarangList([]); });
@@ -255,8 +267,9 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
         hpp: saved.hpp,
         qty: saved.qty ?? 0,
       };
-      // Daftar dropdown kini memuat SEMUA barang master (all=1) — barang baru
-      // bisa saja sudah ada di daftar: ganti entri lama, bukan menambah dobel.
+      // Dropdown kini hanya memuat barang terdaftar customer ini (Harga
+      // Customer) — barang baru utk customer ini langsung cocok masuk;
+      // ganti entri lama bila sudah ada, bukan menambah dobel.
       setBarangList((prev) => {
         const ada = prev.some((b) => b.id === option.id);
         return ada ? prev.map((b) => (b.id === option.id ? { ...b, ...option } : b)) : [...prev, option];
@@ -906,7 +919,7 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
           lockPrices={!bisaEditHarga}
           emptyBarangMessage={
             invoice.client.nama.trim()
-              ? 'Belum ada barang di menu Barang — pakai tombol "Tambah Barang"'
+              ? 'Belum ada barang di Harga Customer untuk customer ini — pakai tombol "Tambah Barang"'
               : 'Pilih customer terlebih dahulu'
           }
           onPickBarang={handlePickBarang}
