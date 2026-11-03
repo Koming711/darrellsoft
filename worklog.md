@@ -16275,3 +16275,18 @@ Work Log:
 
 Stage Summary:
 - Dropdown "Nama Barang" di Buat Invoice (reguler & pelunasan) kini hanya berisi barang yang terdaftar untuk customer terpilih di halaman Harga Customer; harga khusus tetap otomatis & perilaku repricing saat ganti customer tidak berubah (baris tak terdaftar kembali ke harga standar). Commit 458e449.
+
+---
+Task ID: label-halaman-barang-dan-dropdown-tambah-barang-harga-customer
+Agent: Z.ai Code (main)
+Task: "dihalaman barang, tulisan nama di kolom diganti nama barang. dihalaman barang, popup tambah barang tulisan qty (stock) diganti jadi qty. dihalaman customer, popup tambah barang, rubah nama barang menjjadi dropdown isinya yang ada di halaman barang. fix"
+
+Work Log:
+- ANALISIS: 3 permintaan — (1) header kolom tabel halaman /barang masih "Nama"; (2) popup Tambah Barang /barang memakai label "Qty (Stok)"; (3) "popup tambah barang di halaman customer" = satu-satunya popup barang dgn nama bebas di konteks customer yaitu popup Tambah Barang halaman Harga Customer (BarangFormDialog; Master Customer tidak punya popup barang — diverifikasi grep seluruh app). Popup tsb POST /api/items → selalu bikin barang BARU, sehingga memilih nama barang yg sudah ada harusnya TIDAK menduplikasi master Barang.
+- FIX src/components/views/barang-view.tsx: TableHead "Nama" → "Nama Barang"; Label "Qty (Stok)" → "Qty"; teks bantuan ikut dirapikan (tanpa "(stok)"). Mobile kartu tidak berubah (sudah tanpa label Nama).
+- FIX src/components/views/barang-form-dialog.tsx: prop baru opsional `barangOptions` (id/name/unit/standardPrice/hpp). Bila diisi & mode TAMBAH → field "Nama Barang" jadi DROPDOWN: 13 opsi = barang aktif dari halaman Barang + "+ Barang baru (ketik manual)". Pilih barang → prefill nama/satuan/harga jual & modal (+profit) dr master; SIMPAN = POST /api/harga-customer (daftarkan harga khusus utk pelanggan terpilih, TANPA bikin barang baru; pelanggan wajib dipilih — barang umum diblok dgn toast). Opsi "+ Barang baru" → input teks muncul, alur lama POST /api/items tetap utuh (nama dikosongkan agar tak sengaja duplikat). Mode edit/duplikat & halaman tanpa barangOptions (Master Barang, Buat Invoice) tidak berubah. value='' selalu controlled (tanpa warning React).
+- FIX src/app/harga-customer/page.tsx: kirim barangOptions={barangList} (dari /api/items?active=1, dimuat ulang tiap popup dibuka).
+- LINT 3 file → bersih. E2E (agent-browser, admin, desktop 1280 + mobile 390): /barang header "Nama Barang" ✓, popup label "Qty" ✓ (nama tetap input teks); /harga-customer popup: dropdown 13 opsi sesuai isi halaman Barang, pilih Radio → harga jual terisi 300.000 + teks info, pilih Budi Susanto + harga 275.000 → Simpan → toast "Harga khusus ditambahkan untuk Budi Susanto", baris baru "Budi Susanto | Radio | Aktif | Rp 300.000 | Rp 275.000", jumlah Barang TETAP 12 (tanpa duplikat) — registrasi uji dihapus via UI; blok barang umum: pilih "box" tanpa pelanggan → toast error "Pilih pelanggan untuk mengatur harga khusus barang ini"; "+ Barang baru (ketik manual)" → input teks muncul; alur roti+Lunggan 30.000 ✓ lalu dihapus; mobile 390: kartu barang tampil, popup dropdown 44px touch target, pilih paperbowl → prefill 1.000, Batal tertutup. Console & dev.log bersih; DB ditinggal = 12 barang, 0 registrasi (kondisi semula).
+
+Stage Summary:
+- Halaman Barang: kolom kini berjudul "Nama Barang" & popup Tambah Barang memakai label "Qty". Popup Tambah Barang di halaman Harga Customer kini menampilkan dropdown berisi barang dari halaman Barang: pilih barang yang sudah ada → simpan langsung jadi harga khusus customer tanpa menduplikasi master barang; opsi "+ Barang baru" tetap tersedia untuk membuat barang baru.
