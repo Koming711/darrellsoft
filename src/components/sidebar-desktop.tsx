@@ -119,13 +119,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_customer' as TranslationKey,
-    href: '/master-customer',
-    icon: Users,
-    featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
     titleKey: 'barang' as TranslationKey,
     href: '/barang',
     icon: PackagePlus,
@@ -138,6 +131,13 @@ const menuItems = [
     icon: BadgePercent,
     featureId: 'harga-customer',
     section: 'dokumen',
+  },
+  {
+    titleKey: 'master_customer' as TranslationKey,
+    href: '/master-customer',
+    icon: Users,
+    featureId: 'master-customer',
+    section: 'master_cetakan',
   },
   {
     titleKey: 'menu_master_harga_kertas' as TranslationKey,
@@ -290,7 +290,7 @@ const menuItems = [
 
 // Section rendering order with their i18n label keys (using dedicated section_* keys for
 // proper ID/EN translations of the UPPERCASE sidebar section headers).
-// Urutan (permintaan owner): Dokumen → Master Cetak → Laporan → Operasional →
+// Urutan (permintaan owner): Dokumen → Master → Laporan → Operasional →
 // Hitung Produksi → Langganan → Administrasi (termasuk Panel Admin) → Setting.
 const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
   { key: undefined, labelKey: 'section_beranda' as TranslationKey },

@@ -100,13 +100,6 @@ const menuItems = [
     section: 'dokumen',
   },
   {
-    titleKey: 'master_customer' as TranslationKey,
-    href: '/master-customer',
-    icon: Users,
-    featureId: 'master-customer',
-    section: 'dokumen',
-  },
-  {
     titleKey: 'barang' as TranslationKey,
     href: '/barang',
     icon: PackagePlus,
@@ -119,6 +112,13 @@ const menuItems = [
     icon: BadgePercent,
     featureId: 'harga-customer',
     section: 'dokumen',
+  },
+  {
+    titleKey: 'master_customer' as TranslationKey,
+    href: '/master-customer',
+    icon: Users,
+    featureId: 'master-customer',
+    section: 'master_cetakan',
   },
   {
     titleKey: 'menu_master_harga_kertas' as TranslationKey,
