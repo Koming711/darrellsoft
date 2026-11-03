@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-10-10-v151'
+export const CURRENT_VERSION = '2026-11-03-v164'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-03-v164',
+    date: { id: '3 November 2026', en: '3 November 2026' },
+    title: {
+      id: 'Mode Offline & Cache Cerdas — Makin Cepat, Tahan Internet Mati',
+      en: 'Offline Mode & Smart Cache — Faster, Survives Internet Outage',
+    },
+    items: [
+      {
+        id: 'Menu terbuka instan: data yang pernah dibuka (customer, barang, kertas, ongkos cetak, invoice, dll) tersimpan aman di perangkat per-akun — klik pertama tidak lagi menunggu server, hemat kuota',
+        en: 'Menus open instantly: previously opened data (customers, items, papers, print costs, invoices, etc.) is safely cached on your device per account — the first click no longer waits for the server and saves quota',
+      },
+      {
+        id: 'Tahan internet mati: tambah/edit/hapus saat offline otomatis masuk antrian perangkat & tersinkron ke database begitu online (dengan proteksi anti duplikat)',
+        en: 'Survives internet outage: add/edit/delete while offline is queued on your device and synced to the database once back online (with duplicate protection)',
+      },
+      {
+        id: 'Seluruh halaman aplikasi tersimpan untuk offline (PWA) + banner status offline dengan waktu sinkron terakhir; data sensitif (login, notifikasi, pembayaran) tetap selalu segar & tidak pernah di-cache',
+        en: 'All app pages are stored for offline use (PWA) + offline banner with last-sync time; sensitive data (login, notifications, payments) always stays fresh and is never cached',
+      },
+    ],
+  },
   {
     version: '2026-10-10-v151',
     date: { id: '10 Oktober 2026', en: '10 October 2026' },
