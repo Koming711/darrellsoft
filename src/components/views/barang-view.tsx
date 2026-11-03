@@ -342,7 +342,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               <TableHeader>
                 <TableRow>
                   <TableHead>Kode</TableHead>
-                  <TableHead>Nama</TableHead>
+                  <TableHead>Nama Barang</TableHead>
                   <TableHead>Satuan</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <TableHead className="text-right">Harga Modal</TableHead>
@@ -596,7 +596,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="product-stock">Qty (Stok)</Label>
+              <Label htmlFor="product-stock">Qty</Label>
               <Input
                 id="product-stock"
                 type="number"
@@ -610,8 +610,8 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               />
               <p className="text-xs text-muted-foreground">
                 {editing
-                  ? 'Qty (stok) saat ini tercantum di kolom Qty — ubah lewat kolom ini bila perlu.'
-                  : 'Qty awal (stok) barang; kelola harga & qty di tabel barang.'}
+                  ? 'Qty saat ini tercantum di kolom Qty — ubah lewat kolom ini bila perlu.'
+                  : 'Qty awal barang; kelola harga & qty di tabel barang.'}
               </p>
             </div>
             <div className="flex flex-col gap-2">

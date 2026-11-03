@@ -70,10 +70,14 @@ import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
  *
  * Popup TAMBAH memakai komponen bersama BarangFormDialog (sama persis dengan
  * popup "Tambah Barang" Master Barang / Buat Invoice, sesuai desain aplikasi
- * desktop): nama, foto (Pilih File/Kamera), Untuk Pelanggan, satuan, qty,
- * harga jual, harga modal + profit dua arah, keterangan. Simpan via
- * POST /api/items — bila pelanggan dipilih, barang otomatis terdaftar
- * (BarangCustomer) sehingga langsung muncul di daftar harga khusus.
+ * desktop): NAMA BARANG berupa DROPDOWN barang dari halaman Barang
+ * (/api/items) — pilih barang yg sudah ada lalu isi harga khusus, atau pilih
+ * "+ Barang baru" utk membuat barang baru; foto, Untuk Pelanggan, satuan,
+ * qty, harga jual, harga modal + profit dua arah, keterangan.
+ * Simpan barang yg SUDAH ADA = POST /api/harga-customer (daftarkan harga
+ * khusus, tanpa membuat barang baru). Simpan barang baru = POST /api/items —
+ * bila pelanggan dipilih, barang otomatis terdaftar (BarangCustomer)
+ * sehingga langsung muncul di daftar harga khusus.
  * Dialog edit harga khusus tetap khusus mode edit.
  */
 
@@ -660,6 +664,7 @@ export default function HargaCustomerPage() {
         customers={customers as BarangCustomerOption[]}
         customerFilter={fCustomer}
         lockedCustomerNote="Mengikuti pelanggan yang dipilih di filter halaman ini."
+        barangOptions={barangList}
         onSaved={handleBarangSaved}
       />
 

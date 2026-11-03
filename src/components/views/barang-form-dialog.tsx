@@ -59,6 +59,18 @@ export interface BarangFormSavedItem {
   qty: number
 }
 
+/** Pilihan barang dr halaman Barang (Master Barang). Bila diisi, field
+ *  "Nama Barang" di mode TAMBAH menjadi dropdown barang yg sudah ada —
+ *  Simpan = daftarkan harga khusus (BarangCustomer) utk pelanggan terpilih,
+ *  BUKAN membuat barang baru. Tak diisi → input teks bebas sprri sebelumnya. */
+export interface BarangPickOption {
+  id: string
+  name: string
+  unit: string
+  standardPrice: number
+  hpp: number | null
+}
+
 interface ItemFormState {
   name: string
   unit: string
@@ -129,6 +141,11 @@ interface BarangFormDialogProps {
   duplicateFrom?: Item | null
   /** Daftar pelanggan utk select "Untuk Pelanggan" */
   customers?: BarangCustomerOption[]
+  /** Daftar barang dr halaman Barang utk dropdown "Nama Barang" (mode tambah).
+   *  Isi → pilih barang yg sudah ada (simpan = tambah harga khusus per
+   *  pelanggan) atau "+ Barang baru" utk tetap bikin barang baru.
+   *  Kosong/tidak diisi → input teks bebas seperti sebelumnya. */
+  barangOptions?: BarangPickOption[]
   /** 'all' = bebas pilih pelanggan (termasuk barang umum); id spesifik = select terkunci mengikuti filter */
   customerFilter?: string
   /** Teks bantuan saat select pelanggan terkunci (customerFilter spesifik).
@@ -145,17 +162,22 @@ export function BarangFormDialog({
   editing = null,
   duplicateFrom = null,
   customers = [],
+  barangOptions = [],
   customerFilter = 'all',
   lockedCustomerNote = 'Mengikuti filter pelanggan aktif di atas.',
   onSaved,
 }: BarangFormDialogProps) {
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  /** Barang dipilih dr dropdown (mode tambah, saat barangOptions diisi).
+   *  '' = belum memilih; '__new__' = bikin barang baru (nama diketik manual). */
+  const [pickedId, setPickedId] = useState('')
 
   // Isi form setiap kali dialog dibuka — replika openCreate/openEdit/openDuplicate
   // di items-view (sama persis).
   useEffect(() => {
     if (!open) return
+    setPickedId('')
     if (editing) {
       const modalStr = editing.hpp != null ? String(editing.hpp) : ''
       setForm({
@@ -190,6 +212,36 @@ export function BarangFormDialog({
       setForm({ ...EMPTY_FORM, customerId: customerFilter !== 'all' ? customerFilter : 'none' })
     }
   }, [open, editing, duplicateFrom, customerFilter])
+
+  // Barang yg sedang dipilih di dropdown (hanya relevan di mode tambah,
+  // saat barangOptions diisi). Null = belum memilih / mode barang baru.
+  const pickedBarang = !editing && !duplicateFrom
+    ? (barangOptions.find((b) => b.id === pickedId) ?? null)
+    : null
+
+  /** Pilih barang dr dropdown → prefill nama/satuan/harga jual & modal dr
+   *  master barang. '__new__' = bikin barang baru (nama diketik manual).
+   *  Ganti ke '__new__' mengosongkan nama agar tak sengaja bikin duplikat. */
+  const handlePickBarang = (v: string) => {
+    setPickedId(v)
+    if (v === '__new__') {
+      setForm((f) => ({ ...f, name: '' }))
+      return
+    }
+    const b = barangOptions.find((x) => x.id === v)
+    if (!b) return
+    setForm((f) => {
+      const hppStr = b.hpp != null ? String(b.hpp) : ''
+      return {
+        ...f,
+        name: b.name,
+        unit: b.unit || f.unit,
+        standardPrice: String(b.standardPrice),
+        hpp: hppStr,
+        profit: profitOf(String(b.standardPrice), hppStr),
+      }
+    })
+  }
 
   // Profit = harga jual − harga modal; Margin = profit / harga jual × 100
   const marginInfo = (() => {
@@ -243,6 +295,49 @@ export function BarangFormDialog({
     }
     if (form.standardPrice === '' || !Number.isFinite(std) || std < 0) {
       toast.error('Harga jual wajib diisi (min 0)')
+      return
+    }
+    // Barang SUDAH ADA dipilih dr dropdown → Simpan = daftarkan harga khusus
+    // (BarangCustomer) utk pelanggan terpilih via /api/harga-customer;
+    // TIDAK membuat barang baru (mencegah duplikat nama barang).
+    if (pickedBarang) {
+      if (!form.customerId || form.customerId === 'none') {
+        toast.error('Pilih pelanggan untuk mengatur harga khusus barang ini')
+        return
+      }
+      setSaving(true)
+      try {
+        await apiFetch('/api/harga-customer', {
+          method: 'POST',
+          body: JSON.stringify({
+            customerId: form.customerId,
+            barangId: pickedBarang.id,
+            price: std,
+          }),
+        })
+        const custName = customers.find((c) => c.id === form.customerId)?.name
+        toast.success(
+          custName
+            ? `Harga khusus ditambahkan untuk ${custName}`
+            : 'Harga khusus ditambahkan'
+        )
+        onOpenChange(false)
+        onSaved?.(
+          {
+            id: pickedBarang.id,
+            name: pickedBarang.name,
+            unit: pickedBarang.unit,
+            standardPrice: std,
+            hpp: pickedBarang.hpp,
+            qty: 0,
+          },
+          form.customerId
+        )
+      } catch (e) {
+        toast.error(errText(e))
+      } finally {
+        setSaving(false)
+      }
       return
     }
     const hppNum = form.hpp === '' ? null : Number(form.hpp)
@@ -323,13 +418,60 @@ export function BarangFormDialog({
         <div className="grid gap-3 sm:gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
-            <Input
-              id="item-name"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Nama barang / layanan"
-              autoComplete="off"
-            />
+            {!editing && !duplicateFrom && barangOptions.length > 0 ? (
+              <>
+                {/* Dropdown barang dr halaman Barang (mode tambah, bila
+                    barangOptions diisi — mis. halaman Harga Customer).
+                    value='' (belum memilih) → Radix menampilkan placeholder
+                    & tetap controlled (tanpa warning React). */}
+                <Select value={pickedId} onValueChange={handlePickBarang}>
+                  <SelectTrigger
+                    id="item-name"
+                    className="w-full min-h-[44px]"
+                    aria-label="Pilih barang"
+                    data-testid="barang-pilih-nama"
+                  >
+                    <SelectValue placeholder="Pilih barang (dari halaman Barang)" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72 overflow-y-auto scrollbar-thin">
+                    {barangOptions.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ Barang baru (ketik manual)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {pickedId === '' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Pilih barang yang sudah ada, atau &quot;+ Barang baru&quot; untuk membuat barang baru.
+                  </p>
+                )}
+                {pickedBarang && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Barang dari halaman Barang (satuan {pickedBarang.unit || '-'}). Simpan = tambah harga khusus untuk pelanggan yang dipilih; data barang tidak berubah.
+                  </p>
+                )}
+                {pickedId === '__new__' && (
+                  <Input
+                    id="item-name-new"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Nama barang / layanan"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                )}
+              </>
+            ) : (
+              <Input
+                id="item-name"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Nama barang / layanan"
+                autoComplete="off"
+              />
+            )}
           </div>
           <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
           {!editing && (
