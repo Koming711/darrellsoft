@@ -16376,3 +16376,24 @@ Work Log:
 
 Stage Summary:
 - HARGA CUSTOMER PRODUKSI DIPERBAIKI: P2022 (kolom BarangCustomer belum termigrasi di PG Supabase) → migrasi runtime + self-heal retry di route. CRUD harga customer produksi terverifikasi end-to-end (create→list→delete) tanpa data tersisa. Pelajaran: setiap kolom/tabel baru di schema.prisma HARUS ikut didaftarkan ke migrateExistingTablesPg/missingTableChecks — db push lokal SQLite tidak pernah menyentuh DB produksi.
+
+---
+Task ID: fix-master-customer-3bug
+Agent: Main (Z.ai Code)
+Task: "di halaman master pelanggan online kotak pencarian tidak berfungsi; ganti master pelanggan→master customer; tambah customer dr halaman invoice harus masuk master customer"
+
+Work Log:
+- DIAGNOSA #1 (pencarian): GET /api/customers?q=Angel → [] padahal data 'angel' ada. Akar: PostgreSQL LIKE case-SENSITIVE (SQLite lokal case-insensitive → tak terlihat saat dev). Prisma `contains` tanpa mode → hanya cocok persis hurufnya → user mengetik kapital selalu "Tidak ditemukan".
+- FIX #1: lib baru src/lib/search.ts — containsI(q): PG → { contains, mode:'insensitive' } (ILIKE), SQLite → { contains } (mode tidak didukung connector SQLite). Diterapkan di 8 route: customers, items, invoices, surat-jalan, purchase-order, cutting-records, payment-manual/transactions (2 blok), harga-customer (nested relasi).
+- FIX #2 label: h1 customers-view "Master Pelanggan"→"Master Customer"; QuickLink pembukaan ikut diganti (konsisten dgn sidebar). Duplikasi heading (DashboardLayout title + h1 view) sudah ada sebelumnya — kini keduanya konsisten.
+- DIAGNOSA #3 (invoice→master customer): POST /api/customers dr popup "Tambah Customer" (CustomerFormDialog) SUKSES 201 & data tersimpan — tapi Master Customer menampilkan SMART-CACHE basi (entity customers TTL 10 menit) karena TIDAK ADA notifyDataChange('customers') pasca mutasi. apiFetch GET (semua halaman: fetcher/authFetch/apiFetch) dilayani smart-fetch → daftar master basi hingga TTL habis.
+- FIX #3a: notifyDataChange('customers') di CustomerFormDialog.handleSave (POST/PUT — cover popup Tambah Customer di invoice, hitung-cetakan, potong-kertas) + customers-view handleToggleActive/handleDelete.
+- FIX #3b (RACE ditemukan saat E2E): notify→invalidasi async (await initOnce) sementara load() segera membaca memori/IDB → entri basi sempat terbaca (hapus customer, daftar masih menampilkan baris). FIX: watermark invalidasi sinkron per "uid|entity" di local-cache.ts — invalidateEntity mencatat watermark SEBELUM await; cacheGet menolak entri dgn at <= watermark (memori & salinan IDB dibuang senyap). Menguntungkan SEMUA alur notifyDataChange→load aplikasi.
+- DEPLOY 2x (token vcp_60MW…): 6c98626 (search+label+notify) darrellsoft-k3oil54n1 Ready 2m; 48244ed (watermark) Aliased www.darrellsoft.com Ready 2m. Cleanup .env.local+.vercel.
+- VERIFIKASI PRODUKSI (curl): q=ANGEL/Angel/angel/budi/BUDI/"BUDI SUSANTO"/siti/SITI semuanya menemukan data yg benar.
+- VERIFIKASI E2E browser (admin, 1440×900): login → /master-customer h1 "Master Customer" ✓; ketik "ANGEL"→1 baris 'angel', "jaya"→2 (jaya+Jaya Wijaya), "BUDI"→Budi Susanto ✓; /invoice → Buat Invoice → Tambah Customer → isi "Tes Browser Customer"+telepon → Simpan → toast sukses + auto-terpilih di "Kepada Yth" ✓ → buka /master-customer → langsung 7 pelanggan (cache terefresh) ✓; hapus via UI → toast + daftar langsung 0 hasil (watermark) ✓; hapus "Tes Ulang" ulang → 0 ✓; Backspace mengosongkan pencarian → GET q= → 6 pelanggan kembali ✓. 0 page error, 0 console error.
+- CATATAN TOOLING: agent-browser fill("")/press Backspace tidak memicu React onChange (DOM berubah, state tidak) — menyebabkan anomali semu "0 pelanggan setelah clear"; terbukti artifact murni alat uji karena ketik/Backspace asli (type/press beruntun dgn focus) berjalan sempurna.
+- DATA UJI: semua customer "TES-*"/"Tes *" dibuat selama verifikasi SUDAH DIHAPUS (verifikasi delete 200 + server kembali 6 customers).
+
+Stage Summary:
+- 3 BUG PRODUKSI DIPERBAIKI & TERVERIFIKASI E2E: (1) pencarian Master Customer kini case-insensitive di PostgreSQL (helper containsI di 8 route — sekaligus memperbaiki pencarian barang, invoice, surat jalan, PO, riwayat potong, payment, harga customer), (2) label konsisten "Master Customer", (3) Tambah Customer dari halaman invoice TERSIMPAN ke master & langsung muncul (notifyDataChange) + watermark membasmi race cache-basi pada semua refresh pasca-mutasi.
