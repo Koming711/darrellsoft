@@ -52,7 +52,7 @@ export default function BarangPage() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DashboardLayout title="Barang" subtitle="Kelola daftar barang, harga modal & harga jual">
+      <DashboardLayout title="Daftar Barang" subtitle="Kelola daftar barang, harga modal & harga jual">
         {user ? (
           <BarangView canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
         ) : (

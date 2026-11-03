@@ -376,7 +376,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                           STOCK_CLS[stockStatus(p.stock)] ?? 'text-emerald-700'
                         )}
                       >
-                        {formatNum(p.stock ?? 0)} {p.unit || ''}
+                        {formatNum(p.stock ?? 0)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{formatIDR(p.costPrice)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatIDR(p.sellPrice)}</TableCell>
@@ -481,7 +481,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                             STOCK_CLS[stockStatus(p.stock)] ?? 'text-emerald-700'
                           )}
                         >
-                          {formatNum(p.stock ?? 0)} {p.unit || ''}
+                          {formatNum(p.stock ?? 0)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
