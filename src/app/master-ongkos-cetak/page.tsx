@@ -354,16 +354,16 @@ export default function MasterOngkosCetakPage() {
               <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
                 <TableHeader>
                   <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                    <TableHead className="w-10 text-[11px] font-semibold text-gray-500">No</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500">Nama Mesin</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500">Grammage</TableHead>
-                    <TableHead className="text-[11px] font-semibold text-gray-500">Area Cetak</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Harga/Warna</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Warna Khusus</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Min. Cetak</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Lebih Cetak/Lbr</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Plat/Lembar</TableHead>
-                    <TableHead className="text-right text-[11px] font-semibold text-gray-500">Aksi</TableHead>
+                    <TableHead className="w-10 text-[9.25pt] font-semibold text-gray-500">No</TableHead>
+                    <TableHead className="text-[9.25pt] font-semibold text-gray-500">Nama Mesin</TableHead>
+                    <TableHead className="text-[9.25pt] font-semibold text-gray-500">Grammage</TableHead>
+                    <TableHead className="text-[9.25pt] font-semibold text-gray-500">Area Cetak</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Harga/Warna</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Warna Khusus</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Min. Cetak</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Lebih Cetak/Lbr</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Plat/Lembar</TableHead>
+                    <TableHead className="text-right text-[9.25pt] font-semibold text-gray-500">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -375,22 +375,22 @@ export default function MasterOngkosCetakPage() {
                         idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60'
                       )}
                     >
-                      <TableCell className="text-xs text-gray-400">{idx + 1}</TableCell>
+                      <TableCell className="text-[10pt] text-gray-400">{idx + 1}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                             <Cog className="w-3.5 h-3.5 text-blue-600" />
                           </div>
-                          <span className="text-xs font-medium text-slate-800 truncate max-w-[160px]">{cost.machineName}</span>
+                          <span className="text-[10pt] font-medium text-slate-800 truncate max-w-[160px]">{cost.machineName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-slate-600">{cost.grammage}g</TableCell>
-                      <TableCell className="text-xs text-slate-600 whitespace-nowrap">{cost.printAreaWidth} × {cost.printAreaHeight} cm</TableCell>
-                      <TableCell className="text-xs text-right font-medium text-emerald-700">{formatRp(cost.pricePerColor)}</TableCell>
-                      <TableCell className="text-xs text-right font-medium text-blue-700">{formatRp(cost.specialColorPrice)}</TableCell>
-                      <TableCell className="text-xs text-right text-slate-600">{cost.minimumPrintQuantity} lbr</TableCell>
-                      <TableCell className="text-xs text-right font-medium text-orange-700">{formatRp(cost.priceAboveMinimumPerSheet)}</TableCell>
-                      <TableCell className="text-xs text-right font-medium text-purple-700">{formatRp(cost.platePricePerSheet)}</TableCell>
+                      <TableCell className="text-[10pt] text-slate-600">{cost.grammage}g</TableCell>
+                      <TableCell className="text-[10pt] text-slate-600 whitespace-nowrap">{cost.printAreaWidth} × {cost.printAreaHeight} cm</TableCell>
+                      <TableCell className="text-[10pt] text-right font-medium text-emerald-700">{formatRp(cost.pricePerColor)}</TableCell>
+                      <TableCell className="text-[10pt] text-right font-medium text-blue-700">{formatRp(cost.specialColorPrice)}</TableCell>
+                      <TableCell className="text-[10pt] text-right text-slate-600">{cost.minimumPrintQuantity} lbr</TableCell>
+                      <TableCell className="text-[10pt] text-right font-medium text-orange-700">{formatRp(cost.priceAboveMinimumPerSheet)}</TableCell>
+                      <TableCell className="text-[10pt] text-right font-medium text-purple-700">{formatRp(cost.platePricePerSheet)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {canEdit && (
