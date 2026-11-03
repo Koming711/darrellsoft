@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
-import { sanitizeError } from '@/lib/api-error'
+import { sanitizeError, isSchemaMissingError } from '@/lib/api-error'
+import { ensurePgSchema } from '@/lib/auto-seed'
 
 /**
  * GET /api/customer-items?customerId=xxx
@@ -75,10 +76,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const items = await loadFlat(customerId)
-    return NextResponse.json(items, {
-      headers: { 'Cache-Control': 'no-store, max-age=0' }
-    })
+    try {
+      const items = await loadFlat(customerId)
+      return NextResponse.json(items, {
+        headers: { 'Cache-Control': 'no-store, max-age=0' }
+      })
+    } catch (error: unknown) {
+      // Self-heal produksi (PG): kolom/tabel BarangCustomer belum termigrasi →
+      // jalankan migrasi lalu retry sekali (user tidak perlu logout/login).
+      if (!isSchemaMissingError(error)) throw error
+      console.warn('GET /api/customer-items: schema lama terdeteksi, jalankan migrasi & retry')
+      await ensurePgSchema()
+      const items = await loadFlat(customerId)
+      return NextResponse.json(items, {
+        headers: { 'Cache-Control': 'no-store, max-age=0' }
+      })
+    }
   } catch (error: any) {
     console.error('Error fetching customer items:', error)
     return NextResponse.json(

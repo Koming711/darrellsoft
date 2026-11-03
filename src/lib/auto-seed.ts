@@ -132,6 +132,13 @@ async function migrateExistingTablesPg(): Promise<void> {
     // Soft delete & nomor unik invoice langganan (panel admin SaaS)
     { table: '"SubscriptionPayment"', column: '"deletedAt"', type: 'TIMESTAMP(3)' },
     { table: '"SubscriptionInvoice"', column: '"uniqueCode"', type: 'INTEGER' },
+    // Harga Customer (v164+): periode berlaku & status aktif pada BarangCustomer.
+    // Tabel ini sudah ada di produksi (dibuat sbelum fitur periode) → 3 kolom baru
+    // wajib dimigrasi agar GET/POST /api/harga-customer tidak P2022.
+    { table: '"BarangCustomer"', column: '"validFrom"', type: 'TEXT' },
+    { table: '"BarangCustomer"', column: '"validUntil"', type: 'TEXT' },
+    { table: '"BarangCustomer"', column: '"isActive"', type: 'BOOLEAN NOT NULL DEFAULT true' },
+    { table: '"BarangCustomer"', column: '"userId"', type: 'TEXT' },
   ]
   for (const m of migrations) {
     try {
@@ -154,6 +161,7 @@ async function migrateExistingTablesPg(): Promise<void> {
     { table: '"Bahan"', sql: 'CREATE TABLE IF NOT EXISTS "Bahan" ("id" TEXT NOT NULL PRIMARY KEY, "kode" TEXT NOT NULL, "nama" TEXT NOT NULL, "kategori" TEXT NOT NULL DEFAULT \'\', "satuan" TEXT NOT NULL DEFAULT \'pcs\', "stok" DOUBLE PRECISION NOT NULL DEFAULT 0, "stokMin" DOUBLE PRECISION NOT NULL DEFAULT 0, "hargaSatuan" DOUBLE PRECISION NOT NULL DEFAULT 0, "keterangan" TEXT NOT NULL DEFAULT \'\', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
     { table: '"BahanMutasi"', sql: 'CREATE TABLE IF NOT EXISTS "BahanMutasi" ("id" TEXT NOT NULL PRIMARY KEY, "bahanId" TEXT NOT NULL, "jenis" TEXT NOT NULL, "qty" DOUBLE PRECISION NOT NULL, "stokSetelah" DOUBLE PRECISION NOT NULL DEFAULT 0, "keterangan" TEXT NOT NULL DEFAULT \'\', "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
     { table: '"Kategori"', sql: 'CREATE TABLE IF NOT EXISTS "Kategori" ("id" TEXT NOT NULL PRIMARY KEY, "nama" TEXT NOT NULL, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
+    { table: '"BarangCustomer"', sql: 'CREATE TABLE IF NOT EXISTS "BarangCustomer" ("id" TEXT NOT NULL PRIMARY KEY, "barangId" TEXT NOT NULL, "customerId" TEXT NOT NULL, "price" DOUBLE PRECISION NOT NULL, "validFrom" TEXT, "validUntil" TEXT, "isActive" BOOLEAN NOT NULL DEFAULT true, "userId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)' },
   ]
 
   for (const check of missingTableChecks) {
@@ -169,6 +177,29 @@ async function migrateExistingTablesPg(): Promise<void> {
       }
     }
   }
+
+  // Index unik BarangCustomer(barangId, customerId) — pengaman terakhir anti
+  // duplikasi harga (dipakai Prisma upsert @ barangId_customerId). Dibuat di
+  // sini (bukan inline CREATE TABLE) agar tabel lama dari db push ikut tercover.
+  try {
+    await db.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "BarangCustomer_barangId_customerId_key" ON "BarangCustomer"("barangId", "customerId")`
+    )
+  } catch (err: any) {
+    console.warn('⚠️ Ensure BarangCustomer unique index failed:', err?.message)
+  }
+}
+
+/**
+ * Self-heal schema produksi (PostgreSQL): jalankan seluruh migrasi kolom/tabel
+ * yang hilang. Dipanggil route API saat menangkap error Prisma P2021 (tabel
+ * tidak ada) / P2022 (kolom tidak ada), lalu query dicoba ulang sekali —
+ * sehingga fitur baru tetap jalan meski user belum logout/login ulang.
+ */
+export async function ensurePgSchema(): Promise<void> {
+  // Hanya relevan untuk PostgreSQL (produksi). SQLite lokal dikelola prisma db push.
+  if (!isPostgreSQL()) return
+  await migrateExistingTablesPg()
 }
 
 // Allow external reset (e.g., from seed-admin API)

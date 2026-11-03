@@ -131,6 +131,20 @@ const PRISMA_ERROR_MESSAGES: Record<string, string> = {
 }
 
 /**
+ * Deteksi error Prisma "schema belum termigrasi" di database:
+ * - P2021: tabel tidak ditemukan
+ * - P2022: kolom tidak ditemukan
+ * Dipakai route API untuk self-heal (jalankan migrasi lalu retry sekali).
+ */
+export function isSchemaMissingError(error: unknown): boolean {
+  if (error && typeof error === 'object') {
+    const code = (error as Record<string, unknown>).code
+    return code === 'P2021' || code === 'P2022'
+  }
+  return false
+}
+
+/**
  * Sanitize an error for safe API response.
  * 
  * NEVER expose raw Prisma error messages, stack traces, or pretty-print content.

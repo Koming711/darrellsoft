@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, getDataFilter, requireAuth, requireGroupMenu, canAccessRecord } from '@/lib/server-auth'
-import { sanitizeError } from '@/lib/api-error'
+import { sanitizeError, isSchemaMissingError } from '@/lib/api-error'
+import { ensurePgSchema } from '@/lib/auto-seed'
 
 /**
  * HARGA CUSTOMER — daftar harga jual khusus per customer per barang.
@@ -53,47 +54,68 @@ function rowOf(reg: {
   }
 }
 
+/** Query daftar harga (dipisah agar bisa di-retry setelah self-heal schema). */
+async function loadHargaCustomer(
+  dataFilter: Record<string, unknown>,
+  sp: URLSearchParams
+) {
+  const q = (sp.get('q') ?? '').trim()
+  const customerId = (sp.get('customerId') ?? '').trim()
+  const barangId = (sp.get('barangId') ?? '').trim()
+  const status = (sp.get('status') ?? '').trim()
+
+  const where: Record<string, unknown> = { ...dataFilter }
+  if (customerId) where.customerId = customerId
+  if (barangId) where.barangId = barangId
+  if (status === 'aktif') where.isActive = true
+  else if (status === 'nonaktif') where.isActive = false
+  if (q) {
+    where.OR = [
+      { customer: { is: { name: { contains: q } } } },
+      { customer: { is: { companyName: { contains: q } } } },
+      { barang: { is: { nama: { contains: q } } } },
+      { barang: { is: { kode: { contains: q } } } },
+    ]
+  }
+
+  const regs = await db.barangCustomer.findMany({
+    where,
+    include: {
+      barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
+      customer: { select: { name: true, companyName: true } },
+    },
+    orderBy: [{ customer: { name: 'asc' } }, { barang: { nama: 'asc' } }],
+    take: 2000,
+  })
+
+  return regs.filter((r) => r.barang && r.customer).map(rowOf)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
     if (authErr) return authErr
     const user = getServerUser(request)
     const dataFilter = await getDataFilter(user)
-
     const sp = new URL(request.url).searchParams
-    const q = (sp.get('q') ?? '').trim()
-    const customerId = (sp.get('customerId') ?? '').trim()
-    const barangId = (sp.get('barangId') ?? '').trim()
-    const status = (sp.get('status') ?? '').trim()
 
-    const where: Record<string, unknown> = { ...dataFilter }
-    if (customerId) where.customerId = customerId
-    if (barangId) where.barangId = barangId
-    if (status === 'aktif') where.isActive = true
-    else if (status === 'nonaktif') where.isActive = false
-    if (q) {
-      where.OR = [
-        { customer: { is: { name: { contains: q } } } },
-        { customer: { is: { companyName: { contains: q } } } },
-        { barang: { is: { nama: { contains: q } } } },
-        { barang: { is: { kode: { contains: q } } } },
-      ]
+    try {
+      const rows = await loadHargaCustomer(dataFilter, sp)
+      return NextResponse.json(rows, {
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
+      })
+    } catch (error: unknown) {
+      // Self-heal produksi (PG): kolom/tabel BarangCustomer belum termigrasi
+      // (mis. validFrom/validUntil/isActive) → migrasi lalu coba ulang sekali
+      // sehingga user yang masih login tidak perlu logout/login dulu.
+      if (!isSchemaMissingError(error)) throw error
+      console.warn('GET /api/harga-customer: schema lama terdeteksi, jalankan migrasi & retry')
+      await ensurePgSchema()
+      const rows = await loadHargaCustomer(dataFilter, sp)
+      return NextResponse.json(rows, {
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
+      })
     }
-
-    const regs = await db.barangCustomer.findMany({
-      where,
-      include: {
-        barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
-        customer: { select: { name: true, companyName: true } },
-      },
-      orderBy: [{ customer: { name: 'asc' } }, { barang: { nama: 'asc' } }],
-      take: 2000,
-    })
-
-    return NextResponse.json(
-      regs.filter((r) => r.barang && r.customer).map(rowOf),
-      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
-    )
   } catch (error: unknown) {
     console.error('GET /api/harga-customer error:', error)
     return NextResponse.json(
