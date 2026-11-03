@@ -210,9 +210,13 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         description: vars.data.name.trim(),
       })
       setDialogOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      // Sinkron antar halaman (Master Produk / invoice / harga customer)
+      // PENTING URUTAN: invalidasi cache LOKAL dulu, baru invalidateQueries —
+      // TanStack memulai queryFn sinkron di dalam invalidateQueries; bila cache
+      // belum diinvalidasi, refetch membaca entri lama & daftar tidak berubah.
+      // (Catatan: apiFetch kini juga auto-invalidasi cache entitas setelah
+      // tulis sukses — lapisan ini menyambungkan siklus antar halaman.)
       notifyDataChange('items')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
     },
     onError: (err: Error) =>
       toast.error('Gagal menyimpan barang', { description: err.message }),
@@ -223,8 +227,9 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     onSuccess: () => {
       toast.success('Barang dihapus')
       setDeleteTarget(null)
-      queryClient.invalidateQueries({ queryKey: ['products'] })
+      // Urutan sama dgn saveMutation — invalidasi cache dulu, baru refetch.
       notifyDataChange('items')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
     },
     onError: (err: Error) => {
       toast.error('Gagal menghapus barang', { description: err.message })

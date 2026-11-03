@@ -116,7 +116,7 @@ export function CustomerItemsManager({ customer, open, onOpenChange, onCountChan
         onCountChange?.(customer.id, items.length + 1)
         setNama(''); setSatuan('pcs'); setHarga('')
         toast.success('Barang ditambahkan')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         const err = await res.json().catch(() => null)
         toast.error(err?.error || 'Gagal menambahkan barang')
@@ -157,7 +157,7 @@ export function CustomerItemsManager({ customer, open, onOpenChange, onCountChan
         setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
         setEditingId(null)
         toast.success('Barang diperbarui')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         const err = await res.json().catch(() => null)
         toast.error(err?.error || 'Gagal memperbarui barang')
@@ -178,7 +178,7 @@ export function CustomerItemsManager({ customer, open, onOpenChange, onCountChan
         setItems((prev) => prev.filter((it) => it.id !== item.id))
         onCountChange?.(customer.id, items.length - 1)
         toast.success('Barang dihapus')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         toast.error('Gagal menghapus barang')
       }

@@ -115,7 +115,7 @@ export default function MasterBarangCustomerPage() {
   }, [fetchData])
 
   // Refresh saat data customer / barang berubah di tempat lain (mis. Master Customer, invoice)
-  useDataChange(['customers', 'customer-items'], () => {
+  useDataChange(['customers'], () => {
     fetchData()
   })
 
@@ -172,7 +172,7 @@ export default function MasterBarangCustomerPage() {
         setAllItems((prev) => [created, ...prev])
         setNama(''); setSatuan('pcs'); setHarga('')
         toast.success('Barang ditambahkan')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         const err = await res.json().catch(() => null)
         toast.error(err?.error || 'Gagal menambahkan barang')
@@ -213,7 +213,7 @@ export default function MasterBarangCustomerPage() {
         setAllItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
         setEditingId(null)
         toast.success('Barang diperbarui')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         const err = await res.json().catch(() => null)
         toast.error(err?.error || 'Gagal memperbarui barang')
@@ -232,7 +232,7 @@ export default function MasterBarangCustomerPage() {
       if (res.ok) {
         setAllItems((prev) => prev.filter((it) => it.id !== item.id))
         toast.success('Barang dihapus')
-        notifyDataChange('customer-items')
+        notifyDataChange('customers')
       } else {
         const err = await res.json().catch(() => null)
         toast.error(err?.error || 'Gagal menghapus barang')

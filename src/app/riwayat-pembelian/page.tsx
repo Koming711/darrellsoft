@@ -415,7 +415,7 @@ export default function RiwayatPembelianPage() {
       })
       if (res.ok) {
         toast.success('Pembelian berhasil dihapus')
-        notifyDataChange('purchase-order')
+        notifyDataChange('invoice')
         fetchPOHistory()
       } else {
         toast.error('Gagal menghapus pembelian')

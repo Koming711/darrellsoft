@@ -92,8 +92,36 @@ const MAX_ENTRIES_PER_USER = 1000
 // Miror memori + kesiapan IDB
 // ---------------------------------------------------------------------------
 
-const memoryEntries = new Map<string, CacheEntry>()
-const memoryLastSync = new Map<string, number>()
+/**
+ * Miror memori & watermark invalidasi — SINGLETON via window.
+ *
+ * RACE ANTAR INSTANCE MODUL (bug "hapus/tambah tidak hilang dr daftar"):
+ * bundler (Turbopack) bisa memuat beberapa instance modul ini (chunk vendor
+ * vs chunk halaman). Dulu tiap instance punya Map memori sendiri — listener
+ * invalidasi (data-change-local) mengosongkan Map + IDB milik instance A,
+ * sementara refetch berjalan lewat instance B yang masih menyimpan entri
+ * lama di memornya → cacheGet membalikkan data basi TANPA panggilan network
+ * → baris yang baru dihapus/buat tetap tampil sampai reload manual.
+ *
+ * Solusi: satu Map bersama di window (pola sama dgn cacheStats di atas) —
+ * invalidasi dari instance mana pun langsung terlihat oleh instance lain.
+ */
+const memoryEntries = ((): Map<string, CacheEntry> => {
+  if (typeof window !== 'undefined') {
+    const w = window as unknown as { __dsCacheMemory?: Map<string, CacheEntry> }
+    if (!w.__dsCacheMemory) w.__dsCacheMemory = new Map<string, CacheEntry>()
+    return w.__dsCacheMemory
+  }
+  return new Map<string, CacheEntry>()
+})()
+const memoryLastSync = ((): Map<string, number> => {
+  if (typeof window !== 'undefined') {
+    const w = window as unknown as { __dsCacheLastSync?: Map<string, number> }
+    if (!w.__dsCacheLastSync) w.__dsCacheLastSync = new Map<string, number>()
+    return w.__dsCacheLastSync
+  }
+  return new Map<string, number>()
+})()
 let idbBroken = false
 let writeCounter = 0
 
@@ -110,7 +138,14 @@ let writeCounter = 0
  * pun). cacheGet membandingkan entry.at dgn watermark — entri yang lebih
  * tua dianggap tidak ada meski fisiknya belum sempat dihapus.
  */
-const invalidationWatermark = new Map<string, number>()
+const invalidationWatermark = ((): Map<string, number> => {
+  if (typeof window !== 'undefined') {
+    const w = window as unknown as { __dsCacheWatermark?: Map<string, number> }
+    if (!w.__dsCacheWatermark) w.__dsCacheWatermark = new Map<string, number>()
+    return w.__dsCacheWatermark
+  }
+  return new Map<string, number>()
+})()
 
 /** Entri stale bila dibuat SEBELUM invalidasi terakhir entity-nya. */
 function isInvalidated(e: CacheEntry): boolean {

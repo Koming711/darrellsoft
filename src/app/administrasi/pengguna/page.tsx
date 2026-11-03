@@ -425,7 +425,7 @@ export function PenggunaContent() {
           toast.success('Calon pembeli berhasil dihapus')
           // Optimistic update
           setCalonList(prev => prev.filter(c => c.id !== item.id))
-          notifyDataChange('calon-pembeli')
+          notifyDataChange('pembeli')
         } else {
           toast.error('Gagal menghapus calon pembeli')
         }
@@ -482,7 +482,7 @@ export function PenggunaContent() {
         } else {
           toast.success(`"${item.nama}" berhasil dikonversi menjadi pembeli.`, { description: 'Tidak ada akun login (username/password belum diatur).' })
         }
-        notifyDataChange('calon-pembeli')
+        notifyDataChange('pembeli')
         notifyDataChange('pembeli')
         notifyDataChange('pengguna')
       } else {
@@ -525,7 +525,7 @@ export function PenggunaContent() {
           toast.success('Calon pembeli berhasil diperbarui')
           // Optimistic update
           setCalonList(prev => prev.map(c => c.id === savedCalon.id ? savedCalon : c))
-          notifyDataChange('calon-pembeli')
+          notifyDataChange('pembeli')
           setCalonDialogOpen(false)
           resetCalonForm()
         } else {
@@ -553,7 +553,7 @@ export function PenggunaContent() {
           toast.success('Calon pembeli berhasil ditambahkan')
           // Optimistic update
           setCalonList(prev => [savedCalon, ...prev])
-          notifyDataChange('calon-pembeli')
+          notifyDataChange('pembeli')
           setCalonDialogOpen(false)
           resetCalonForm()
         } else {

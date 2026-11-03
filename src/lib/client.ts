@@ -8,7 +8,7 @@
  * (x-user-id / x-user-role from localStorage 'auth').
  */
 import { getAuthHeaders } from '@/lib/auth-fetch'
-import { smartGetJSON } from '@/lib/smart-fetch'
+import { entityForUrl, evictEntity, smartGetJSON } from '@/lib/smart-fetch'
 
 export class ApiError extends Error {
   status: number
@@ -60,5 +60,20 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     const msg = (data as { error?: string })?.error || 'Terjadi kesalahan pada server'
     throw new ApiError(msg, res.status)
   }
+
+  // AUTO-INVALIDASI CACHE SMART-FETCH setelah tulis sukses (POST/PUT/PATCH/DELETE).
+  // BUG "hapus/tambah tidak muncul di daftar": view yang me-refetch SEBELUM
+  // notifyDataChange dijalankan (TanStack memulai queryFn sinkron di dalam
+  // invalidateQueries) masih membaca entri cache lama → daftar menampilkan
+  // data basi sampai reload manual. Invalidasi dilakukan DI SINI — sebelum
+  // onSuccess pemanggil berjalan — sehingga refetch apa pun pasti ke network.
+  // Tulisan yang baru masuk antrian offline (offlineQueued) TIDAK membatalkan
+  // cache — data belum berubah di server; event data-change pasca-replay
+  // akan memuatnya nanti.
+  if ((data as { offlineQueued?: boolean } | null)?.offlineQueued !== true) {
+    const entity = entityForUrl(url)
+    if (entity) void evictEntity(entity)
+  }
+
   return data as T
 }

@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
+import { notifyDataChange } from '@/lib/data-sync'
 import { cn } from '@/lib/utils'
 import {
   BarangFormDialog,
@@ -240,6 +241,10 @@ export default function HargaCustomerPage() {
     _item: BarangFormSavedItem | null,
     customerId: string
   ) => {
+    // Barang baru mengubah entitas items & harga-customer → invalidasi cache
+    // smart-fetch agar loadRows/loadMaster tidak membaca salinan lama.
+    notifyDataChange('items')
+    notifyDataChange('harga-customer')
     void loadRows()
     void loadMaster()
     if (customerId === 'none') {
@@ -292,6 +297,9 @@ export default function HargaCustomerPage() {
       }
       toast.success('Harga customer diperbarui')
       setFormOpen(false)
+      // Invalidasi cache smart-fetch — tanpa ini loadRows membaca cache 60 dtk
+      // dan perubahan tidak tampil sampai reload (bug "hapus/edit tidak hilang").
+      notifyDataChange('harga-customer')
       await loadRows()
     } catch {
       toast.error('Gagal menyimpan harga customer')
@@ -314,6 +322,9 @@ export default function HargaCustomerPage() {
       }
       toast.success('Harga khusus dihapus — customer kembali memakai harga standar')
       setDeleteTarget(null)
+      // Invalidasi cache smart-fetch — tanpa ini loadRows membaca cache 60 dtk
+      // dan baris yang dihapus tetap tampil sampai reload (bug yang dilaporkan).
+      notifyDataChange('harga-customer')
       await loadRows()
     } catch {
       toast.error('Gagal menghapus harga customer')
@@ -335,6 +346,7 @@ export default function HargaCustomerPage() {
         return
       }
       toast.success(row.isActive ? 'Harga dinonaktifkan' : 'Harga diaktifkan')
+      notifyDataChange('harga-customer')
       await loadRows()
     } catch {
       toast.error('Gagal mengubah status')

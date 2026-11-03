@@ -225,7 +225,7 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
       const res = await fetcher(`/api/history/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
       if (res.ok) {
         toast.success('Purchase Order berhasil dihapus')
-        notifyDataChange('purchase-order')
+        notifyDataChange('invoice')
         fetchHistory()
       } else {
         toast.error('Gagal menghapus purchase order')
@@ -254,7 +254,7 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
         toast.success(`PO ${json.nomor || nomor} diterima — stok bahan bertambah`, {
           description: `${baru} bahan baru + ${naik} bahan bertambah stok. Cek halaman Stock Bahan.`,
         })
-        notifyDataChange('purchase-order')
+        notifyDataChange('invoice')
         fetchHistory()
       } else {
         toast.error(json?.error || 'Gagal menerima purchase order')
@@ -317,7 +317,7 @@ function PurchaseOrderRiwayatView({ onCreate, onOpenDetail }: { onCreate: () => 
         if (res.ok && data.success) {
           toast.success(`Restore berhasil (${data.count} data)`)
           fetchHistory()
-          notifyDataChange('purchase-order')
+          notifyDataChange('invoice')
         } else {
           toast.error(data.error || 'Gagal restore data riwayat purchase order')
         }
@@ -666,7 +666,7 @@ function DetailPurchaseOrderView({ id, onBack, onEdit }: { id: string; onBack: (
         toast.success(`PO ${json.nomor || entry.nomor} diterima — stok bahan bertambah`, {
           description: `${json.createdCount || 0} bahan baru + ${json.updatedCount || 0} bahan bertambah stok. Cek halaman Stock Bahan.`,
         })
-        notifyDataChange('purchase-order')
+        notifyDataChange('invoice')
         await loadEntry()
       } else {
         toast.error(json?.error || 'Gagal menerima purchase order')
@@ -806,7 +806,7 @@ function DetailPurchaseOrderView({ id, onBack, onEdit }: { id: string; onBack: (
         toast.success('Purchase Order dipindahkan ke Sampah')
         setHapusOpen(false)
         window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
-        notifyDataChange('purchase-order')
+        notifyDataChange('invoice')
         resetDocument('purchase-order')
         onBack()
       } else {

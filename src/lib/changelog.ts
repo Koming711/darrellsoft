@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-03-v164'
+export const CURRENT_VERSION = '2026-11-03-v165'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-03-v165',
+    date: { id: '3 November 2026', en: '3 November 2026' },
+    title: {
+      id: 'Perbaikan: Hapus/Tambah Data Langsung Ter-Refresh',
+      en: 'Fix: Delete/Add Data Now Refreshes Instantly',
+    },
+    items: [
+      {
+        id: 'Perbaikan bug cache: setelah hapus barang/harga customer (atau tambah data baru), daftar kini langsung memperlihatkan perubahan tanpa perlu reload halaman',
+        en: 'Cache bug fix: after deleting an item/customer price (or adding new data), the list now reflects the change immediately without needing a page reload',
+      },
+    ],
+  },
   {
     version: '2026-11-03-v164',
     date: { id: '3 November 2026', en: '3 November 2026' },
