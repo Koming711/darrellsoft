@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v168'
+export const CURRENT_VERSION = '2026-11-04-v169'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v169',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Pastikan Versi Terbaru Terpakai di Perangkat Anda',
+      en: 'Make Sure the Latest Version Is Used on Your Device',
+    },
+    items: [
+      {
+        id: 'Popup "Tambah Barang" di halaman Daftar Barang memang sudah dihapus — barang baru kini diisi langsung di baris pertama tabel. Bila popup masih muncul di perangkat Anda, berarti aplikasi masih memakai versi lama: ketuk tombol "Muat Ulang" pada pemberitahuan "Versi baru aplikasi siap dipakai" di layar',
+        en: 'The "Tambah Barang" popup on the Daftar Barang page has been removed — new items are filled directly in the first table row. If the popup still appears on your device, the app is running an old version: tap "Muat Ulang" (Reload) on the "Versi baru aplikasi siap dipakai" notice on screen',
+      },
+      {
+        id: 'Kotak tabel Master Customer kini mengisi penuh sisa tinggi layar desktop (fit to desktop), tabel scroll di dalam kotak saat data banyak',
+        en: 'The Master Customer table box now fills the remaining desktop screen height (fit to desktop), with the table scrolling inside the box when there is a lot of data',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v168',
     date: { id: '4 November 2026', en: '4 November 2026' },
