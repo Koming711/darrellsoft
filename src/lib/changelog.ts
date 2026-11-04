@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v170'
+export const CURRENT_VERSION = '2026-11-04-v171'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v171',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Popup Tambah Barang Langsung Muncul di Buat Invoice',
+      en: 'Add Item Popup Opens Instantly on Buat Invoice',
+    },
+    items: [
+      {
+        id: 'Halaman Buat Invoice: tombol "Tambah Barang" kini SELALU bisa diklik — popup form langsung muncul seperti di halaman Harga Customer, tanpa perlu memilih customer lebih dulu',
+        en: 'Buat Invoice page: the "Tambah Barang" button is now ALWAYS clickable — the form popup opens instantly like on the Harga Customer page, without having to pick a customer first',
+      },
+      {
+        id: 'Bila customer invoice belum dikenali, select "Untuk Pelanggan" di popup bebas dipilih (termasuk barang umum); bila sudah dikenali, select otomatis mengikuti customer pada invoice',
+        en: 'When the invoice customer is not recognized yet, the "Untuk Pelanggan" select in the popup is free to choose (including general items); once recognized, it automatically follows the invoice customer',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v170',
     date: { id: '4 November 2026', en: '4 November 2026' },

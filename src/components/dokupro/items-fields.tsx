@@ -124,11 +124,11 @@ export function ItemsFields({
   const [addOpen, setAddOpen] = useState(false);
   const isBarangMode = Array.isArray(barangOptions);
   const isPaperMode = Array.isArray(paperOptions);
-  // Tombol "Tambah Barang" NONAKTIF saat customer belum dipilih (permintaan
-  // owner): barang hanya boleh ditambahkan untuk pelanggan tertentu. Filter
-  // 'all' berarti belum ada customer invoice yang cocok.
-  const addBarangDisabled =
-    isBarangMode && (!barangFormCustomerFilter || barangFormCustomerFilter === 'all');
+  // Tombol "Tambah Barang" SELALU aktif — klik langsung memunculkan popup,
+  // SAMA seperti tombol "Tambah Barang" di halaman Harga Customer (permintaan
+  // owner). Saat customer invoice belum dikenali (filter 'all'), select
+  // "Untuk Pelanggan" di popup bebas dipilih; saat sudah dikenali, select
+  // terkunci mengikuti customer invoice.
 
   const addItem = () => {
     const newIndex = items.length;
@@ -226,15 +226,13 @@ export function ItemsFields({
           {isBarangMode && (
             /* Tombol Tambah Master Barang (Buat Invoice) — buka popup
                BarangFormDialog SAMA PERSIS dengan popup Tambah Barang di
-               halaman Master Barang; barang otomatis masuk daftar dropdown
-               nama barang setelah disimpan. NONAKTIF selama nama customer
-               belum dipilih/dikenali. */
+               halaman Harga Customer; SELALU bisa diklik (popup langsung
+               muncul, tidak lagi menunggu customer dipilih). Barang baru
+               otomatis masuk daftar dropdown nama barang setelah disimpan. */
             <Button
               variant="outline"
               size="sm"
               onClick={() => setAddOpen(true)}
-              disabled={addBarangDisabled}
-              title={addBarangDisabled ? 'Pilih nama customer terlebih dahulu' : undefined}
               className="h-7 text-xs"
             >
               <PackagePlus className="mr-1 h-3 w-3" />
