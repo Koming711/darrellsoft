@@ -1,6 +1,30 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Detail Invoice — cara pembayaran + upload bukti pembayaran + pratinjau pelunasan di samping invoice DP
+
+Work Log:
+- Permintaan owner: "di halaman detail invoice. tambahkan cara pembayaran dan upload bukti pembayaran. apabila pembayaran dp, maka pratinjau pelunasan tampil juga di sampingnya"
+- src/lib/types.ts: InvoiceData + field opsional buktiPembayaran (data URL foto)
+- src/app/invoice/page.tsx (DetailInvoiceView):
+  - Kartu "Pembayaran" baru (di bawah info ringkas, sebelum tombol aksi, print:hidden, disembunyikan utk invoice batal): (1) Cara Pembayaran — tombol Cash/Transfer/Giro, nilai awal dr dataJson.caraPembayaran (diisi saat Buat Invoice), klik utk pilih, klik yg aktif lagi utk menghapus; cara bayar ikut tampil di dokumen A5 (baris "Cara Bayar:" yg sudah ada di InvoicePreview); (2) Bukti Pembayaran — upload foto (accept image/*), dikompres client-side via compressImageToJpegDataUrl ≤350KB (PAYMENT_PROOF_MAX_BYTES, pola bukti langganan), thumbnail 64px klik → lightbox layar penuh, tombol Ganti & Hapus
+  - Penyimpanan: putPaymentData() — PUT /api/history/[id] dgn dataJson yang di-mutate (pola sama dgn Tandai Lunas/Batal) + toast + dispatch 'dokupro:history-updated' + notifyDataChange + loadEntry
+  - parseInvoiceData: baca buktiPembayaran (try & catch branch)
+  - Invoice DP: pratinjau Invoice Pelunasan tertaut kini tampil DI SAMPING pratinjau invoice — container #document-preview jadi grid grid-cols-1 lg:grid-cols-2 (desktop 2 kolom, mobile menumpuk); label kecil "Invoice DP"/"Invoice Pelunasan" + nomor di atas masing-masing; pelunasan dicari dr /api/history?docType=invoice-pelunasan (referensiInvoiceId = id invoice ATAU referensiInvoiceNomor = nomor); bila belum dibuat → placeholder aspect-ratio A5 "Belum ada Invoice Pelunasan" + sisa + tombol "Buat Invoice Pelunasan" (CTA); pratinjau pelunasan print:hidden agar cetak native tetap hanya invoice; data-document-preview tetap hanya di scaler invoice utama agar JPG/Cetak/resolveDocumentPreviewEl tidak berubah perilaku
+  - Fit scaler di-refactor: fitAll() men-scale SEMUA [data-preview-scaler] dlm grid (bukan satu scalerRef)
+  - Lightbox: zoomOpen diganti zoomDoc ('main'|'pel') — klik pratinjau utama/pelunasan membuka dokumen yg sesuai; + lightbox bukti pembayaran (buktiZoom)
+  - Perbaikan saat verifikasi: className grid sempat kehilangan lg:grid-cols-2 → dilengkapi
+- Verifikasi agent-browser (login, INV/10/26/0003 = DP 50% lunas + PEL/10/26/0003 tertaut): (A) detail DP → 2 pratinjau side-by-side (masing-masing 591px), label + nomor benar, pel doc memuat Ref. INV/10/26/0003 (screenshot desktop); (B) klik Transfer → toast "Cara pembayaran: Transfer", tombol aktif, dokumen preview menampilkan "Cara Bayar: TRANSFER"; (C) upload bukti (canvas 900×600 PNG via DataTransfer → change) → toast "Bukti pembayaran tersimpan", thumbnail + Ganti/Hapus muncul, terkompres ±40KB; (D) lightbox bukti buka/tutup OK; (E) persistensi server terkonfirmasi via GET (caraPembayaran=transfer, buktiPembayaran data:image/jpeg); (F) Hapus bukti → tombol upload kembali; klik Transfer lagi → cara kosong — data invoice dikembalikan kondisi awal; (G) INV/10/26/0004 (DP tanpa pelunasan) → placeholder "Belum ada Invoice Pelunasan" + badge "Belum dibuat" + "Sisa pembayaran Rp655.000…" + CTA; (H) lightbox utama menampilkan dokumen DOWN PAYMENT; (I) INV/11/26/0006 (non-DP) → preview tunggal centered tanpa kolom pelunasan, kartu Pembayaran tampil; (J) mobile 390px → pratinjau menumpuk full-width tanpa scroll horizontal (screenshot); (K) tanpa page error, console & dev.log bersih
+- Versi: SW v180, APP_VERSION/CURRENT_VERSION 2026-11-04-v178, entri changelog baru v178
+
+Stage Summary:
+- Detail Invoice kini punya kartu Pembayaran (Cara Pembayaran Cash/Transfer/Giro yang ikut tercetak di dokumen + upload bukti pembayaran terkompres dengan lightbox), dan invoice DP menampilkan pratinjau Invoice Pelunasan tertaut di samping pratinjau invoice (placeholder + CTA bila belum dibuat)
+- Halaman lain tidak berubah perilaku (Buat Invoice, Editor Pelunasan, PO, Surat Jalan); Cetak/JPG tetap menarget dokumen invoice utama
+- Tidak dideploy (sesuai instruksi berjalan)
+
+---
+Task ID: 1
+Agent: Main
 Task: Buat Invoice — popup Daftar Barang muncul DI BAWAH TOMBOL TAMBAH saat diklik
 
 Work Log:

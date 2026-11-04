@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v177'
+export const CURRENT_VERSION = '2026-11-04-v178'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v178',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Detail Invoice: Cara Pembayaran, Bukti Pembayaran & Pratinjau Pelunasan Berdampingan',
+      en: 'Invoice Detail: Payment Method, Payment Proof & Side-by-Side Settlement Preview',
+    },
+    items: [
+      {
+        id: 'Kartu "Pembayaran" baru di Detail Invoice: pilih Cara Pembayaran (Cash / Transfer / Giro — ikut tercetak di dokumen) dan unggah foto Bukti Pembayaran (otomatis dikompres, bisa diperbesar, diganti & dihapus)',
+        en: 'New "Pembayaran" card on Invoice Detail: pick the payment method (Cash / Transfer / Giro — printed on the document) and upload a payment proof photo (auto-compressed, zoomable, replaceable & removable)',
+      },
+      {
+        id: 'Invoice DP: pratinjau Invoice Pelunasan tertaut kini tampil DI SAMPING pratinjau invoice (dua kolom di desktop, menumpuk di mobile); bila pelunasan belum dibuat, muncul kotak "Belum ada Invoice Pelunasan" dengan tombol buat cepat',
+        en: 'DP invoice: the linked settlement invoice preview now appears BESIDE the invoice preview (two columns on desktop, stacked on mobile); if not created yet, a "Belum ada Invoice Pelunasan" box with a quick-create button is shown',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v177',
     date: { id: '4 November 2026', en: '4 November 2026' },

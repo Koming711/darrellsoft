@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-11-04-v177'
+const APP_VERSION = '2026-11-04-v178'
 
 /**
  * NUDGE "Versi Baru Siap" — TANPA auto-reload.

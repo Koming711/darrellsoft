@@ -58,6 +58,7 @@ export interface InvoiceData {
   tanggalJatuhTempo: string; // due date (empty = no due date)
   caraPembayaran: CaraPembayaran | ''; // payment method
   tanggalGiro: string; // giro date (only used when caraPembayaran === 'giro')
+  buktiPembayaran?: string; // data URL foto bukti pembayaran (diisi di halaman Detail Invoice)
   uangCapek?: number; // profit amount, editable
   lunas?: boolean; // whether final payment has been made
   tanggalPelunasan?: string; // date of final payment

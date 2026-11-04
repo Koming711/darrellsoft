@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment } from 'react'
+import { Suspense, useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef, Fragment, type ChangeEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { InvoiceEditor } from '@/components/dokupro/invoice-editor'
@@ -76,8 +76,9 @@ import { captureDocumentPaperJpg, resolveDocumentPreviewEl } from '@/lib/capture
 import { printBlobHiRes } from '@/lib/print-hi-res'
 import { shareJpgToWhatsApp } from '@/lib/share-jpg'
 import { syncLinkedPelunasan } from '@/lib/sync-pelunasan'
+import { compressImageToJpegDataUrl, PAYMENT_PROOF_MAX_BYTES } from '@/lib/image-compress'
 import { useDokuproStore } from '@/lib/store'
-import type { InvoiceData, CompanyInfo } from '@/lib/types'
+import type { InvoiceData, CompanyInfo, CaraPembayaran } from '@/lib/types'
 import { DEFAULT_COMPANY } from '@/lib/types'
 import {
   RiwayatFilterCard,
@@ -207,6 +208,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      buktiPembayaran: parsed.buktiPembayaran || '',
       lunas: parsed.lunas === true,
       tanggalPelunasan: parsed.tanggalPelunasan || '',
       referensiInvoiceId: parsed.referensiInvoiceId || '',
@@ -230,6 +232,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: '',
       caraPembayaran: '',
       tanggalGiro: '',
+      buktiPembayaran: '',
       lunas: false,
       tanggalPelunasan: '',
       referensiInvoiceId: '',
@@ -328,11 +331,25 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   const [batalOpen, setBatalOpen] = useState(false)
   const [hapusOpen, setHapusOpen] = useState(false)
 
-  // Lightbox pratinjau — klik/ketuk gambar preview → tampil besar fit layar
-  const [zoomOpen, setZoomOpen] = useState(false)
+  // Lightbox pratinjau — klik/ketuk gambar preview → tampil besar fit layar.
+  // zoomDoc: 'main' = invoice ini, 'pel' = Invoice Pelunasan tertaut (invoice DP).
+  const [zoomDoc, setZoomDoc] = useState<'main' | 'pel' | null>(null)
+  const zoomOpen = zoomDoc !== null
 
-  // Pratinjau scaler
-  const scalerRef = useRef<HTMLDivElement>(null)
+  // Lightbox bukti pembayaran (foto diperbesar)
+  const [buktiZoom, setBuktiZoom] = useState(false)
+
+  // ===== PEMBAYARAN (cara pembayaran + bukti) — disimpan di dataJson invoice
+  const [savingPayment, setSavingPayment] = useState(false)
+  const buktiFileRef = useRef<HTMLInputElement>(null)
+
+  // Invoice PELUNASAN tertaut (untuk invoice DP) — pratinjau-nya tampil DI
+  // SAMPING pratinjau invoice di halaman detail (permintaan owner).
+  const [pelEntry, setPelEntry] = useState<HistoryEntry | null>(null)
+
+  // Pratinjau scaler — container grid yang membungkus SEMUA pratinjau
+  // (invoice utama + pratinjau pelunasan saat invoice DP)
+  const previewGridRef = useRef<HTMLDivElement>(null)
   const zoomStageRef = useRef<HTMLDivElement>(null)
   const zoomScalerRef = useRef<HTMLDivElement>(null)
 
@@ -364,44 +381,81 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   // permintaan owner); pelunasan sisa piutang hanya lewat "Buat Invoice Pelunasan".
   const isDpInvoice = !info?.isPelunasan && ((info?.dpPercent || 0) > 0 || (info?.dp || 0) > 0)
 
-  // Scale pratinjau A5 agar pas dengan container (desktop ~+20% dari ukuran
-  // asli 148mm, mobile full-width). offsetWidth/Height tidak terpengaruh transform.
+  // Invoice PELUNASAN tertaut: docType invoice-pelunasan yang referensiInvoiceId
+  // -nya = invoice ini (atau nomornya sama). Pratinjau-nya tampil DI SAMPING
+  // pratinjau invoice pada halaman detail invoice DP (permintaan owner).
+  useEffect(() => {
+    if (!entry || !isDpInvoice) { setPelEntry(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/history?docType=invoice-pelunasan', { headers: getAuthHeaders(), cache: 'no-store' })
+        const json = res.ok ? await res.json() : { data: [] }
+        let nomor = entry.nomor
+        try { nomor = String(JSON.parse(entry.dataJson)?.nomor || '') || entry.nomor } catch { /* pakai entry.nomor */ }
+        const linked = ((json.data || []) as HistoryEntry[]).find((e) => {
+          try {
+            const p = JSON.parse(e.dataJson)
+            return String(p.referensiInvoiceId || '') === String(entry.id) || (!!nomor && p.referensiInvoiceNomor === nomor)
+          } catch { return false }
+        })
+        if (!cancelled) setPelEntry(linked || null)
+      } catch {
+        if (!cancelled) setPelEntry(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [entry, isDpInvoice])
+
+  const pelData = useMemo(() => (pelEntry ? parseInvoiceData(pelEntry) : null), [pelEntry])
+  // Data yang tampil di lightbox: invoice ini atau pelunasan tertaut
+  const zoomData = zoomDoc === 'pel' && pelData ? pelData : data
+  // Bukti pembayaran (data URL foto) — diisi lewat kartu Pembayaran di halaman detail
+  const buktiPembayaran = data?.buktiPembayaran || ''
+
+  // Scale pratinjau A5 agar pas dengan container-nya masing-masing (desktop
+  // ~+20% dari ukuran asli 148mm, mobile full-width). Mencakup SEMUA pratinjau
+  // di grid (invoice utama + pratinjau pelunasan untuk invoice DP).
+  // offsetWidth/Height tidak terpengaruh transform.
   useLayoutEffect(() => {
     if (!data) return
     const fit = () => {
-      const wrapper = scalerRef.current
-      if (!wrapper) return
-      const a5 = wrapper.querySelector('.a5-page') as HTMLElement | null
-      if (!a5) return
-      const naturalW = a5.offsetWidth
-      const naturalH = a5.offsetHeight
-      if (naturalW === 0 || naturalH === 0) {
-        requestAnimationFrame(fit)
-        return
-      }
-      const availW = wrapper.parentElement?.clientWidth || wrapper.clientWidth
-      if (availW === 0) {
-        requestAnimationFrame(fit)
-        return
-      }
-      const scale = availW / naturalW
-      a5.style.transform = `scale(${scale})`
-      a5.style.transformOrigin = 'top left'
-      wrapper.style.width = `${naturalW * scale}px`
-      wrapper.style.height = `${naturalH * scale}px`
+      const container = previewGridRef.current
+      if (!container) return
+      const wrappers = container.querySelectorAll<HTMLElement>('[data-preview-scaler]')
+      wrappers.forEach((wrapper) => {
+        const a5 = wrapper.querySelector('.a5-page') as HTMLElement | null
+        if (!a5) return
+        const naturalW = a5.offsetWidth
+        const naturalH = a5.offsetHeight
+        if (naturalW === 0 || naturalH === 0) {
+          requestAnimationFrame(fit)
+          return
+        }
+        const availW = wrapper.parentElement?.clientWidth || wrapper.clientWidth
+        if (availW === 0) {
+          requestAnimationFrame(fit)
+          return
+        }
+        const scale = availW / naturalW
+        a5.style.transform = `scale(${scale})`
+        a5.style.transformOrigin = 'top left'
+        wrapper.style.width = `${naturalW * scale}px`
+        wrapper.style.height = `${naturalH * scale}px`
+      })
     }
     fit()
     const raf = requestAnimationFrame(fit)
     const timer = setTimeout(fit, 250)
     window.addEventListener('resize', fit)
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
-  }, [data])
+  }, [data, pelData])
 
   // Lightbox pratinjau: skala terbesar yang membuat SELURUH halaman A5 muat
   // di viewport (fit lebar & tinggi) — di HP umumnya memenuhi lebar layar,
   // dokumen panjang ikut menyusut agar tetap terlihat penuh.
   useLayoutEffect(() => {
-    if (!zoomOpen || !data) return
+    if (!zoomOpen || !zoomData) return
     const fit = () => {
       const stage = zoomStageRef.current
       const wrap = zoomScalerRef.current
@@ -431,7 +485,7 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     const timer = setTimeout(fit, 250)
     window.addEventListener('resize', fit)
     return () => { cancelAnimationFrame(raf); clearTimeout(timer); window.removeEventListener('resize', fit) }
-  }, [zoomOpen, data])
+  }, [zoomDoc, zoomData])
 
   const handleJpg = async () => {
     if (!data) return
@@ -653,6 +707,61 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     }
   }
 
+  // ===== PEMBAYARAN: cara pembayaran & bukti — disimpan di dataJson invoice
+  // (pola sama dengan Tandai Lunas/Batal: PUT /api/history/[id]).
+  const putPaymentData = useCallback(async (mutate: (p: Record<string, unknown>) => void, successMsg: string) => {
+    if (!entry) return
+    setSavingPayment(true)
+    try {
+      const parsed = JSON.parse(entry.dataJson)
+      mutate(parsed)
+      const res = await fetcher(`/api/history/${entry.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ dataJson: JSON.stringify(parsed) }),
+      })
+      if (res.ok) {
+        toast.success(successMsg)
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
+        notifyDataChange('invoice')
+        loadEntry()
+      } else {
+        toast.error('Gagal menyimpan data pembayaran')
+      }
+    } catch {
+      toast.error('Gagal menyimpan data pembayaran')
+    } finally {
+      setSavingPayment(false)
+    }
+  }, [entry, loadEntry])
+
+  // Klik cara pembayaran: pilih; klik yang aktif lagi untuk menghapus.
+  // Cara bayar ikut tampil di dokumen invoice (baris "Cara Bayar:").
+  const handleSetCara = (v: CaraPembayaran) => {
+    const current = (data?.caraPembayaran || '') as CaraPembayaran | ''
+    if (current === v) {
+      putPaymentData((p) => { p.caraPembayaran = '' }, 'Cara pembayaran dihapus')
+    } else {
+      putPaymentData((p) => { p.caraPembayaran = v }, `Cara pembayaran: ${v === 'giro' ? 'Giro' : v === 'transfer' ? 'Transfer' : 'Cash'}`)
+    }
+  }
+
+  // Upload bukti pembayaran — gambar otomatis dikompres ≤350KB (pola sama
+  // dengan bukti pembayaran langganan) sebelum disimpan sebagai data URL.
+  const handleBuktiFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const dataUrl = await compressImageToJpegDataUrl(file, PAYMENT_PROOF_MAX_BYTES)
+      await putPaymentData((p) => { p.buktiPembayaran = dataUrl }, 'Bukti pembayaran tersimpan')
+    } catch {
+      toast.error('Gagal memproses gambar. Gunakan file JPG/PNG.')
+    }
+  }
+
+  const handleHapusBukti = () => putPaymentData((p) => { delete p.buktiPembayaran }, 'Bukti pembayaran dihapus')
+
   const actionButtons = (
     <div className="flex flex-wrap gap-2 print:hidden">
       <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
@@ -773,23 +882,111 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
             )}
           </div>
 
+          {/* PEMBAYARAN — cara pembayaran + bukti pembayaran (permintaan owner).
+              Cara bayar ikut tampil di dokumen invoice ("Cara Bayar:"); bukti
+              (foto) tersimpan di invoice ini. Disembunyikan untuk invoice batal. */}
+          {status !== 'batal' && (
+            <div className="rounded-xl border border-stone-200 bg-white p-4 mb-4 print:hidden">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Pembayaran</h3>
+              {/* Cara pembayaran — Cash / Transfer / Giro */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Cara Pembayaran</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {([
+                    { v: 'cash' as const, label: 'Cash' },
+                    { v: 'transfer' as const, label: 'Transfer' },
+                    { v: 'giro' as const, label: 'Giro' },
+                  ]).map(({ v, label }) => (
+                    <button
+                      key={v}
+                      type="button"
+                      disabled={savingPayment}
+                      onClick={() => handleSetCara(v)}
+                      title={data.caraPembayaran === v ? 'Klik lagi untuk menghapus' : `Tandai dibayar via ${label}`}
+                      className={cn(
+                        'px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors min-h-[32px] disabled:opacity-60',
+                        data.caraPembayaran === v
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                          : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Cara bayar ikut tercetak di dokumen invoice (baris &quot;Cara Bayar:&quot;). Klik yang aktif lagi untuk menghapus.
+              </p>
+
+              {/* Bukti pembayaran — upload foto, tersimpan di invoice ini */}
+              <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Bukti Pembayaran</p>
+                {buktiPembayaran ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setBuktiZoom(true)}
+                      className="group relative rounded-lg overflow-hidden border border-stone-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                      aria-label="Perbesar bukti pembayaran"
+                      title="Klik untuk memperbesar"
+                    >
+                      <img src={buktiPembayaran} alt="Bukti pembayaran" className="h-16 w-16 object-cover" />
+                      <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                    </button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
+                        {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />} Ganti
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleHapusBukti} disabled={savingPayment} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[32px]">
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
+                    {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                    Upload Bukti Pembayaran
+                  </Button>
+                )}
+                <input ref={buktiFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void handleBuktiFile(e) }} />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Foto bukti transfer / cash (JPG/PNG) — otomatis dikompres, tersimpan di invoice ini.
+              </p>
+            </div>
+          )}
+
           {/* Tombol aksi — DI ATAS pratinjau */}
           <div className="mb-4">{actionButtons}</div>
 
-          {/* Pratinjau A5 — outline, fit container (±+20% desktop, full mobile).
+          {/* Pratinjau A5 — outline, fit container. Invoice DP: pratinjau
+              Invoice Pelunasan tertaut tampil DI SAMPINGNYA (grid 2 kolom di
+              desktop, menumpuk di mobile) — permintaan owner.
               Klik/ketuk pratinjau → lightbox: gambar langsung besar fit layar. */}
-          <div className="flex justify-center print:hidden" id="document-preview">
-            <div className="w-full" style={{ maxWidth: '670px' }}>
+          <div
+            ref={previewGridRef}
+            id="document-preview"
+            className={cn('print:hidden', isDpInvoice ? 'grid grid-cols-1 gap-5 items-start lg:grid-cols-2' : 'flex justify-center')}
+          >
+            {/* Invoice utama */}
+            <div className={cn('w-full', !isDpInvoice && 'max-w-[670px]')}>
+              {isDpInvoice && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-semibold text-foreground">Invoice DP</span>
+                  <span className="text-xs text-muted-foreground truncate">{data.nomor}</span>
+                </div>
+              )}
               <div
-                ref={scalerRef}
                 data-preview-scaler
                 data-document-preview
                 role="button"
                 tabIndex={0}
                 aria-label="Perbesar pratinjau invoice"
                 title="Klik / ketuk untuk memperbesar"
-                onClick={() => setZoomOpen(true)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomOpen(true) } }}
+                onClick={() => setZoomDoc('main')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomDoc('main') } }}
                 className="a5-preview-container relative bg-white overflow-hidden cursor-zoom-in transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                 style={{ border: '2px solid #cbd5e1', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
               >
@@ -800,13 +997,60 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                 </span>
               </div>
             </div>
+
+            {/* Invoice Pelunasan tertaut — hanya untuk invoice DP. Pratinjau
+                tampil DI SAMPING pratinjau invoice (desktop); bila pelunasan
+                belum dibuat, tampil kotak placeholder dgn tombol buat. */}
+            {isDpInvoice && (
+              <div className="w-full print:hidden">
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-semibold text-foreground">Invoice Pelunasan</span>
+                  {pelData?.nomor ? (
+                    <span className="text-xs text-muted-foreground truncate">{pelData.nomor}</span>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-slate-200 text-slate-500">Belum dibuat</Badge>
+                  )}
+                </div>
+                {pelData ? (
+                  <div
+                    data-preview-scaler
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Perbesar pratinjau invoice pelunasan"
+                    title="Klik / ketuk untuk memperbesar"
+                    onClick={() => setZoomDoc('pel')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoomDoc('pel') } }}
+                    className="a5-preview-container relative bg-white overflow-hidden cursor-zoom-in transition-shadow hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                    style={{ border: '2px solid #cbd5e1', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}
+                  >
+                    <InvoicePreview data={pelData} showPelunasanLabel />
+                    <span className="pointer-events-none absolute bottom-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-stone-900/60 px-2 py-1 text-[10px] font-medium text-white shadow-md">
+                      <Maximize2 className="h-3 w-3" /> Perbesar
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full aspect-[148/210] rounded-[10px] border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center text-center p-6 gap-2">
+                    <Wallet className="h-8 w-8 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-600">Belum ada Invoice Pelunasan</p>
+                    <p className="text-xs text-muted-foreground max-w-[240px]">
+                      Sisa pembayaran {formatRupiah(info.sisa)} belum dibuatkan invoice pelunasan.
+                    </p>
+                    {onCreatePelunasan && status !== 'batal' && (
+                      <Button size="sm" onClick={() => onCreatePelunasan(entry.id)} title="Buat invoice pelunasan untuk sisa pembayaran ini" className="bg-violet-600 hover:bg-violet-700 mt-1">
+                        <Wallet className="mr-1.5 h-3.5 w-3.5" /> Buat Invoice Pelunasan
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Lightbox pratinjau — gambar preview langsung besar, fit layar
               (fit lebar & tinggi; di HP memenuhi layar). Tutup: ✕ / Esc /
               klik luar. Elemen ini portal → tidak mengganggu resolve
               DocumentPreviewEl (capture JPG/Cetak tetap target #document-preview). */}
-          <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
+          <Dialog open={zoomOpen} onOpenChange={(o) => { if (!o) setZoomDoc(null) }}>
             <DialogContent
               showCloseButton={false}
               aria-label="Pratinjau invoice diperbesar"
@@ -816,7 +1060,7 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
             >
               <button
                 type="button"
-                onClick={() => setZoomOpen(false)}
+                onClick={() => setZoomDoc(null)}
                 aria-label="Tutup pratinjau"
                 className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
               >
@@ -829,9 +1073,34 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                     className="overflow-hidden rounded-lg bg-white shadow-2xl"
                     style={{ border: '1px solid #e7e5e4' }}
                   >
-                    <InvoicePreview data={data} showPelunasanLabel={data.type === 'invoice-pelunasan'} />
+                    {zoomData && (
+                      <InvoicePreview data={zoomData} showPelunasanLabel={zoomData.type === 'invoice-pelunasan'} />
+                    )}
                   </div>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Lightbox bukti pembayaran — foto bukti tampil besar fit layar */}
+          <Dialog open={buktiZoom} onOpenChange={setBuktiZoom}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Bukti pembayaran diperbesar"
+              aria-describedby={undefined}
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-stone-950/95 p-0 overflow-hidden gap-0"
+              style={{ height: '100dvh' }}
+            >
+              <button
+                type="button"
+                onClick={() => setBuktiZoom(false)}
+                aria-label="Tutup bukti pembayaran"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
+                <img src={buktiPembayaran} alt="Bukti pembayaran" className="max-h-full max-w-full object-contain rounded-lg bg-white shadow-2xl" />
               </div>
             </DialogContent>
           </Dialog>
