@@ -16462,3 +16462,19 @@ Work Log:
 Stage Summary:
 - Alur "Tambah Customer" di Buat Invoice terbukti TERSIMPAN benar di produksi (POST 201 + tampil di Master Customer, mobile & desktop). Keluhan user dipicu bundle lama di perangkat + toast offline yang menyesatkan; keduanya ditangani: SW dipaksa v167 (perangkat ber-cache otomatis dapat bundle terbaru) dan toast kini jujur saat koneksi putus (data masuk antrian & tersinkron otomatis). Sekaligus men-deploy fitur tertunda "tambah barang inline di tabel barang" (5742c1e) yang sempat gagal deploy karena outage — terverifikasi E2E di produksi v167.
 ---
+---
+Task ID: fix-invoice-tambah-customer-online-v168
+Agent: Main (Z.ai Code)
+Task: "dionline, kenapa tambah customer di halaman buat invoice baru tidak masuk ke master customer? tapi klo di offline bisa. check and fix."
+
+Work Log:
+- RE-VERIFIKASI PRODUKSI v167 (agent-browser, www.darrellsoft.com, admin): Buat Invoice → Tambah Customer → isi nama+telepon → Simpan = POST /api/customers **201**; /master-customer → customer tampil ✓; kotak pencarian online diuji: exact + partial + lowercase ("cek online" → "Cek Online Nov4") semuanya ketemu ("1 pelanggan") ✓. Server & kode v167 SEHAT — keluhan BUKAN bug server.
+- ROOT CAUSE (final): kebijakan "tanpa auto-reload" sejak v142 (4de2210) — SW baru hanya mengambil alih SENYAP; halaman yang dibiarkan terbuka terus memakai bundle LAMA. Bundle lama pra-v165 punya bug daftar-tak-refresh (fix 415304e belum jalan di perangkat) → tambah sukses (POST 201) tapi Master Customer tidak menampilkan; jalur OFFLINE justru tampak benar karena replay antrian memicu event data-change → load() — persis cocok dgn keluhan "online tidak masuk, offline bisa".
+- FIX v168 (service-worker-registration.tsx): NUDGE "Versi baru aplikasi siap dipakai" — saat SW baru ACTIVATED di halaman terbuka (update, bukan install pertama; gate `!!reg.active`), tampil toast sonner duration:Infinity dgn tombol "Muat Ulang" (window.location.reload) — sekali per sesi (updateNudgeShown). TANPA auto-reload: user memilih waktu (kebijakan v142 tetap utuh), tapi update tak lagi menunggu cold start. APP_VERSION → 2026-11-04-v168; SW CACHE_NAME → v168; changelog v168 "Pemberitahuan Versi Baru dengan Tombol Muat Ulang".
+- DEPLOY: bcca7e4 push → vercel --prod darrellsoft-3y5yu9lxc Ready; sw.js produksi = darrell-soft-v168; cleanup .env.local + .vercel.
+- E2E NUDGE PRODUKSI: halaman dibuka saat SW masih v167 → navigasi auto-update SW → halaman jalan kode v168 (console "App version changed … → v168"). Deploy kedua kecil (2fa7b54, CACHE_NAME v169 saja — tanpa perubahan UI) sebagai pemicu: 60 dtk kemudian halaman v168 menampilkan TOAST "Versi baru aplikasi siap dipakai … [Muat Ulang]" ✓ (screenshot /tmp/nudge-toast.png); What's New v168 popup muncul duluan & menutupi toast (di-Oke dulu); klik "Muat Ulang" → reload bersih, toast hilang ✓.
+- REGRESI FINAL PRODUKSI v169: /invoice → Buat Invoice → Tambah Customer "Cek Final V169" → POST 201 + toast "Pelanggan berhasil ditambahkan" ✓ → /master-customer menampilkannya ✓. Cleanup data uji: "Cek Final V169", "Cek Online Nov4", "PROD-MOBILE-TEST" (sisa sesi lama) dihapus via UI — produksi bersih (6 pelanggan, 0 match "Cek"/"PROD-").
+- CATATAN: pencarian online master customer ternyata SUDAH normal di v167+ (containsI mode:insensitive utk PG + refresh daftar v165) — keluhan lama "kotak pencarian tidak berfungsi" ikut tertutup oleh paksa-update bundle (nudge).
+
+Stage Summary:
+- Tambah Customer di Buat Invoice TERBUKTI tersimpan benar di produksi (POST 201 → tampil di Master Customer; pencarian online normal). Keluhan berulang disebabkan perangkat memakai bundle lama yang tidak pernah di-reload (kebijakan no-auto-reload v142) — kini tiap deploy baru menampilkan notifikasi "Muat Ulang" di halaman yang terbuka, jadi perbaikan benar-benar sampai tanpa menunggu buka-tutup aplikasi dan tanpa refresh mendadak.
