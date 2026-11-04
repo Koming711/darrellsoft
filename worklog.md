@@ -16514,3 +16514,21 @@ Stage Summary:
 - Kode aplikasi TIDAK ada bug — popup tambah barang memang sudah terhapus sejak 5742c1e; keluhan berasal dari cache PWA versi lama di perangkat user
 - SW v170 + changelog v169 dipaksa ter-install; user cukup ketuk "Muat Ulang" pada toast (atau tutup-buka aplikasi) → popup hilang
 - Commit c2a0a44 pushed & live di www.darrellsoft.com
+---
+Task ID: 1
+Agent: Main
+Task: Daftar Barang — klik Tambah Barang memunculkan kembali popup tambah barang
+
+Work Log:
+- User mengulang laporan yang sama setelah pemaksaan update SW → interpretasi baru: permintaan adalah KEMBALIKAN popup tambah barang (ganti alur inline dr 5742c1e)
+- barang-view.tsx: openAdd() kini membuka Dialog dgn form kosong (editing=null); hapus state adding, cancelAdd, submitAdd, onAddInputKeyDown, baris isian inline desktop, kartu isian inline mobile, hint inline
+- Dialog jadi dipakai bersama Tambah & Edit: judul dinamis (Tambah/Edit Barang), deskripsi dinamis, qty helper dinamis (tambah: "Qty awal barang; kelola harga & qty di tabel barang." — teks yg diminta user tetap terpakai), form submit handleSubmit (id undefined = POST, ada id = PUT)
+- saveMutation: toast 'Barang ditambahkan' utk create; reset form + tutup dialog
+- Import dibersihkan (Check, X, KeyboardEvent dihapus)
+- Verifikasi lokal: klik Tambah Barang → popup (6 input) ✓; isi form + Simpan → baris baru ITM-006 muncul dgn kode otomatis ✓; Edit → popup "Edit Barang" terisi ✓; hapus data uji ✓; mobile 390px popup responsif ✓; eslint bersih
+- SW v170→v171, APP_VERSION/changelog v170 ("Popup Tambah Barang Kembali di Daftar Barang"); deploy produksi sukses; curl /sw.js = v171
+- Verifikasi produksi: klik Tambah Barang → popup tampil lengkap (screenshot); .env.local & .vercel dibersihkan
+
+Stage Summary:
+- Klik "Tambah Barang" di Daftar Barang kembali memunculkan popup form (desktop & mobile); baris inline dihapus; edit tetap popup sama; kode otomatis
+- Commit 0dc2bcb + worklog pushed; live di www.darrellsoft.com (SW v171)
