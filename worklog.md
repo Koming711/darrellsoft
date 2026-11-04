@@ -16567,3 +16567,22 @@ Work Log:
 Stage Summary:
 - Judul popup penambahan data di halaman Harga Customer kini "Tambah Harga Customer"; halaman lain (Master Barang, Buat Invoice) tetap "Tambah Barang"
 - Commit + worklog pushed; live di www.darrellsoft.com (SW v173)
+---
+Task ID: 1
+Agent: Main
+Task: Popup Tambah Harga Customer — Untuk Pelanggan ke atas Nama Barang + Qty hilang saat barang existing dipilih (TANPA deploy)
+
+Work Log:
+- Permintaan 1: blok "Untuk Pelanggan" dipindah DI ATAS "Nama Barang" (khusus popup Tambah Harga Customer)
+  - BarangFormDialog: blok customer diekstrak ke variabel customerField + prop baru customerFieldFirst (false = posisi lama setelah Foto Barang; true = sebelum Nama Barang)
+  - harga-customer/page.tsx: pass customerFieldFirst — halaman lain (Master Barang, Buat Invoice) urutannya tetap
+- Permintaan 2: "apabila dipilih nama barang, qty juga muncul — fix"
+  - Diagnosa: saat barang EXISTING dipilih dr dropdown, Simpan = POST /api/harga-customer (customerId, barangId, price saja) — form.qty TIDAK PERNAH terkirim → kolom Qty dlm mode ini tidak berfungsi/mengganggu; qty hanya relevan utk "+ Barang baru"
+  - Fix: kolom Qty disembunyikan saat pickedBarang (barang existing terpilih); layout Satuan jadi full-width; pilih "+ Barang baru" → Qty muncul lagi; mode tanpa dropdown (Buat Invoice) & edit → Qty tetap tampil
+- SW v174 & changelog v173 (2 item: urutan kolom + penyembunyian Qty) — DISIAPKAN tapi TIDAK dideploy (permintaan user "jangan deploy")
+- Catatan: saat tool sandbox outage, auto-commit sistem (3308c3d/3e9cc57) menangkap sebagian file; sisanya dicommit manual (c1a143d)
+- Verifikasi lokal: popup Tambah Harga Customer → Untuk Pelanggan paling atas ✓; pilih "paperbowl 800ml" → kolom Qty HILANG, Harga Jual/Modal/Profit terisi otomatis (1900/1200/700) ✓; pilih "+ Barang baru" → Qty muncul kembali ✓; Buat Invoice → popup Tambah Barang masih ada Qty ✓; eslint bersih; errors konsol bersih
+
+Stage Summary:
+- Popup Tambah Harga Customer: pelanggan di atas, nama barang di bawahnya; Qty hanya muncul utk barang baru — simpan barang existing murni daftar harga khusus
+- Commit c1a143d (+auto-commit 3e9cc57) pushed; BELUM dideploy ke www.darrellsoft.com — menunggu perintah deploy dari user
