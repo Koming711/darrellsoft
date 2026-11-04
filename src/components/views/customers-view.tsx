@@ -199,7 +199,10 @@ export default function CustomersView({
         ) : !hasResults ? (
           <EmptyState filtered={query !== ''} />
         ) : (
-          <div className="max-h-96 overflow-y-auto scrollbar-thin">
+          // Kotak tabel "fit to desktop": kotak SELALU mengisi sisa tinggi layar
+          // desktop (bukan hanya setinggi isi baris), tabel scroll di dalam kotak
+          // saat data banyak. Offset = topbar 65 + padding main + blok judul + gap + pb.
+          <div className="max-h-96 overflow-y-auto scrollbar-thin md:max-h-none md:h-[calc(100vh-240px)] lg:h-[calc(100vh-208px)]">
             {/* Tinggi baris presisi 10mm + zebra (baris ganjil abu slate-100, hover seragam
                 lebih gelap) — konvensi sama dgn tabel /barang & /harga-customer */}
             <Table className="[&_td]:py-[2px] [&_tbody_tr:last-child]:border-b [&_tbody_tr:hover]:bg-slate-200/70 dark:[&_tbody_tr:hover]:bg-zinc-700/50">
