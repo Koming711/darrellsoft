@@ -180,6 +180,11 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
   // Master Barang milik customer invoice terpilih — untuk dropdown Nama Barang
   const [customerList, setCustomerList] = useState<Array<{ id: string; name: string; companyName?: string | null }>>([]);
   const [pelunasanBarangList, setPelunasanBarangList] = useState<BarangOption[]>([]);
+  // Daftar LENGKAP barang master utk dropdown "Nama Barang" di popup "Tambah
+  // Barang" — SAMA seperti popup di halaman Harga Customer (semua barang
+  // Master Barang + opsi "+ Barang baru"), terpisah dr pelunasanBarangList
+  // (yang hanya barang terdaftar customer invoice ini, utk autocomplete).
+  const [popupBarangList, setPopupBarangList] = useState<BarangOption[]>([]);
   // Id customer yang cocok dgn nama customer invoice terpilih — dipakai utk
   // mengaktifkan tombol "Tambah Barang" & mengunci pelanggan di popup.
   const [matchedCustomerId, setMatchedCustomerId] = useState<string | null>(null);
@@ -259,11 +264,36 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
     return () => { cancelled = true; };
   }, [invoiceData?.client?.nama, customerList]);
 
+  // Muat daftar barang master utk dropdown popup "Tambah Barang" — selalu
+  // dimuat (apa pun status customer) supaya popup-nya SAMA dengan popup di
+  // halaman Harga Customer. Dipanggil lagi setelah popup menyimpan barang.
+  const loadPopupBarang = useCallback(() => {
+    fetch('/api/items?active=1', { headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        const rows = Array.isArray(data?.items) ? data.items : [];
+        setPopupBarangList(rows.map((r: { id: string; name: string; unit: string; standardPrice: number; hpp: number | null; qty?: number }) => ({
+          id: r.id,
+          name: r.name,
+          unit: r.unit || 'pcs',
+          standardPrice: r.standardPrice || 0,
+          hpp: r.hpp ?? null,
+          qty: r.qty ?? 0,
+        })));
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => { void loadPopupBarang() }, [loadPopupBarang]);
+
   // Barang BARU berhasil disimpan dari popup "Tambah Barang" (BarangFormDialog
-  // — sama persis dgn Master Barang) di header Item. Bila barang terdaftar
-  // untuk customer invoice pelunasan ini → langsung masuk daftar dropdown.
+  // — sama persis dgn popup di halaman Harga Customer) di header Item. Bila
+  // barang terdaftar untuk customer invoice pelunasan ini → langsung masuk
+  // daftar dropdown.
   const handleBarangCreated = useCallback((saved: BarangFormSavedItem | null, customerId: string) => {
     if (!saved) return;
+    // Segarkan daftar master popup (barang baru langsung muncul di dropdown
+    // "Nama Barang" popup saat dibuka lagi).
+    void loadPopupBarang();
     if (customerId && customerId === matchedCustomerId) {
       const option: BarangOption = {
         id: saved.id,
@@ -278,7 +308,7 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
         return ada ? prev.map((b) => (b.id === option.id ? { ...b, ...option } : b)) : [...prev, option];
       });
     }
-  }, [matchedCustomerId]);
+  }, [matchedCustomerId, loadPopupBarang]);
 
   // Kandidat pelunasan: invoice DP (dp > 0) yang belum lunas & tidak batal
   const pendingInvoices = useMemo(() => {
@@ -1034,6 +1064,8 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
             barangFormCustomers={customerList.map((c) => ({ id: c.id, name: c.name, companyName: c.companyName ?? null }))}
             barangFormCustomerFilter={matchedCustomerId ?? 'all'}
             barangFormLockedNote="Mengikuti customer pada invoice ini."
+            barangFormBarangOptions={popupBarangList}
+            barangFormCustomerFieldFirst
             onBarangCreated={handleBarangCreated}
           />
 

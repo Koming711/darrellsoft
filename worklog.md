@@ -16604,3 +16604,20 @@ Work Log:
 Stage Summary:
 - Popup Tambah Harga Customer: kolom Qty tidak hilang lagi saat nama barang dipilih — terisi stok dr Master Barang, bisa diubah, dan perubahannya tersimpan ke stok barang (yang terdaftar tetap harga khusus customer)
 - Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)
+
+---
+Task ID: 3
+Agent: Main
+Task: Halaman Invoice — popup "Tambah Barang" disamakan dengan popup halaman Tambah Harga Customer (TANPA deploy)
+
+Work Log:
+- Permintaan: klik "Tambah Barang" di halaman invoice → popup yang SAMA dengan popup tambah harga customer (sebelumnya popup invoice masih Nama Barang teks bebas + Untuk Pelanggan di bawah foto — belum ada dropdown barang)
+- ItemsFields: prop baru barangFormBarangOptions (daftar lengkap barang master utk dropdown popup) + barangFormCustomerFieldFirst ("Untuk Pelanggan" di atas "Nama Barang"); keduanya diteruskan ke BarangFormDialog; PO & Surat Jalan tidak mengirim prop → perilaku lama (teks bebas) tetap
+- invoice-editor.tsx & invoice-pelunasan-editor.tsx: state popupBarangList + loadPopupBarang (fetch /api/items?active=1 sekali saat editor siap — pola sama dgn halaman Harga Customer) + refresh stlh popup menyimpan; pass barangFormBarangOptions + barangFormCustomerFieldFirst
+- Perilaku popup invoice kini identik dgn popup Harga Customer: "Untuk Pelanggan" paling atas (terkunci ke customer invoice bila dikenali, note "Mengikuti customer pada invoice ini."), "Nama Barang" dropdown semua barang Master Barang + "+ Barang baru (ketik manual)"; pilih barang existing → simpan = daftarkan harga khusus customer invoice; "+ Barang baru" → bikin barang + auto-registrasi; barang hasil simpan langsung masuk dropdown item invoice (handleBarangCreated upsert)
+- Versi: SW v175→v176, APP_VERSION/changelog v175 ("Popup Tambah Barang di Invoice Kini Sama dengan Popup Harga Customer"); eslint bersih
+- Verifikasi lokal (agent-browser, halaman invoice): popup → Pelanggan tujuan di atas ✓; dropdown berisi ongkir, paperbowl 800ml ×2, "+ Barang baru" ✓; pilih ongkir → prefill qty 1 / jual 150000 / modal 140000 ✓; simpan tanpa pelanggan → toast "Pilih pelanggan untuk mengatur harga khusus barang ini" ✓; isi customer "Budi Susanto" → popup pelanggan terkunci ✓; pilih ongkir → simpan → toast sukses + API: harga khusus Budi/ongkir @150000 tercatat ✓ + ongkir langsung muncul di dropdown barang baris item invoice ("ongkir Rp150.000 / pcs · 1 pcs") ✓; data uji dihapus; errors console & dev.log bersih
+
+Stage Summary:
+- Popup "Tambah Barang" di halaman invoice (Buat Invoice & Pelunasan) kini PERSIS sama dengan popup di halaman Tambah Harga Customer (pelanggan di atas + dropdown semua barang + opsi barang baru); Purchase Order & Surat Jalan tidak diubah
+- Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v174'
+export const CURRENT_VERSION = '2026-11-04-v175'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v175',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Popup Tambah Barang di Invoice Kini Sama dengan Popup Harga Customer',
+      en: 'Add Barang Popup on Invoice Is Now the Same as the Harga Customer Popup',
+    },
+    items: [
+      {
+        id: 'Halaman Invoice (Buat Invoice & Pelunasan): popup "Tambah Barang" kini sama dengan popup di halaman Harga Customer — "Untuk Pelanggan" tampil di atas, lalu "Nama Barang" berupa dropdown semua barang dari Master Barang dengan opsi "+ Barang baru (ketik manual)"',
+        en: 'Invoice page (regular & pelunasan): the "Tambah Barang" popup is now the same as the one on the Harga Customer page — "Untuk Pelanggan" on top, then "Nama Barang" as a dropdown of all items from Master Barang with a "+ Barang baru (type manually)" option',
+      },
+      {
+        id: 'Pilih barang yang sudah ada → simpan = daftarkan harga khusus untuk customer invoice ini; pilih "+ Barang baru" → barang baru dibuat dan otomatis terdaftar; popup di halaman lain (Purchase Order, Surat Jalan, Master Barang) tidak berubah',
+        en: 'Pick an existing item → saving registers a special price for the invoice customer; pick "+ Barang baru" → a new item is created and auto-registered; popups on other pages (Purchase Order, Surat Jalan, Master Barang) are unchanged',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v174',
     date: { id: '4 November 2026', en: '4 November 2026' },

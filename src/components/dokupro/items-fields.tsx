@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { Plus, Trash2, ChevronDown, PackageSearch, PackagePlus } from 'lucide-react';
 import { formatRupiah } from '@/lib/format';
-import { BarangFormDialog, type BarangCustomerOption, type BarangFormSavedItem } from '@/components/views/barang-form-dialog';
+import { BarangFormDialog, type BarangCustomerOption, type BarangFormSavedItem, type BarangPickOption } from '@/components/views/barang-form-dialog';
 import type { DocumentItem } from '@/lib/types';
 
 function generateId(): string {
@@ -82,6 +82,16 @@ interface ItemsFieldsProps {
   barangFormCustomerFilter?: string;
   /** Teks bantuan select pelanggan terkunci di popup (default = teks Master Barang). */
   barangFormLockedNote?: string;
+  /** Daftar LENGKAP barang master utk dropdown "Nama Barang" di popup —
+   *  perilaku SAMA dengan popup di halaman Harga Customer: pilih barang
+   *  existing → simpan = daftarkan harga khusus customer; opsi
+   *  "+ Barang baru" → membuat barang baru. Kosong/tidak diisi → Nama
+   *  Barang input teks bebas (perilaku lama, dipakai PO & Surat Jalan). */
+  barangFormBarangOptions?: BarangPickOption[];
+  /** "Untuk Pelanggan" di ATAS "Nama Barang" di popup (gaya halaman Harga
+   *  Customer — pelanggan dikenali dulu sebelum memilih barang). Default
+   *  false = posisi lama setelah Foto Barang. */
+  barangFormCustomerFieldFirst?: boolean;
   /** Dipanggil setelah barang berhasil disimpan dari popup (untuk memperbarui daftar dropdown). */
   onBarangCreated?: (item: BarangFormSavedItem | null, customerId: string) => void;
   /**
@@ -112,6 +122,8 @@ export function ItemsFields({
   barangFormCustomers,
   barangFormCustomerFilter,
   barangFormLockedNote,
+  barangFormBarangOptions,
+  barangFormCustomerFieldFirst = false,
   onBarangCreated,
   lockPrices = false,
   paperOptions,
@@ -502,6 +514,8 @@ export function ItemsFields({
         customers={barangFormCustomers}
         customerFilter={barangFormCustomerFilter}
         lockedCustomerNote={barangFormLockedNote}
+        barangOptions={barangFormBarangOptions}
+        customerFieldFirst={barangFormCustomerFieldFirst}
         onSaved={onBarangCreated}
       />
     </div>
