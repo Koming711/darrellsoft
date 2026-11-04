@@ -134,6 +134,11 @@ export function ItemsFields({
   // Popup "Tambah Barang" (BarangFormDialog — sama persis dgn Master Barang):
   // dibuka dari tombol header Item.
   const [addOpen, setAddOpen] = useState(false);
+  // Popup Daftar Barang DI BAWAH TOMBOL TAMBAH (mode barang / Buat Invoice):
+  // klik Tambah → baris baru ditambahkan & popup daftar barang LANGSUNG
+  // muncul tepat di bawah tombol Tambah (permintaan owner), bukan menempel
+  // di baris baru yang posisinya jauh di bawah saat baris sudah banyak.
+  const [tambahPopupOpen, setTambahPopupOpen] = useState(false);
   const isBarangMode = Array.isArray(barangOptions);
   const isPaperMode = Array.isArray(paperOptions);
   // Tombol "Tambah Barang" SELALU aktif — klik langsung memunculkan popup,
@@ -155,11 +160,14 @@ export function ItemsFields({
         ...(showModal ? { modal: 0 } : {}),
       },
     ]);
-    // Klik Tambah → dropdown pilihan langsung terbuka di baris baru, jadi
-    // daftar barang dari Master Barang per customer (mode Buat Invoice) atau
-    // daftar kertas Master Harga Kertas (mode Buat PO) LANGSUNG tampil tanpa
-    // perlu klik tombol chevron lagi.
-    if (isBarangMode) setOpenBarangIndex(newIndex);
+    // Klik Tambah → mode kertas (Buat PO): dropdown pilihan kertas langsung
+    // terbuka di baris baru. Mode barang (Buat Invoice): popup Daftar Barang
+    // muncul DI BAWAH TOMBOL TAMBAH (permintaan owner) — barang yang dipilih
+    // di popup mengisi baris yang baru ditambahkan (baris paling akhir).
+    if (isBarangMode) {
+      setOpenBarangIndex(null);
+      setTambahPopupOpen(true);
+    }
     if (isPaperMode) setOpenPaperIndex(newIndex);
   };
 
@@ -178,6 +186,7 @@ export function ItemsFields({
     // Nama barang BISA dipakai berkali-kali di baris berbeda (permintaan
     // owner) — tidak ada pembatasan duplikat; pilihan selalu diterima.
     setOpenBarangIndex(null);
+    setTambahPopupOpen(false);
     if (onPickBarang) {
       onPickBarang(index, barang);
       return;
@@ -224,6 +233,52 @@ export function ItemsFields({
   // Disable Tambah if no item has meaningful data yet
   const hasAnyData = items.some((item) => item.deskripsi.trim() !== '' || (showPrice && item.harga > 0));
 
+  // Daftar pilihan barang (mode barang / Buat Invoice) — dipakai dua popup
+  // sekaligus: (1) popup DI BAWAH TOMBOL TAMBAH (target = baris paling
+  // akhir, yaitu baris yang baru ditambahkan klik Tambah) dan (2) dropdown
+  // chevron di tiap baris (target = baris tsb).
+  const renderBarangPilihan = (targetIndex: number) => {
+    if (!barangOptions || barangOptions.length === 0) {
+      return (
+        <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
+          <PackageSearch className="w-5 h-5 text-slate-300" />
+          {emptyBarangMessage}
+        </div>
+      );
+    }
+    const target = items[targetIndex];
+    return (
+      <div>
+        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
+          Daftar Barang
+        </div>
+        {barangOptions.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); pickBarang(targetIndex, b); }}
+            className={`w-full text-left px-3 py-2 text-sm transition-colors ${target?.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
+          >
+            <span className="block truncate">
+              {b.name}
+            </span>
+            {showPrice && (
+              <span className="block text-[11px] text-slate-400">
+                {/* Harga EFEKTIF: khusus customer bila ada & berlaku,
+                    selain itu harga standar Master Produk. */}
+                {formatRupiah(b.customerPrice ?? b.standardPrice)} / {b.unit || 'pcs'}
+                {b.customerPrice != null && b.customerPrice !== b.standardPrice && (
+                  <span className="text-emerald-600 font-medium"> · harga khusus</span>
+                )}
+                {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -247,10 +302,33 @@ export function ItemsFields({
               Tambah Barang
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
-            <Plus className="mr-1 h-3 w-3" />
-            Tambah
-          </Button>
+          {isBarangMode ? (
+            /* Tombol Tambah (Buat Invoice) — klik = tambah baris baru & popup
+               Daftar Barang LANGSUNG muncul DI BAWAH TOMBOL TAMBAH (permintaan
+               owner), bukan menempel di baris baru yang jauh di bawah.
+               Memilih barang di popup mengisi baris yang baru ditambahkan
+               (baris paling akhir). */
+            <Popover open={tambahPopupOpen} onOpenChange={setTambahPopupOpen}>
+              <PopoverAnchor asChild>
+                <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
+                  <Plus className="mr-1 h-3 w-3" />
+                  Tambah
+                </Button>
+              </PopoverAnchor>
+              <PopoverContent
+                align="end"
+                className="p-0 w-72 max-h-60 overflow-y-auto"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                {renderBarangPilihan(items.length - 1)}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Button variant="outline" size="sm" onClick={addItem} className="h-7 text-xs" disabled={!hasAnyData}>
+              <Plus className="mr-1 h-3 w-3" />
+              Tambah
+            </Button>
+          )}
         </div>
       </div>
       <div className="space-y-3">
@@ -362,7 +440,10 @@ export function ItemsFields({
                       />
                       <button
                         type="button"
-                        onClick={() => setOpenBarangIndex(openBarangIndex === index ? null : index)}
+                        onClick={() => {
+                          setTambahPopupOpen(false);
+                          setOpenBarangIndex(openBarangIndex === index ? null : index);
+                        }}
                         className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md border border-input bg-slate-50 shadow-xs outline-none cursor-pointer transition-colors hover:bg-slate-100 ${openBarangIndex === index ? 'text-slate-700' : 'text-slate-400'}`}
                         aria-label="Pilih barang dari daftar customer"
                       >
@@ -375,43 +456,7 @@ export function ItemsFields({
                     className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
                     onOpenAutoFocus={(e) => e.preventDefault()}
                   >
-                    {barangOptions!.length > 0 ? (
-                      <div>
-                        <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase bg-slate-50 border-b border-slate-100 sticky top-0">
-                          Daftar Barang
-                        </div>
-                        {barangOptions!.map((b) => {
-                          return (
-                            <button
-                              key={b.id}
-                              type="button"
-                              onMouseDown={(e) => { e.preventDefault(); pickBarang(index, b); }}
-                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${item.deskripsi === b.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'}`}
-                            >
-                              <span className="block truncate">
-                                {b.name}
-                              </span>
-                              {showPrice && (
-                                <span className="block text-[11px] text-slate-400">
-                                  {/* Harga EFEKTIF: khusus customer bila ada & berlaku,
-                                      selain itu harga standar Master Produk. */}
-                                  {formatRupiah(b.customerPrice ?? b.standardPrice)} / {b.unit || 'pcs'}
-                                  {b.customerPrice != null && b.customerPrice !== b.standardPrice && (
-                                    <span className="text-emerald-600 font-medium"> · harga khusus</span>
-                                  )}
-                                  {b.qty > 0 ? ` · ${b.qty.toLocaleString('id-ID')} ${b.unit || 'pcs'}` : ''}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="px-3 py-4 text-sm text-slate-400 text-center flex flex-col items-center gap-1.5">
-                        <PackageSearch className="w-5 h-5 text-slate-300" />
-                        {emptyBarangMessage}
-                      </div>
-                    )}
+                    {renderBarangPilihan(index)}
                   </PopoverContent>
                 </Popover>
               ) : (

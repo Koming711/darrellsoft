@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v176'
+export const CURRENT_VERSION = '2026-11-04-v177'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v177',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Popup Daftar Barang Kini Muncul di Bawah Tombol Tambah',
+      en: 'Item List Popup Now Appears Right Below the Add Button',
+    },
+    items: [
+      {
+        id: 'Buat Invoice: klik "Tambah" → popup Daftar Barang langsung muncul tepat di bawah tombol Tambah — tidak lagi menempel di baris baru yang posisinya jauh di bawah saat baris sudah banyak',
+        en: 'Create Invoice: clicking "Tambah" now opens the item list popup right below the Tambah button — no longer attached to the new row far below when there are many rows',
+      },
+      {
+        id: 'Barang yang dipilih di popup tetap mengisi baris yang baru ditambahkan (baris paling akhir); dropdown chevron di tiap baris tetap berfungsi seperti biasa',
+        en: 'Picking an item from the popup still fills the newly added row (the last row); the per-row chevron dropdown still works as before',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v176',
     date: { id: '4 November 2026', en: '4 November 2026' },

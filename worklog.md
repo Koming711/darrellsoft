@@ -1,6 +1,25 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Buat Invoice — popup Daftar Barang muncul DI BAWAH TOMBOL TAMBAH saat diklik
+
+Work Log:
+- Permintaan owner: "di halaman buat invoice baru, apabila di klik tambah maka muncul popup di bawah tombol tambah" — sebelumnya klik Tambah membuka dropdown menempel di textarea baris baru yang posisinya jauh di bawah saat baris sudah banyak; kini popup muncul tepat di bawah tombol Tambah itu sendiri
+- items-fields.tsx: state baru tambahPopupOpen; klik Tambah (mode barang/Buat Invoice) tetap menambah baris baru + kini membuka popover yang ditempelkan pada tombol Tambah (PopoverAnchor asChild, align="end", lebar w-72, max-h-60 scroll) — bukan lagi membuka dropdown di baris baru
+- Isi daftar barang diekstrak ke helper renderBarangPilihan(targetIndex) yang dipakai dua popup sekaligus: popup tombol Tambah (target = baris paling akhir = baris yang baru ditambahkan) dan dropdown chevron per baris (target = baris tsb, perilaku lama tetap)
+- pickBarang kini menutup kedua popup (openBarangIndex + tambahPopupOpen); klik chevron baris menutup popup tombol Tambah agar tidak dua popup bersamaan
+- Mode lain tidak berubah: Buat PO (mode kertas) tetap membuka dropdown di baris baru; Surat Jalan teks bebas; tombol "Tambah Barang" (popup BarangFormDialog) tidak tersentuh
+- Verifikasi agent-browser (login, customer "The Kat", barang ongkir & paperbowl 800ml): (A) baris 1 diisi paperbowl 800ml via chevron baris; (B) klik Tambah → baris #2 ditambah & popup DAFTAR BARANG muncul tepat di bawah tombol Tambah (popupBelowButton=true, rata kanan dgn tombol, gap 5px) — terkonfirmasi geometri & screenshot desktop; (C) pilih ongkir di popup → terisi di baris #2 (baris baru paling akhir), popup tertutup; (D) klik Tambah lagi saat baris sudah 3 → popup tetap di bawah tombol (bukan di baris #3); (E) pilih paperbowl 800ml lagi → baris #3 terisi (nama sama boleh dipakai berkali-kali, konsisten v176); (F) chevron baris #3 → popup rata penuh dgn textarea baris (left 691=691, right 1256=1256) & pilihan mengisi baris tsb; (G) klik di luar menutup popup; (H) viewport mobile 390px → popup tetap di bawah tombol & dalam viewport (screenshot); (I) baris 1–3 akhir: paperbowl 800ml / ongkir / ongkir; tanpa page error & console bersih; dokumen direset
+- Versi: SW v179, APP_VERSION/CURRENT_VERSION 2026-11-04-v177, entri changelog baru v177 "Popup Daftar Barang Kini Muncul di Bawah Tombol Tambah"
+
+Stage Summary:
+- Klik "Tambah" di Buat Invoice kini memunculkan popup Daftar Barang langsung di bawah tombol Tambah (desktop & mobile), memilih barang mengisi baris yang baru ditambahkan; dropdown chevron per baris tetap berfungsi seperti biasa
+- Halaman lain (PO, Surat Jalan, Master Barang, Harga Customer) tidak berubah perilaku
+- Tidak dideploy (sesuai instruksi berjalan)
+
+---
+Task ID: 1
+Agent: Main
 Task: Invoice — nama barang BISA dipakai berkali-kali (hapus tulisan "Sudah dipakai" & seluruh blokir duplikat)
 
 Work Log:
