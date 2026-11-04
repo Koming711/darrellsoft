@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireGroupMenu, canAccessRecord } from '@/lib/server-auth'
-import { sanitizeError } from '@/lib/api-error'
+import { sanitizeError, isSchemaMissingError } from '@/lib/api-error'
+import { ensurePgSchema } from '@/lib/auto-seed'
 
 /**
  * PUT    /api/harga-customer/[id] — ubah customer / barang / harga / periode
@@ -199,12 +200,28 @@ export async function DELETE(
     const user = getServerUser(request)!
     const { id } = await params
 
-    const reg = await db.barangCustomer.findUnique({ where: { id } })
-    if (!reg || !(await canAccessRecord(user, reg.userId))) {
-      return NextResponse.json({ error: 'Data harga tidak ditemukan' }, { status: 404 })
+    // Self-heal: P2021/P2022 (skema PG belum termigrasi penuh) → migrate → retry sekali.
+    // (Pola sama dgn GET /api/harga-customer — cegah "Gagal menghapus harga customer".)
+    const attempt = async (): Promise<'ok' | 'notfound'> => {
+      const reg = await db.barangCustomer.findUnique({ where: { id } })
+      if (!reg || !(await canAccessRecord(user, reg.userId))) return 'notfound'
+      await db.barangCustomer.delete({ where: { id } })
+      return 'ok'
     }
 
-    await db.barangCustomer.delete({ where: { id } })
+    let result: 'ok' | 'notfound'
+    try {
+      result = await attempt()
+    } catch (err) {
+      if (!isSchemaMissingError(err)) throw err
+      console.warn('⚠️ DELETE /api/harga-customer/[id] schema missing → ensurePgSchema & retry')
+      await ensurePgSchema()
+      result = await attempt()
+    }
+
+    if (result === 'notfound') {
+      return NextResponse.json({ error: 'Data harga tidak ditemukan' }, { status: 404 })
+    }
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     console.error('DELETE /api/harga-customer/[id] error:', error)

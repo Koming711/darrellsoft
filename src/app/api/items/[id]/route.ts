@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
-import { sanitizeError } from '@/lib/api-error'
+import { sanitizeError, isSchemaMissingError } from '@/lib/api-error'
+import { ensurePgSchema } from '@/lib/auto-seed'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -180,12 +181,28 @@ export async function DELETE(
     const user = getServerUser(request)!
     const { id } = await params
 
-    const existing = await db.barang.findUnique({ where: { id } })
-    if (!existing || existing.userId !== user.id) {
-      return NextResponse.json({ error: 'Item tidak ditemukan' }, { status: 404 })
+    // Self-heal: P2021/P2022 (skema PG belum termigrasi penuh) → migrate → retry sekali.
+    // (Pola sama dgn GET /api/harga-customer — cegah "Gagal menghapus barang".)
+    const attempt = async (): Promise<'ok' | 'notfound'> => {
+      const existing = await db.barang.findUnique({ where: { id } })
+      if (!existing || existing.userId !== user.id) return 'notfound'
+      await db.barang.delete({ where: { id } })
+      return 'ok'
     }
 
-    await db.barang.delete({ where: { id } })
+    let result: 'ok' | 'notfound'
+    try {
+      result = await attempt()
+    } catch (err) {
+      if (!isSchemaMissingError(err)) throw err
+      console.warn('⚠️ DELETE /api/items schema missing → ensurePgSchema & retry')
+      await ensurePgSchema()
+      result = await attempt()
+    }
+
+    if (result === 'notfound') {
+      return NextResponse.json({ error: 'Item tidak ditemukan' }, { status: 404 })
+    }
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {
     console.error('Error deleting item:', error)
