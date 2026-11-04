@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-03-v165'
+export const CURRENT_VERSION = '2026-11-04-v166'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v166',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Perbaikan: Semua Dropdown Halaman Hitung Cetakan Konsisten di HP',
+      en: 'Fix: All Dropdowns on Hitung Cetakan Page Consistent on Mobile',
+    },
+    items: [
+      {
+        id: 'Semua tombol dropdown di halaman Hitung Cetakan (customer, suplier, bahan, mesin, mesin 2, finishing, metode profit gabungan) kini membuka panel pilihan dalam aplikasi — tampilannya sama rapi seperti versi desktop, di HP online maupun offline',
+        en: 'All dropdown buttons on the Hitung Cetakan page (customer, supplier, material, machine, machine 2, finishing, combined profit method) now open an in-app selection panel — looks as neat as the desktop version, on mobile online or offline',
+      },
+      {
+        id: 'Tidak lagi membuka picker bawaan HP yang membuat tampilan halaman berubah/ter-zoom setelah memilih (khususnya di iPhone)',
+        en: 'No longer opens the phone native picker that made the page look changed/zoomed after selecting (especially on iPhone)',
+      },
+    ],
+  },
   {
     version: '2026-11-03-v165',
     date: { id: '3 November 2026', en: '3 November 2026' },

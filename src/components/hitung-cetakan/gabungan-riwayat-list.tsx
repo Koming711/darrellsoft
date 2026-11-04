@@ -25,6 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { RiwayatPeriodFilter, RiwayatCustomerFilter, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 import { fmtRp, fmtHargaPcs } from '@/components/hitung-cetakan/gabungan-format'
+import { FormSelect } from '@/components/hitung-cetakan/form-select'
 import { parseSnapshot, statusSumber, type GabunganStatusSumber } from '@/lib/gabungan-calc'
 import { toast } from 'sonner'
 
@@ -554,10 +555,16 @@ export function GabunganRiwayatList({
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 block">Metode Profit</label>
-                    <select value={eMetode} onChange={(e) => setEMetode(e.target.value === 'seragam' ? 'seragam' : 'masing_masing')} className="w-full h-10 text-sm rounded-md border border-slate-300 dark:border-zinc-700 bg-card px-2 cursor-pointer" aria-label="Metode profit gabungan">
-                      <option value="masing_masing">Masing-masing riwayat</option>
-                      <option value="seragam">Seragam (%)</option>
-                    </select>
+                    <FormSelect
+                      value={eMetode}
+                      onValueChange={(v) => setEMetode(v === 'seragam' ? 'seragam' : 'masing_masing')}
+                      ariaLabel="Metode profit gabungan"
+                      placeholder="Masing-masing riwayat"
+                      options={[
+                        { value: 'masing_masing', label: 'Masing-masing riwayat' },
+                        { value: 'seragam', label: 'Seragam (%)' },
+                      ]}
+                    />
                   </div>
                 </div>
                 {eMetode === 'seragam' && (

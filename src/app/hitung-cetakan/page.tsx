@@ -41,6 +41,7 @@ import { calculateCuts } from '@/lib/cutting-engine'
 import { RincianCetakanPreview, parseSimulasiCepat, type SimulasiCepatItem } from '@/components/rincian-cetakan-preview'
 import { FixedDocScaler } from '@/components/fixed-doc-scaler'
 import { GabunganTab } from '@/components/hitung-cetakan/gabungan-tab'
+import { FormSelect } from '@/components/hitung-cetakan/form-select'
 import { RiwayatPeriodFilter, RiwayatFilterCard, RiwayatCustomerFilter, RiwayatSummaryCard, RiwayatEmptyState, riwayatPeriodText, riwayatDateRange, type RiwayatPeriod } from '@/components/dokupro/riwayat-period-filter'
 import { CustomerFormDialog } from '@/components/views/customer-form-dialog'
 
@@ -157,7 +158,6 @@ interface PrintCalculation {
 }
 
 const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors lg:py-1.5'
-const selectClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors bg-card appearance-none cursor-pointer lg:py-1.5'
 const labelClass = 'flex items-center gap-1.5 text-xs font-medium text-slate-700 mb-1'
 
 // === Konversi harga kertas per kg ↔ per lembar ===
@@ -285,6 +285,9 @@ function HitungCetakanPage() {
   const [supliers, setSupliers] = useState<any[]>([])
 
   const [selectedFinishings, setSelectedFinishings] = useState<string[]>([])
+  // Dropdown finishing (mobile & desktop) — terkontrol, panel dalam aplikasi (bukan picker OS)
+  const [finishingPick, setFinishingPick] = useState('')
+  const [finishingPickDesktop, setFinishingPickDesktop] = useState('')
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -2593,23 +2596,20 @@ function HitungCetakanPage() {
                         <UserPlus className="w-3 h-3" /> Tambah Cust
                       </button>
                     </div>
-                    <div className="relative">
-                      <select
-                        value={formData.customerName}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
-                        className={selectClass + ' pl-3 pr-8'}
-                      >
-                        <option value="">{t('pilih_customer')} (dropdown)</option>
-                        {/* Nilai tersimpan tapi tidak ada di master (mis. restore lama) tetap ditampilkan */}
-                        {formData.customerName && !customers.some((c) => c.name === formData.customerName) && (
-                          <option value={formData.customerName}>{formData.customerName}</option>
-                        )}
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                      </select>
-                      <svg className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </div>                  </div>
+                    <FormSelect
+                      value={formData.customerName}
+                      onValueChange={(v) => setFormData((prev) => ({ ...prev, customerName: v }))}
+                      ariaLabel={t('nama_customer')}
+                      placeholder={`${t('pilih_customer')} (dropdown)`}
+                      options={[
+                        // Nilai tersimpan tapi tidak ada di master (mis. restore lama) tetap ditampilkan
+                        ...(formData.customerName && !customers.some((c) => c.name === formData.customerName)
+                          ? [{ value: formData.customerName, label: formData.customerName }]
+                          : []),
+                        ...customers.map((c) => ({ value: c.name, label: c.name })),
+                      ]}
+                    />
+                  </div>
                   <div>
                     <label className={labelClass}>{t('nama_cetakan')} <span className="text-red-500">*</span></label>
                     <input type="text" placeholder="Nama barang" value={formData.printName} onChange={(e) => setFormData({ ...formData, printName: e.target.value })} className={inputClass} />
@@ -2655,39 +2655,46 @@ function HitungCetakanPage() {
                 <div className="space-y-1.5">
                   <div>
                     <label className={labelClass}>Nama Suplier</label>
-                    <select value={formData.namaSuplier || 'none'} onChange={(e) => handleSuplierChange(e.target.value)} className={selectClass}>
-                      <option value="none">— Tanpa suplier —</option>
-                      {supliers.length === 0 && <option value="" disabled>Belum ada suplier — isi di Master Toko Pemasok</option>}
-                      {supliers.map((s) => <option key={s.id} value={s.namaToko}>{s.namaToko}{s.jenisBarang ? ` · ${s.jenisBarang}` : ''}</option>)}
-                    </select>
+                    <FormSelect
+                      value={formData.namaSuplier || ''}
+                      onValueChange={(v) => handleSuplierChange(v || 'none')}
+                      ariaLabel="Nama Suplier"
+                      placeholder="— Tanpa suplier —"
+                      options={[
+                        ...(supliers.length === 0 ? [{ value: '__hint__', label: 'Belum ada suplier — isi di Master Toko Pemasok', disabled: true }] : []),
+                        ...supliers.map((s) => ({ value: s.namaToko, label: s.namaToko + (s.jenisBarang ? ` · ${s.jenisBarang}` : '') })),
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Nama Bahan <span className="text-red-500">*</span></label>
-                    <select value={formData.paperId} onChange={(e) => {
-                      // Ganti bahan → Uk. Bahan (P×L) ikut ukuran master kertas terpilih
-                      // (pola sama dgn alur ganti suplier: paperLength←width, paperWidth←height).
-                      // Harga/lembar & harga/kg juga ikut master SELAMA masih hasil konversi
-                      // otomatis bahan sebelumnya — harga yang sudah diedit manual dipertahankan.
-                      const pid = e.target.value
-                      const pk = papers.find(p => p.id === pid)
-                      setFormData(prev => {
-                        const next: typeof prev = { ...prev, paperId: pid, ...(pk ? { paperLength: String(pk.width), paperWidth: String(pk.height) } : {}) }
-                        if (pk) {
-                          const sheet = Math.round(pk.pricePerRim / 500)
-                          const cur = papers.find(p => p.id === prev.paperId)
-                          const curSheet = cur ? Math.round(cur.pricePerRim / 500) : null
-                          const autoFilled = !prev.pricePerSheet || (curSheet !== null && Number(prev.pricePerSheet) === curSheet)
-                          if (autoFilled) {
-                            next.pricePerSheet = sheet.toString()
-                            next.pricePerKg = sheetToKgPrice(sheet, pk.width, pk.height, pk.grammage)
+                    <FormSelect
+                      value={formData.paperId}
+                      onValueChange={(pid) => {
+                        // Ganti bahan → Uk. Bahan (P×L) ikut ukuran master kertas terpilih
+                        // (pola sama dgn alur ganti suplier: paperLength←width, paperWidth←height).
+                        // Harga/lembar & harga/kg juga ikut master SELAMA masih hasil konversi
+                        // otomatis bahan sebelumnya — harga yang sudah diedit manual dipertahankan.
+                        const pk = papers.find(p => p.id === pid)
+                        setFormData(prev => {
+                          const next: typeof prev = { ...prev, paperId: pid, ...(pk ? { paperLength: String(pk.width), paperWidth: String(pk.height) } : {}) }
+                          if (pk) {
+                            const sheet = Math.round(pk.pricePerRim / 500)
+                            const cur = papers.find(p => p.id === prev.paperId)
+                            const curSheet = cur ? Math.round(cur.pricePerRim / 500) : null
+                            const autoFilled = !prev.pricePerSheet || (curSheet !== null && Number(prev.pricePerSheet) === curSheet)
+                            if (autoFilled) {
+                              next.pricePerSheet = sheet.toString()
+                              next.pricePerKg = sheetToKgPrice(sheet, pk.width, pk.height, pk.grammage)
+                            }
                           }
-                        }
-                        return next
-                      })
-                    }} className={selectClass}>
-                      <option value="">Pilih bahan kertas</option>
-                      {paperOptions.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.width}×{p.height}, {p.grammage}gsm{p.suplier ? ` · ${p.suplier}` : ''})</option>)}
-                    </select>
+                          return next
+                        })
+                      }}
+                      ariaLabel="Nama Bahan"
+                      placeholder="Pilih bahan kertas"
+                      options={paperOptions.map((p) => ({ value: p.id, label: `${p.name} (${p.width}×${p.height}, ${p.grammage}gsm${p.suplier ? ` · ${p.suplier}` : ''})` }))}
+                    />
                     {formData.namaSuplier && paperOptions.length === 0 && (
                       <p className="text-[10px] text-slate-400 mt-0.5">Tidak ada kertas milik {formData.namaSuplier} — isi kolom Suplier di Master Bahan</p>
                     )}
@@ -2770,10 +2777,13 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')} <span className="text-red-500">*</span></label>
-                    <select value={formData.machineId} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' })) }} className={selectClass}>
-                      <option value="">Pilih mesin</option>
-                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
-                    </select>
+                    <FormSelect
+                      value={formData.machineId}
+                      onValueChange={(v) => setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' }))}
+                      ariaLabel={t('nama_mesin')}
+                      placeholder="Pilih mesin"
+                      options={printingCosts.map((m) => ({ value: m.id, label: m.machineName }))}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Warna <span className="text-red-500">*</span></label>
@@ -2810,10 +2820,13 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')}</label>
-                    <select value={formData.machineId2} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' })) }} className={selectClass}>
-                      <option value="">Pilih mesin</option>
-                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
-                    </select>
+                    <FormSelect
+                      value={formData.machineId2}
+                      onValueChange={(v) => setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' }))}
+                      ariaLabel={`${t('nama_mesin')} 2`}
+                      placeholder="Pilih mesin"
+                      options={printingCosts.map((m) => ({ value: m.id, label: m.machineName }))}
+                    />
                   </div>
                   <div>
                     <label className={labelClass}>Warna</label>
@@ -2849,16 +2862,16 @@ function HitungCetakanPage() {
                 <div className="px-3 py-3">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <select id="finishing-select" className={selectClass} defaultValue="">
-                        <option value="">-- Pilih finishing --</option>
-                        {finishings.filter(f => !selectedFinishings.includes(f.id)).map((f) => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
+                      <FormSelect
+                        value={finishingPick}
+                        onValueChange={setFinishingPick}
+                        ariaLabel="Pilih finishing"
+                        placeholder="-- Pilih finishing --"
+                        options={finishings.filter(f => !selectedFinishings.includes(f.id)).map((f) => ({ value: f.id, label: f.name }))}
+                      />
                     </div>
                     <Button onClick={() => {
-                      const s = document.getElementById('finishing-select') as HTMLSelectElement
-                      if (s && s.value) { handleAddFinishing(s.value); s.value = '' }
+                      if (finishingPick) { handleAddFinishing(finishingPick); setFinishingPick('') }
                       else toast.error('Pilih finishing terlebih dahulu')
                     }} className="h-[34px] px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs" size="sm">
                       <Plus className="w-3.5 h-3.5 mr-1" /> Tambah
@@ -3072,10 +3085,13 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-1 gap-1">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')} <span className="text-red-500">*</span></label>
-                    <select value={formData.machineId} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' })) }} className={selectClass}>
-                      <option value="">Pilih mesin</option>
-                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
-                    </select>
+                    <FormSelect
+                      value={formData.machineId}
+                      onValueChange={(v) => setFormData(prev => (v === prev.machineId ? prev : { ...prev, machineId: v, hargaPlat: '' }))}
+                      ariaLabel={t('nama_mesin')}
+                      placeholder="Pilih mesin"
+                      options={printingCosts.map((m) => ({ value: m.id, label: m.machineName }))}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-1">
                     <div>
@@ -3112,10 +3128,13 @@ function HitungCetakanPage() {
                 <div className="grid grid-cols-1 gap-1">
                   <div>
                     <label className={labelClass}>{t('nama_mesin')}</label>
-                    <select value={formData.machineId2} onChange={(e) => { const v = e.target.value; setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' })) }} className={selectClass}>
-                      <option value="">Pilih mesin</option>
-                      {printingCosts.map((m) => <option key={m.id} value={m.id}>{m.machineName}</option>)}
-                    </select>
+                    <FormSelect
+                      value={formData.machineId2}
+                      onValueChange={(v) => setFormData(prev => (v === prev.machineId2 ? prev : { ...prev, machineId2: v, hargaPlat2: '' }))}
+                      ariaLabel={`${t('nama_mesin')} 2`}
+                      placeholder="Pilih mesin"
+                      options={printingCosts.map((m) => ({ value: m.id, label: m.machineName }))}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-1">
                     <div>
@@ -3153,15 +3172,15 @@ function HitungCetakanPage() {
               <SectionHeader icon={<Layers className="w-3.5 h-3.5 text-rose-600" />} label={t('finishing_label')} badge={selectedFinishingItems.length} />
               <div className="px-2.5 py-2 space-y-2">
                 <div className="flex gap-1.5">
-                  <select id="finishing-select-desktop" className={selectClass} defaultValue="">
-                    <option value="">-- Pilih finishing --</option>
-                    {finishings.filter(f => !selectedFinishings.includes(f.id)).map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
+                  <FormSelect
+                    value={finishingPickDesktop}
+                    onValueChange={setFinishingPickDesktop}
+                    ariaLabel="Pilih finishing"
+                    placeholder="-- Pilih finishing --"
+                    options={finishings.filter(f => !selectedFinishings.includes(f.id)).map((f) => ({ value: f.id, label: f.name }))}
+                  />
                   <Button onClick={() => {
-                    const s = document.getElementById('finishing-select-desktop') as HTMLSelectElement
-                    if (s && s.value) { handleAddFinishing(s.value); s.value = '' }
+                    if (finishingPickDesktop) { handleAddFinishing(finishingPickDesktop); setFinishingPickDesktop('') }
                     else toast.error('Pilih finishing terlebih dahulu')
                   }} className="h-[30px] px-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px]" size="sm">
                     <Plus className="w-3 h-3 mr-0.5" /> Tambah
