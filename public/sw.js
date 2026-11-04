@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v168';
+const CACHE_NAME = 'darrell-soft-v169';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 // v2: kunci cache kini PER-USER (lihat apiCacheKeyRequest) — cache lama
