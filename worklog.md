@@ -1,6 +1,24 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Invoice — nama barang BISA dipakai berkali-kali (hapus tulisan "Sudah dipakai" & seluruh blokir duplikat)
+
+Work Log:
+- Permintaan owner: tulisan "Sudah dipakai" di Daftar Barang (Buat Invoice) dihapus karena nama barang harus bisa dipakai berkali-kali — pembalikan arah dari tugas sebelumnya (anti-duplikat)
+- items-fields.tsx: hapus semua logika anti-duplikat mode barang — dropdown kembali aktif penuh (tanpa disabled/label "Sudah dipakai", semua opsi hover normal), pickBarang tanpa cek duplikat, hapus warning merah inline + border merah, hapus helper normalizeNamaBarang & cariDuplikatBarang, hapus import toast
+- document-action-buttons.tsx: hapus prop validateBeforeSave + guard onClick kedua tombol Simpan + pre-check di handleSave (kembali persis kondisi pra-fitur)
+- invoice-editor.tsx & invoice-pelunasan-editor.tsx: hapus validator duplikat & import terkait — Simpan tidak lagi menolak baris bernama sama
+- changelog v176 (belum terdeploy) ditulis ulang: "Nama Barang di Invoice Bisa Dipakai Berkali-Kali"; SW naik ke v178; CURRENT_VERSION tetap 2026-11-04-v176
+- Verifikasi agent-browser (login ulang, customer "The Kat"): baris 1 & 2 sama-sama diisi "paperbowl 800ml" dari dropdown — opsi di baris 2 TANPA label "Sudah dipakai" & tanpa disabled; tidak ada warning inline (0 role=alert); Simpan → dialog "Data sudah benar?" terbuka normal → Batal; dokumen direset bersih; tanpa error console/dev.log
+
+Stage Summary:
+- Nama barang kini bebas dipakai di beberapa baris invoice/pelunasan (dropdown, ketikan manual, dan simpan) sesuai permintaan owner
+- Halaman lain (PO, Surat Jalan, Master Barang, Harga Customer) tetap tidak berubah
+- Tidak dideploy (sesuai instruksi berjalan)
+
+---
+Task ID: 1
+Agent: Main
 Task: Invoice — barang yang sudah dipakai tidak bisa dipakai lagi (tutup celah anti-duplikat)
 
 Work Log:

@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { useDokuproStore } from '@/lib/store';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { hasProfitAccess, hasManualPriceAccess } from '@/lib/permissions';
-import { ItemsFields, cariDuplikatBarang, type BarangOption } from './items-fields';
+import { ItemsFields, type BarangOption } from './items-fields';
 import type { BarangFormSavedItem } from '@/components/views/barang-form-dialog';
 import { CustomerFormDialog, type CustomerFormSavedCustomer } from '@/components/views/customer-form-dialog';
 import { InvoicePreview } from './invoice-preview';
@@ -306,18 +306,6 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
       });
     }
   }, [matchedCustomerId, loadPopupBarang]);
-
-  // Validator sebelum simpan invoice (Regular/DP/Pelunasan): tolak bila ada
-  // nama barang yang dipakai di lebih dari satu baris — 1 barang hanya boleh
-  // di 1 baris. Menutup celah ketikan manual (bukan lewat dropdown).
-  const validateNoDuplikatBarang = useCallback((data: Record<string, unknown>) => {
-    const items = (data as { items?: { deskripsi: string }[] }).items ?? [];
-    const dup = cariDuplikatBarang(items);
-    if (dup) {
-      return `Barang "${dup.name}" dipakai di ${dup.rows.length} baris (baris ${dup.rows.join(', ')}) — barang yang sudah dipakai tidak bisa dipakai lagi. Hapus duplikatnya dulu.`;
-    }
-    return null;
-  }, []);
 
   // Customer BARU berhasil disimpan dari popup "Tambah Customer" (CustomerFormDialog
   // — sama persis dgn Master Pelanggan). Segarkan daftar dropdown lalu pilih
@@ -694,7 +682,6 @@ export function InvoiceEditor({ dpDisabled = false, onSaved }: { dpDisabled?: bo
             onUpdateSuccess={() => setInvoiceEditingId(null)}
             showPrintActions={false}
             onSaved={onSaved}
-            validateBeforeSave={validateNoDuplikatBarang}
           />
         }
       >

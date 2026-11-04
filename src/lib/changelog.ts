@@ -27,21 +27,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '2026-11-04-v176',
     date: { id: '4 November 2026', en: '4 November 2026' },
     title: {
-      id: 'Barang yang Sudah Dipakai di Invoice Tidak Bisa Dipakai Lagi',
-      en: 'An Item Already Used on an Invoice Can No Longer Be Used Again',
+      id: 'Nama Barang di Invoice Bisa Dipakai Berkali-Kali',
+      en: 'Item Names on Invoices Can Now Be Reused',
     },
     items: [
       {
-        id: 'Buat Invoice & Editor Pelunasan: barang yang sudah dipakai di satu baris kini BENAR-BENAR tidak bisa dipakai di baris lain — dropdown menonaktifkannya dengan label "Sudah dipakai" (kini juga mengenali perbedaan huruf besar/kecil & spasi ganda)',
-        en: 'Create Invoice & Pelunasan editor: an item already used on one row can now truly not be reused on another row — the dropdown disables it with a "Sudah dipakai" label (now also recognizing case & double-space differences)',
+        id: 'Buat Invoice & Pelunasan: tulisan "Sudah dipakai" di Daftar Barang dihapus — nama barang yang sama kini bisa dipilih lagi di beberapa baris (mis. barang sama dijual dengan qty/harga berbeda)',
+        en: 'Create Invoice & Pelunasan: the "Sudah dipakai" label is removed from the item list — the same item name can now be picked again on multiple rows (e.g. the same item sold with different qty/price)',
       },
       {
-        id: 'Celah ketikan manual ditutup: mengetik nama barang yang sama dengan baris lain (walau beda kapital/spasi) memunculkan kotak merah + peringatan di baris tersebut',
-        en: 'Manual-typing loophole closed: typing an item name that matches another row (even with different case/spaces) shows a red box + warning on that row',
-      },
-      {
-        id: 'Tombol Simpan menolak invoice/pelunasan yang masih punya barang duplikat — muncul pesan yang menyebut nama barang & nomor barisnya; PO & Surat Jalan tidak berubah',
-        en: 'The Save button rejects invoices/pelunasan that still contain duplicate items — with a message naming the item and its row numbers; PO & Surat Jalan are unchanged',
+        id: 'Tidak ada lagi pembatasan barang sama — baik saat memilih dari daftar, mengetik manual, maupun saat menyimpan invoice; halaman lain (PO, Surat Jalan, Master Barang) tidak berubah',
+        en: 'No more duplicate-item restriction — whether picking from the list, typing manually, or saving the invoice; other pages (PO, Surat Jalan, Master Barang) are unchanged',
       },
     ],
   },
