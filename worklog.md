@@ -16495,3 +16495,22 @@ Work Log:
 Stage Summary:
 - Kotak tabel Master Customer di desktop kini SELALU mengisi sisa tinggi layar (fit to desktop), tabel scroll di dalam kotak saat data banyak; mobile tetap tampilan kartu
 - Commit 26f9441 pushed; produksi www.darrellsoft.com sudah live dengan fix ini
+---
+Task ID: 1
+Agent: Main
+Task: Laporan "popup tambah barang muncul lagi" di daftar barang — diagnosa & pemaksaan update PWA
+
+Work Log:
+- Diagnosa kode: barang-view.tsx sudah benar sejak 5742c1e — openAdd() = baris inline (setAdding(true)), Dialog hanya untuk Edit; tidak ada jalur lain setDialogOpen(true) selain openEdit
+- Verifikasi browser lokal (dev 3000): klik "Tambah Barang" → baris inline muncul di tabel, dialogCount=0, tanpa popup
+- Verifikasi browser produksi (www.darrellsoft.com/barang): sama — inline, dialogCount=0
+- Kesimpulan: perangkat user menjalankan bundle LAMA dari cache PWA (halaman dibiarkan terbuka lintas deploy); nudge "Muat Ulang" mungkin sudah terlewat (updateNudgeShown sekali per sesi)
+- Fix: paksa siklus update baru — public/sw.js CACHE_NAME v169→v170, APP_VERSION→2026-11-04-v169, CURRENT_VERSION/changelog entry v169 (judul "Pastikan Versi Terbaru Terpakai di Perangkat Anda" + petunjuk ketuk Muat Ulang)
+- Deploy produksi sukses; curl /sw.js = darrell-soft-v170
+- Verifikasi produksi: dialog "Versi Baru! v169" muncul; klik Tambah Barang → inline tanpa popup; toast "Versi baru aplikasi siap dipakai [Muat Ulang]" tampil — persis mekanisme yang akan muncul di perangkat user
+- .env.local & .vercel dibersihkan
+
+Stage Summary:
+- Kode aplikasi TIDAK ada bug — popup tambah barang memang sudah terhapus sejak 5742c1e; keluhan berasal dari cache PWA versi lama di perangkat user
+- SW v170 + changelog v169 dipaksa ter-install; user cukup ketuk "Muat Ulang" pada toast (atau tutup-buka aplikasi) → popup hilang
+- Commit c2a0a44 pushed & live di www.darrellsoft.com
