@@ -16417,3 +16417,30 @@ Work Log:
 
 Stage Summary:
 - BUG "Gagal menghapus barang / gagal menghapus harga customer" ADALAH BUG TAMPILAN (delete server sukses, daftar tak refresh). 3 akar diperbaiki: state cache antar-instance modul kini window-singleton; apiFetch auto-invalidasi entity pasca-tulis sukses (menutup race TanStack sync-refetch untuk SEMUA halaman berbasis client.ts); halaman Harga Customer kini memanggil notifyDataChange setelah hapus/edit/toggle. Entity salah ('customer-items'/'purchase-order'/'calon-pembeli') disamakan dgn label cache. Terverifikasi E2E produksi: tambah & hapus di Daftar Barang dan Harga Customer langsung tercermin tanpa reload.
+
+Task ID: fix-dropdown-hitung-cetakan-mobile
+Agent: Main (Z.ai Code)
+Task: "dihalaman hitung cetakan online mobile phone, apabila diklik semua tombol dropdown buat seperti tampilan desktop atau tampilan mobile offline. check and fix."
+
+Work Log:
+- DIAGNOSA: halaman /hitung-cetakan memakai <select> NATIVE untuk 9 dropdown form (customer, suplier, bahan, mesin ×2 varian mobile, mesin ×2 varian desktop, finishing ×2 mobile/desktop) + 1 dropdown metode profit di dialog edit gabungan. Di HP, <select> native membuka picker OS (bukan panel dalam aplikasi seperti versi desktop) + di iPhone memicu auto-zoom halaman (font 14px < 16px, maximumScale=5) sehingga tampilan halaman berubah setelah klik dropdown — inilah yang dikeluhkan user ("jadi seperti tampilan desktop / mobile offline"). Filter Riwayat/Gabung sudah memakai Radix (aman) — hanya dropdown FORM yang bermasalah.
+- EMULASI BUKTI (agent-browser iPhone 14, produksi v165): semua dropdown native "berfungsi" di emulator namun membuka picker OS; fokus select memicu perilaku zoom iOS di perangkat asli. Riwayat filter Radix terbuka mulus sebagai popover dalam aplikasi → kontras inilah keluhan user.
+- FIX: komponen baru src/components/hitung-cetakan/form-select.tsx (FormSelect) — wrapper shadcn/Radix Select dengan trigger bergaya IDENTIK dgn selectClass lama (h-[38px], border-slate-300, rounded-lg, bg-card, ring emerald, dark mode), value '' dipetakan sentinel __none__ (Radix melarang item value ''), opsi disabled didukung, SelectContent popper max-h-72.
+- KONVERSI 9+1 dropdown → FormSelect (logic bisnis TIDAK berubah):
+  1. customer (opsi ekstra utk nilai tersimpan yang tak ada di master tetap tampil)
+  2. suplier (item hint disabled saat belum ada suplier; handleSuplierChange(v || 'none'))
+  3. bahan (logic auto-isi harga/lembar+kg & ukuran dari master dipertahankan utuh)
+  4-5. mesin & mesin 2 varian mobile (dedupe setFormData, hargaPlat/hargaPlat2 reset)
+  6-7. mesin & mesin 2 varian desktop (logika sama)
+  8-9. finishing mobile & desktop: uncontrolled getElementById → CONTROLLED state (finishingPick / finishingPickDesktop); tombol Tambah membaca state lalu reset — tanpa akses DOM lagi
+  10. metode profit dialog edit Gabungan (gabungan-riwayat-list.tsx)
+- selectClass tak terpakai dihapus; semua <select> & getElementById hilang dari halaman (grep bersih).
+- changelog v166 (CURRENT_VERSION 2026-11-04-v166, judul "Semua Dropdown Halaman Hitung Cetakan Konsisten di HP") + SW CACHE_NAME v165→v166 agar perangkat ber-cache menerima bundle.
+- LINT: 0 temuan utk 3 file berubah (50 error lama di file lain = pre-existing).
+- DEPLOY: commit 02ffe0f push origin main (setelah rebase atas remote) → vercel --prod darrellsoft-7zh913kio Ready → www.darrellsoft.com; cleanup .env.local + .vercel sebelum & sesudah deploy (dev lokal tetap SQLite).
+- VERIFIKASI E2E LOKAL (agent-browser iPhone 14 + desktop 1440): dropdown customer terbuka sbg panel dalam aplikasi (screenshot: daftar + checkmark, gaya desktop); pilih "Budi Susanto" tampil; finishing "laminating glossy" → Tambah → "Total Finishing (1 item) Rp 150.000"; mesin sm52 & suplier "Bintang Timur" terpilih; bahan terfilter hanya milik Bintang Timur (1 opsi); reset suplier → bahan kembali semua (10 opsi); desktop: finishing "spot uv" ditambah → Total Finishing (2 item) Rp 550.000 + toast sukses; nilai terpilih terjaga saat pindah viewport mobile↔desktop (state sama antar varian).
+- VERIFIKASI E2E PRODUKSI (agent-browser iPhone 14, www.darrellsoft.com v166): popup "Versi Baru! v166" muncul; dropdown customer panel dalam aplikasi + pilih Budi Susanto ✓; mesin sm74 ✓; finishing "spot uv" → Tambah → toast "Finishing berhasil ditambahkan" + "Total Finishing (1 item) Rp 400.000" ✓; desktop 1440: ringkasan menampilkan spot uv Rp 400.000, Total Rp 580.000 ✓; console 0 error.
+- TIDAK ADA data uji tertinggal: semua seleksi hanya state form lokal, tidak ada Simpan Riwayat/Invoice yang diklik.
+
+Stage Summary:
+- SEMUA dropdown di halaman Hitung Cetakan (10 tmpt: 9 form + 1 dialog gabungan) kini membuka PANEL DALAM APLIKASI bergaya desktop yang konsisten mobile & desktop — tidak lagi picker OS, tidak lagi auto-zoom/berubah tampilan setelah klik di HP (iPhone). Logic bisnis (filter bahan per suplier, auto-harga dari master, restore nilai, finishing add/remove) terverifikasi utuh di lokal & produksi v166.
