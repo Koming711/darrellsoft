@@ -152,6 +152,10 @@ interface BarangFormDialogProps {
    *  Default = teks Master Barang; halaman lain (mis. Buat Invoice) bisa
    *  memberi teks yang lebih sesuai konteks. */
   lockedCustomerNote?: string
+  /** Judul popup saat mode TAMBAH (bukan edit/duplikat). Default
+   *  "Tambah Barang" — halaman Harga Customer menimpa dgn
+   *  "Tambah Harga Customer" supaya sesuai konteks halamannya. */
+  addTitle?: string
   /** Dipanggil setelah barang berhasil disimpan (item hasil save + customerId terpilih) */
   onSaved?: (item: BarangFormSavedItem | null, customerId: string) => void
 }
@@ -165,6 +169,7 @@ export function BarangFormDialog({
   barangOptions = [],
   customerFilter = 'all',
   lockedCustomerNote = 'Mengikuti filter pelanggan aktif di atas.',
+  addTitle = 'Tambah Barang',
   onSaved,
 }: BarangFormDialogProps) {
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
@@ -406,7 +411,7 @@ export function BarangFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
         <DialogHeader className="pr-8">
-          <DialogTitle>{editing ? 'Edit Barang' : duplicateFrom ? 'Duplikat Barang' : 'Tambah Barang'}</DialogTitle>
+          <DialogTitle>{editing ? 'Edit Barang' : duplicateFrom ? 'Duplikat Barang' : addTitle}</DialogTitle>
           <DialogDescription>
             {editing
               ? `Kode ${editing.code} — perbarui data barang.`

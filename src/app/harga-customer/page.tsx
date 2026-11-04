@@ -668,8 +668,9 @@ export default function HargaCustomerPage() {
         </div>
       )}
 
-      {/* ===== Popup Tambah Barang (BarangFormDialog — sama persis dgn
-          Master Barang / Buat Invoice, sesuai desain aplikasi desktop) ===== */}
+      {/* ===== Popup Tambah Harga Customer (BarangFormDialog — isi & perilaku
+          sama persis dgn Master Barang / Buat Invoice, sesuai desain aplikasi
+          desktop; judul popup ditimpa jadi "Tambah Harga Customer") ===== */}
       <BarangFormDialog
         open={addOpen}
         onOpenChange={setAddOpen}
@@ -677,6 +678,7 @@ export default function HargaCustomerPage() {
         customerFilter={fCustomer}
         lockedCustomerNote="Mengikuti pelanggan yang dipilih di filter halaman ini."
         barangOptions={barangList}
+        addTitle="Tambah Harga Customer"
         onSaved={handleBarangSaved}
       />
 
