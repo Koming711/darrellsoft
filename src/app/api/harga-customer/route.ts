@@ -16,8 +16,9 @@ import { containsI } from '@/lib/search'
  *
  * GET  /api/harga-customer?q=&customerId=&barangId=&status=aktif|nonaktif
  *      → daftar harga (join customer + barang), terisolasi per grup/user.
- * POST /api/harga-customer { customerId, barangId, price, validFrom?, validUntil? }
- *      → tambah harga khusus (tolak duplikat & harga negatif).
+ * POST /api/harga-customer { customerId, barangId, price, validFrom?, validUntil?, qty? }
+ *      → tambah harga khusus (tolak duplikat & harga negatif). qty opsional:
+ *      bila dikirim, stok (Barang.qty) diperbarui di transaksi yang sama.
  */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -31,7 +32,7 @@ function rowOf(reg: {
   validUntil: string | null
   isActive: boolean
   updatedAt: Date
-  barang: { kode: string; nama: string; satuan: string; jual: number; modal: number } | null
+  barang: { kode: string; nama: string; satuan: string; jual: number; modal: number; qty: number } | null
   customer: { name: string; companyName: string | null } | null
 }) {
   return {
@@ -47,6 +48,7 @@ function rowOf(reg: {
     satuan: reg.barang?.satuan ?? 'pcs',
     standardPrice: reg.barang?.jual ?? 0,
     hargaPokok: reg.barang?.modal ?? 0,
+    qty: reg.barang?.qty ?? 0,
     harga: reg.price,
     validFrom: reg.validFrom,
     validUntil: reg.validUntil,
@@ -82,7 +84,7 @@ async function loadHargaCustomer(
   const regs = await db.barangCustomer.findMany({
     where,
     include: {
-      barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
+      barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true, qty: true } },
       customer: { select: { name: true, companyName: true } },
     },
     orderBy: [{ customer: { name: 'asc' } }, { barang: { nama: 'asc' } }],
@@ -132,12 +134,13 @@ export async function POST(request: NextRequest) {
     if (menuErr) return menuErr
     const user = getServerUser(request)!
     const body = await request.json()
-    const { customerId, barangId, price, validFrom, validUntil } = body as {
+    const { customerId, barangId, price, validFrom, validUntil, qty } = body as {
       customerId?: string
       barangId?: string
       price?: number | string
       validFrom?: string | null
       validUntil?: string | null
+      qty?: number | string
     }
 
     if (!customerId || !barangId) {
@@ -158,6 +161,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    // Qty opsional (dr popup Tambah Harga Customer): bila dikirim, stok barang
+    // master diperbarui di transaksi yang sama dgn pembuatan harga khusus.
+    let qtyNum: number | null = null
+    if (qty !== undefined && qty !== null && String(qty).trim() !== '') {
+      qtyNum = Number(qty)
+      if (!Number.isFinite(qtyNum) || qtyNum < 0) {
+        return NextResponse.json({ error: 'Qty tidak boleh negatif' }, { status: 400 })
+      }
+    }
 
     const customer = await db.customer.findUnique({ where: { id: customerId } })
     if (!customer || !(await canAccessRecord(user, customer.userId))) {
@@ -177,6 +189,11 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       })
       if (dup) return null
+      // Qty dikirim & berbeda dr stok sekarang → perbarui stok barang master
+      // SEBELUM create (include di bawah lalu langsung membawa qty terbaru).
+      if (qtyNum !== null && qtyNum !== barang.qty) {
+        await tx.barang.update({ where: { id: barangId }, data: { qty: qtyNum } })
+      }
       return tx.barangCustomer.create({
         data: {
           barangId,
@@ -188,7 +205,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
         },
         include: {
-          barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true } },
+          barang: { select: { kode: true, nama: true, satuan: true, jual: true, modal: true, qty: true } },
           customer: { select: { name: true, companyName: true } },
         },
       })

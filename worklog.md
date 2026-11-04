@@ -16586,3 +16586,21 @@ Work Log:
 Stage Summary:
 - Popup Tambah Harga Customer: pelanggan di atas, nama barang di bawahnya; Qty hanya muncul utk barang baru — simpan barang existing murni daftar harga khusus
 - Commit c1a143d (+auto-commit 3e9cc57) pushed; BELUM dideploy ke www.darrellsoft.com — menunggu perintah deploy dari user
+
+---
+Task ID: 2
+Agent: Main
+Task: Popup Tambah Harga Customer — Qty hilang setelah pilih nama barang (check and fix, TANPA deploy)
+
+Work Log:
+- Diagnosa: commit c1a143d sebelumnya menyembunyikan kolom Qty saat barang EXISTING dipilih dr dropdown (asumsi lama: simpan = daftar harga khusus saja, qty tak relevan) → user melaporkan "setelah dipilih nama barang qty hilang"; nilai qty yg diketik user pun tak pernah tersimpan
+- Fix 1 (barang-form-dialog.tsx): kolom Qty SELALU tampil — termasuk saat barang existing dipilih; handlePickBarang prefill Qty dr stok master (BarangPickOption.qty opsional; bila tak tersedia, nilai terakhir dipertahankan); layout Satuan+Qty kembali 2 kolom
+- Fix 2 (barang-form-dialog.tsx): simpan barang existing kini mengirim qty ke POST /api/harga-customer (validasi non-negatif); onSaved mengirim qty terpakai (bukan 0); helper text popup: "bila Qty diubah, stok barang di Master Barang ikut diperbarui"
+- Fix 3 (api/harga-customer/route.ts): POST menerima qty opsional — validasi ≥0; di dalam transaksi yang sama stok Barang.qty diperbarui (hanya bila berbeda; duplikat 409 tetap tak menyentuh stok); rowOf/GET kini menyertakan qty barang
+- Fix 4 (harga-customer/page.tsx): BarangOpt.qty + komentar dok diperbarui
+- Versi: SW v174→v175, APP_VERSION/changelog v174 (entri "Kolom Qty di Popup Tambah Harga Customer Tampil Lagi & Ikut Tersimpan"); entri v173 dirapikan — item "Qty disembunyikan" dihapus krn versi tsb tak pernah rilis & perilakunya sudah dibalik
+- Verifikasi lokal (agent-browser): popup Tambah Harga Customer → pilih "paperbowl 800ml" → Qty TETAP TAMPIL & terisi otomatis 1000 ✓; ubah qty 1234 + pelanggan Budi Susanto + harga 1750 → simpan sukses; API: stok barang = 1234 ✓, harga khusus tercatat ✓; regresi /barang (dialog sendiri, Qty tampil) & Buat Invoice (popup Qty tampil) ✓; data uji dibersihkan (stok kembali 1000, harga uji dihapus); eslint bersih; errors/console bersih
+
+Stage Summary:
+- Popup Tambah Harga Customer: kolom Qty tidak hilang lagi saat nama barang dipilih — terisi stok dr Master Barang, bisa diubah, dan perubahannya tersimpan ke stok barang (yang terdaftar tetap harga khusus customer)
+- Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)

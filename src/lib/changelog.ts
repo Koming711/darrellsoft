@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v173'
+export const CURRENT_VERSION = '2026-11-04-v174'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -24,6 +24,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2026-11-04-v174',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Kolom Qty di Popup Tambah Harga Customer Tampil Lagi & Ikut Tersimpan',
+      en: 'Qty Field Is Back in the Add Harga Customer Popup and Saves Too',
+    },
+    items: [
+      {
+        id: 'Popup Tambah Harga Customer: kolom Qty tetap tampil saat barang yang sudah ada dipilih dari dropdown — tidak hilang lagi, dan otomatis terisi stok barang dari Master Barang',
+        en: 'Add Harga Customer popup: the Qty field stays visible when an existing item is picked from the dropdown — it no longer disappears and is auto-filled with the item stock from Master Barang',
+      },
+      {
+        id: 'Qty yang diubah lalu disimpan ikut memperbarui stok barang di Master Barang; harga standar & harga modal barang tidak berubah — yang terdaftar tetap harga khusus customer',
+        en: 'A changed Qty is saved back to the item stock in Master Barang; the standard & cost price stay untouched — what gets registered is still the customer special price',
+      },
+    ],
+  },
+  {
     version: '2026-11-04-v173',
     date: { id: '4 November 2026', en: '4 November 2026' },
     title: {
@@ -34,10 +52,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         id: 'Popup Tambah Harga Customer: kolom "Untuk Pelanggan" dipindah ke atas kolom "Nama Barang" — pilih pelanggan lebih dulu, lalu pilih/ketik barang; urutan kolom di popup lain (Master Barang, Buat Invoice) tidak berubah',
         en: 'Add Harga Customer popup: the "Untuk Pelanggan" field moved above "Nama Barang" — pick the customer first, then choose/type the item; field order in other popups (Master Barang, Buat Invoice) is unchanged',
-      },
-      {
-        id: 'Popup Tambah Harga Customer: kolom Qty tidak lagi tampil saat barang yang sudah ada dipilih dari dropdown — simpan hanya mendaftarkan harga khusus, qty barang tidak berubah; kolom Qty tetap ada saat membuat barang baru',
-        en: 'Add Harga Customer popup: the Qty field no longer appears when an existing item is picked from the dropdown — saving only registers the special price and the item qty stays untouched; Qty remains when creating a new item',
       },
     ],
   },

@@ -69,6 +69,9 @@ export interface BarangPickOption {
   unit: string
   standardPrice: number
   hpp: number | null
+  /** Stok barang di Master Barang — mengisi kolom Qty saat barang dipilih
+   *  (opsional; bila tidak tersedia Qty tetap tampil dgn nilai terakhir). */
+  qty?: number
 }
 
 interface ItemFormState {
@@ -230,9 +233,11 @@ export function BarangFormDialog({
     ? (barangOptions.find((b) => b.id === pickedId) ?? null)
     : null
 
-  /** Pilih barang dr dropdown → prefill nama/satuan/harga jual & modal dr
-   *  master barang. '__new__' = bikin barang baru (nama diketik manual).
-   *  Ganti ke '__new__' mengosongkan nama agar tak sengaja bikin duplikat. */
+  /** Pilih barang dr dropdown → prefill nama/satuan/qty/harga jual & modal
+   *  dr master barang. '__new__' = bikin barang baru (nama diketik manual).
+   *  Ganti ke '__new__' mengosongkan nama agar tak sengaja bikin duplikat.
+   *  Qty IKUT terisi dr stok master — kolom Qty tidak pernah hilang saat
+   *  barang dipilih (bila qty tak tersedia, nilai terakhir dipertahankan). */
   const handlePickBarang = (v: string) => {
     setPickedId(v)
     if (v === '__new__') {
@@ -250,6 +255,7 @@ export function BarangFormDialog({
         standardPrice: String(b.standardPrice),
         hpp: hppStr,
         profit: profitOf(String(b.standardPrice), hppStr),
+        qty: b.qty != null ? String(b.qty) : f.qty,
       }
     })
   }
@@ -311,9 +317,16 @@ export function BarangFormDialog({
     // Barang SUDAH ADA dipilih dr dropdown → Simpan = daftarkan harga khusus
     // (BarangCustomer) utk pelanggan terpilih via /api/harga-customer;
     // TIDAK membuat barang baru (mencegah duplikat nama barang).
+    // Qty tetap disertakan: bila user mengubahnya, stok barang di Master
+    // Barang ikut diperbarui oleh API (nilai sama = stok tak berubah).
     if (pickedBarang) {
       if (!form.customerId || form.customerId === 'none') {
         toast.error('Pilih pelanggan untuk mengatur harga khusus barang ini')
+        return
+      }
+      const pickedQty = form.qty.trim() === '' ? 0 : Number(form.qty)
+      if (!Number.isFinite(pickedQty) || pickedQty < 0) {
+        toast.error('Qty tidak boleh negatif')
         return
       }
       setSaving(true)
@@ -324,6 +337,7 @@ export function BarangFormDialog({
             customerId: form.customerId,
             barangId: pickedBarang.id,
             price: std,
+            qty: pickedQty,
           }),
         })
         const custName = customers.find((c) => c.id === form.customerId)?.name
@@ -340,7 +354,7 @@ export function BarangFormDialog({
             unit: pickedBarang.unit,
             standardPrice: std,
             hpp: pickedBarang.hpp,
-            qty: 0,
+            qty: pickedQty,
           },
           form.customerId
         )
@@ -510,7 +524,7 @@ export function BarangFormDialog({
                 )}
                 {pickedBarang && (
                   <p className="text-[11px] text-muted-foreground">
-                    Barang dari halaman Barang (satuan {pickedBarang.unit || '-'}). Simpan = tambah harga khusus untuk pelanggan yang dipilih; data barang tidak berubah.
+                    Barang dari halaman Barang (satuan {pickedBarang.unit || '-'}). Simpan = tambah harga khusus untuk pelanggan yang dipilih; bila Qty diubah, stok barang di Master Barang ikut diperbarui.
                   </p>
                 )}
                 {pickedId === '__new__' && (
@@ -564,11 +578,11 @@ export function BarangFormDialog({
               </div>
             </div>
           )}
-          {/* Barang SUDAH ADA dipilih (mode dropdown, mis. Tambah Harga
-              Customer) → kolom Qty DISEMBUNYIKAN: simpan = daftarkan harga
-              khusus saja, qty barang master tidak tersentuh — kolom Qty di
-              popup ini hanya relevan utk barang baru. */}
-          <div className={pickedBarang ? 'grid gap-1.5' : 'grid sm:grid-cols-2 gap-3 sm:gap-4'}>
+          {/* Kolom Qty SELALU tampil — termasuk saat barang SUDAH ADA dipilih
+              dr dropdown (mis. Tambah Harga Customer). Saat barang dipilih,
+              Qty otomatis terisi stok dr Master Barang; bila diubah & disimpan,
+              API harga-customer memperbarui stok barang (lihat handleSave). */}
+          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor="item-unit">Satuan</Label>
               <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
@@ -582,21 +596,19 @@ export function BarangFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            {!pickedBarang && (
-              <div className="grid gap-1.5">
-                <Label htmlFor="item-qty">Qty</Label>
-                <Input
-                  id="item-qty"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step="any"
-                  value={form.qty}
-                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                  placeholder="0"
-                />
-              </div>
-            )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-qty">Qty</Label>
+              <Input
+                id="item-qty"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step="any"
+                value={form.qty}
+                onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>

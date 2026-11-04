@@ -76,7 +76,9 @@ import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
  * "+ Barang baru" utk membuat barang baru; foto, Untuk Pelanggan, satuan,
  * qty, harga jual, harga modal + profit dua arah, keterangan.
  * Simpan barang yg SUDAH ADA = POST /api/harga-customer (daftarkan harga
- * khusus, tanpa membuat barang baru). Simpan barang baru = POST /api/items —
+ * khusus, tanpa membuat barang baru); Qty ikut dikirim — bila diubah, stok
+ * barang di Master Barang diperbarui API di transaksi yang sama.
+ * Simpan barang baru = POST /api/items —
  * bila pelanggan dipilih, barang otomatis terdaftar (BarangCustomer)
  * sehingga langsung muncul di daftar harga khusus.
  * Dialog edit harga khusus tetap khusus mode edit.
@@ -111,6 +113,8 @@ interface BarangOpt {
   unit: string
   standardPrice: number
   hpp: number | null
+  /** Stok barang (dari /api/items) — prefill kolom Qty di popup saat barang dipilih. */
+  qty?: number
 }
 
 const rupiah = (n: number | null | undefined) =>
