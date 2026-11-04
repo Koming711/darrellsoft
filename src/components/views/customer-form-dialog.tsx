@@ -46,6 +46,20 @@ function errText(e: unknown): string {
   return e instanceof Error ? e.message : 'Terjadi kesalahan'
 }
 
+/**
+ * True bila respons berasal dari antrian offline (respons sintetis
+ * { ok: true, offlineQueued: true }) — data BELUM sampai database, hanya
+ * masuk antrian sinkronisasi di perangkat. Toast harus jujur: jangan
+ * bilang "berhasil ditambahkan" seolah sudah tersimpan di server.
+ */
+function isOfflineQueued(d: unknown): boolean {
+  return (
+    !!d &&
+    typeof d === 'object' &&
+    (d as { offlineQueued?: boolean }).offlineQueued === true
+  )
+}
+
 /* ==== Web Contact Picker API (Chrome Android) — tipe mini ==== */
 interface PickerContact {
   name?: string[]
@@ -206,8 +220,14 @@ export function CustomerFormDialog({
           method: 'PUT',
           body: JSON.stringify(body),
         })
-        toast.success('Pelanggan berhasil diperbarui')
-        const c = unwrapCustomer(data)
+        if (isOfflineQueued(data)) {
+          toast.info(
+            'Koneksi terputus — perubahan disimpan di perangkat dan otomatis tersinkron ke database saat online'
+          )
+        } else {
+          toast.success('Pelanggan berhasil diperbarui')
+        }
+        const c = isOfflineQueued(data) ? null : unwrapCustomer(data)
         saved = c
           ? { id: c.id, code: c.code, name: c.name, phone: c.phone, email: c.email, address: c.address }
           : null
@@ -216,8 +236,14 @@ export function CustomerFormDialog({
           method: 'POST',
           body: JSON.stringify(body),
         })
-        toast.success('Pelanggan berhasil ditambahkan')
-        const c = unwrapCustomer(data)
+        if (isOfflineQueued(data)) {
+          toast.info(
+            'Koneksi terputus — pelanggan disimpan di perangkat dan otomatis tersinkron ke database (Master Customer) saat online'
+          )
+        } else {
+          toast.success('Pelanggan berhasil ditambahkan')
+        }
+        const c = isOfflineQueued(data) ? null : unwrapCustomer(data)
         saved = c
           ? { id: c.id, code: c.code, name: c.name, phone: c.phone, email: c.email, address: c.address }
           : null

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v166'
+export const CURRENT_VERSION = '2026-11-04-v167'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v167',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Tambah Barang Langsung di Tabel & Pembaruan Paksa Aplikasi',
+      en: 'Add Items Directly in the Table & Forced App Update',
+    },
+    items: [
+      {
+        id: 'Halaman Daftar Barang: popup tambah barang dihapus — barang baru kini diisi langsung di baris pertama tabel (nama, satuan, qty awal, harga modal, harga jual, keterangan) di desktop maupun HP',
+        en: 'Daftar Barang page: the add-item popup is removed — new items are now filled directly in the first table row (name, unit, initial qty, cost, price, notes) on desktop and mobile',
+      },
+      {
+        id: 'Popup Tambah Customer di Buat Invoice: bila koneksi terputus saat menyimpan, muncul pemberitahuan bahwa data tersimpan di perangkat dan akan otomatis tersinkron ke Master Customer saat online — tidak lagi tampak seperti sudah tersimpan padahal belum',
+        en: 'Add Customer popup on Create Invoice: if the connection drops while saving, a notice now shows that data is stored on the device and will auto-sync to Master Customer when online — no longer appears saved when it is not',
+      },
+      {
+        id: 'Pembaruan v167 dipaksa ke semua perangkat ber-cache (service worker baru) supaya semua perbaikan terbaru — termasuk refresh otomatis daftar setelah tambah/hapus — langsung terpakai',
+        en: 'v167 is forced onto all cached devices (new service worker) so all latest fixes — including auto list refresh after add/delete — take effect immediately',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v166',
     date: { id: '4 November 2026', en: '4 November 2026' },
