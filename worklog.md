@@ -16444,3 +16444,21 @@ Work Log:
 
 Stage Summary:
 - SEMUA dropdown di halaman Hitung Cetakan (10 tmpt: 9 form + 1 dialog gabungan) kini membuka PANEL DALAM APLIKASI bergaya desktop yang konsisten mobile & desktop — tidak lagi picker OS, tidak lagi auto-zoom/berubah tampilan setelah klik di HP (iPhone). Logic bisnis (filter bahan per suplier, auto-harga dari master, restore nilai, finishing add/remove) terverifikasi utuh di lokal & produksi v166.
+---
+Task ID: fix-invoice-tambah-customer-master
+Agent: Main (Z.ai Code)
+Task: "lanjutkan. di online. di halaman buat invoice baru, data tambah customer tidak tersimpan di master customer. check and fix." (+ melanjutkan deploy tertunda commit 5742c1e barang inline yang gagal deploy karena outage shell di sesi sebelumnya)
+
+Work Log:
+- KEAMANAN ENV DULU: .env.local sisa `vercel link` (isi hanya VERCEL_OIDC_TOKEN — tanpa DATABASE_URL) + .vercel/ dihapus; diverifikasi data uji lokal masuk SQLite lokal (Customer 'Tes Invoice Cust' ada di db/custom.db) — produksi TIDAK ternoda.
+- DIAGNOSA PRODUKSI v166 (agent-browser, www.darrellsoft.com, admin): alur Buat Invoice → Tambah Customer (CustomerFormDialog) → Simpan = POST /api/customers **201** dan customer LANGSUNG tampil di Master Customer (desktop + mobile 390px, navigasi client-side TANPA reload). Server-side & cache refresh v166 SEHAT.
+- ROOT CAUSE keluhan "tidak tersimpan": (1) perangkat user kemungkinan masih memakai bundle lama pra-v165 yang punya bug cache daftar (tambah sukses tapi daftar tidak menampilkan) — SW v165/v166 baru aktif setelah perangkat berkunjung ulang; (2) jalur offline: fetch tulis gagal (jaringan HP flaky) → offline-queue mengembalikan respons sintetis {ok, offlineQueued:true} → toast lama TETAP bilang "Pelanggan berhasil ditambahkan" padahal data baru masuk antrian perangkat.
+- FIX 1 (customer-form-dialog.tsx): deteksi isOfflineQueued() pada respons POST/PUT — toast kini JUJUR: "Koneksi terputus — pelanggan disimpan di perangkat dan otomatis tersinkron ke database (Master Customer) saat online" (info, bukan success); saved=null → invoice tidak auto-pilih customer yang belum benar-benar ada di server. Berlaku juga utk mode edit.
+- FIX 2 (paksa update perangkat): CURRENT_VERSION → 2026-11-04-v167 + entri changelog v167 ("Tambah Barang Langsung di Tabel & Pembaruan Paksa Aplikasi") + SW CACHE_NAME darrell-soft-v166→v167 — semua perangkat ber-cache dipaksa muat bundle berisi v165/v166/v167 fixes.
+- VERIFIKASI LOKAL (agent-browser): popup What's New v167 muncul; simulasi offline (set offline on) → Simpan customer → toast "Koneksi terputus — pelanggan disimpan di perangkat..." terbaca di DOM ([data-sonner-toast]); banner offline "1 perubahan menunggu"; kembali online → antrian replay → 5 customer uji tersinkrom ke SQLite; dihapus semua (deleted=5 of 5).
+- DEPLOY: commit 5ee11d9 (membawa 5742c1e barang-inline yang tertunda) push origin main → vercel link/--prod darrellsoft-cppcc3d6g Ready → www.darrellsoft.com; cleanup .env.local + .vercel sesudah deploy; sw.js produksi = darrell-soft-v167; /api/health 200.
+- VERIFIKASI E2E PRODUKSI v167 (agent-browser, admin): popup "Versi Baru! v167" muncul ✓; /barang → Tambah Barang → BARIS INLINE di tabel (tanpa popup) → isi nama+qty → klik Simpan tanpa harga → validasi menolak (tidak ada POST) ✓ → isi harga modal/jual → POST /api/items 200 → baris LANGSUNG tampil ✓ → Hapus → hilang tanpa reload ✓; /invoice → Buat Invoice → Tambah Customer → POST 201 ✓ → Master Customer menampilkan customer ✓. Data uji PROD-TEST-INLINE & PROD-TEST-C167 dihapus semua — produksi bersih (rg PROD-TEST = 0 match).
+
+Stage Summary:
+- Alur "Tambah Customer" di Buat Invoice terbukti TERSIMPAN benar di produksi (POST 201 + tampil di Master Customer, mobile & desktop). Keluhan user dipicu bundle lama di perangkat + toast offline yang menyesatkan; keduanya ditangani: SW dipaksa v167 (perangkat ber-cache otomatis dapat bundle terbaru) dan toast kini jujur saat koneksi putus (data masuk antrian & tersinkron otomatis). Sekaligus men-deploy fitur tertunda "tambah barang inline di tabel barang" (5742c1e) yang sempat gagal deploy karena outage — terverifikasi E2E di produksi v167.
+---
