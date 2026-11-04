@@ -16550,3 +16550,20 @@ Work Log:
 Stage Summary:
 - Klik "Tambah Barang" di Buat Invoice Baru kini SELALU langsung memunculkan popup form, perilaku sama seperti halaman Harga Customer; tidak lagi menunggu customer dipilih; select pelanggan bebas saat customer belum dikenali, terkunci saat sudah
 - Commit 046bc96 + worklog; live di www.darrellsoft.com (SW v172)
+---
+Task ID: 1
+Agent: Main
+Task: Halaman Harga Customer — judul popup "Tambah Barang" diganti "Tambah Harga Customer"
+
+Work Log:
+- BarangFormDialog (komponen popup bersama): tambah prop opsional addTitle (default 'Tambah Barang') — hanya menimpa judul mode tambah (edit tetap 'Edit Barang', duplikat tetap 'Duplikat Barang')
+- harga-customer/page.tsx: pass addTitle="Tambah Harga Customer" — isi & perilaku popup tidak berubah (dropdown barang, foto, Untuk Pelanggan, satuan, qty, harga jual, modal+profit, keterangan)
+- Halaman lain tidak berubah: Master Barang (/barang) & Buat Invoice tetap berjudul "Tambah Barang" (regresi diverifikasi)
+- SW v172→v173, APP_VERSION/changelog v172 ("Judul Popup di Harga Customer Menjadi Tambah Harga Customer"); eslint bersih
+- Verifikasi lokal: klik "Tambah" di /harga-customer → heading popup "Tambah Harga Customer" ✓; /barang → popup tetap "Tambah Barang" ✓; console/errors bersih
+- Deploy produksi sukses; curl /sw.js = darrell-soft-v173; dialog "Versi Baru! v172" tampil
+- Verifikasi produksi (www.darrellsoft.com/harga-customer): popup "Tambah Harga Customer" ✓; errors bersih; .env.local & .vercel dibersihkan
+
+Stage Summary:
+- Judul popup penambahan data di halaman Harga Customer kini "Tambah Harga Customer"; halaman lain (Master Barang, Buat Invoice) tetap "Tambah Barang"
+- Commit + worklog pushed; live di www.darrellsoft.com (SW v173)
