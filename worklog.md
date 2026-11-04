@@ -1,6 +1,29 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Detail Invoice — tambah Tanggal Pembayaran + popup gambar bukti pembayaran besar dengan latar halaman detail invoice (TANPA deploy)
+
+Work Log:
+- Permintaan owner: "di halaman detail invoice. tambahkan tanggal pembayaran. di halaman detail invoice. apabila diklik gambar bukti pembayaran maka muncul popup gambar besar dengan latar belakang halaman detail invoice"
+- src/lib/types.ts: InvoiceData + field opsional tanggalPembayaran (YYYY-MM-DD)
+- src/app/invoice/page.tsx (DetailInvoiceView):
+  - Kartu Pembayaran: baris baru "Tanggal Pembayaran" di antara Cara Pembayaran & Bukti Pembayaran — Input type=date (h-8 w-[150px]) + label terformat (formatTanggalShort, contoh "4/11/26") + tombol cepat "Hari ini" (helper todayLocalIso() zona lokal, aman dini hari WIB); kosongkan input = hapus (delete p.tanggalPembayaran); simpan via putPaymentData() yang sudah ada (PUT /api/history/[id], toast, dispatch history-updated, loadEntry)
+  - parseInvoiceData: baca tanggalPembayaran (try & catch branch)
+  - Lightbox bukti pembayaran dirombak: latar TIDAK LAGI gelap pekal — DialogContent bg-stone-950/95 → bg-transparent + shadow-none, overlay (backdrop) diredam jadi bg-stone-950/40 sehingga HALAMAN DETAIL INVOICE TETAP TERLIHAT di belakang popup gambar besar (permintaan owner); gambar diberi ring halus; tombol ✕ diperjelas (bg-black/55 + border putih/40 + shadow)
+  - Klik area latar (bukan gambar) kini MENUTUP popup — sebelumnya tidak bisa: panel DialogContent full-screen (h-screen w-full) membuat klik "luar" Radix tak pernah terpicu; ditangani manual (onClick backdrop dgn guard e.target === e.currentTarget; klik gambar di-stopPropagation)
+- src/components/ui/dialog.tsx: DialogContent menerima prop opsional overlayClassName — diteruskan ke DialogOverlay internal (twMerge meng-override bg-black/50 bawaan); kompatibel mundur, semua dialog lain tanpa prop berperilaku sama
+- src/components/dokupro/invoice-preview.tsx: blok PAYMENT INFO kini tampil bila ada caraPembayaran ATAU tanggalPembayaran; baris cetak: "Cara Bayar: CASH • Tgl Bayar: 04 Nov 26" (bullet • hanya bila keduanya ada; tanggalGiro "Tgl:" giro tidak berubah); format tanggal id-ID singkat
+- Verifikasi agent-browser (login, INV/11/26/0007 = DP 50% The Kat dgn pelunasan tertaut): (A) tombol "Hari ini" → input 2026-11-04 + toast "Tanggal pembayaran disimpan" + preview dokumen "Tgl Bayar: 04 Nov 26"; (B) reload → buka detail lagi → nilai & baris cetak persisten; (C) upload bukti via input file (dus-ayam-geprek.jpg) → thumbnail 64px + data URL ~143KB terkompres; (D) klik thumbnail → popup gambar besar 513px, overlay oklab(stone-950/0.4), content bg transparan — screenshot desktop & mobile 390px: HALAMAN DETAIL (kartu Pembayaran, tombol aksi, pratinjau) JELAS TERLIHAT di belakang foto; (E) tutup via klik latar ✓, Esc ✓, tombol ✕ ✓; (F) lightbox pratinjau invoice utama TETAP gelap pekal (stone-950/95 + overlay black/50) — tidak berubah; (G) kosongkan tanggal → toast "Tanggal pembayaran dihapus" + baris "Tgl Bayar:" hilang dr dokumen; (H) kombinasi Cash + tanggal → dokumen "Cara Bayar: CASH • Tgl Bayar: 04 Nov 26" (screenshot); (I) data uji dibersihkan (bukti dihapus, tanggal kosong, Cash dilepas; terverifikasi setelah reload); (J) tanpa page error, console & dev.log bersih
+- Versi: SW v180→v181, APP_VERSION/CURRENT_VERSION 2026-11-04-v178→v179, entri changelog baru v179 "Detail Invoice: Tanggal Pembayaran & Foto Bukti Tampil di Atas Halaman"
+
+Stage Summary:
+- Detail Invoice: kartu Pembayaran kini punya Tanggal Pembayaran (input tanggal + tombol "Hari ini") yang ikut tercetak di dokumen invoice (baris "Tgl Bayar:"), dan klik gambar bukti pembayaran menampilkan popup foto besar dengan latar belakang halaman detail invoice tetap terlihat (overlay transparan; tutup via ✕, Esc, atau klik area latar)
+- Halaman lain & dialog lain tidak berubah perilaku (overlayClassName opsional; lightbox pratinjau invoice tetap gelap)
+- Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)
+
+---
+Task ID: 1
+Agent: Main
 Task: Detail Invoice — cara pembayaran + upload bukti pembayaran + pratinjau pelunasan di samping invoice DP
 
 Work Log:

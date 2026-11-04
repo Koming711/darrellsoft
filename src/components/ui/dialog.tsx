@@ -48,11 +48,14 @@ function DialogOverlay({
 
 function DialogContent({
   className,
+  overlayClassName,
   children,
   showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Optional override for the overlay (backdrop) styling, e.g. lighter tint */
+  overlayClassName?: string
 }) {
   const contentRef = React.useRef<HTMLDivElement>(null)
 
@@ -89,7 +92,7 @@ function DialogContent({
 
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={contentRef}
         data-slot="dialog-content"

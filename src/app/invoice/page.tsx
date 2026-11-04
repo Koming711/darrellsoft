@@ -208,6 +208,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: parsed.tanggalJatuhTempo || '',
       caraPembayaran: parsed.caraPembayaran || '',
       tanggalGiro: parsed.tanggalGiro || '',
+      tanggalPembayaran: parsed.tanggalPembayaran || '',
       buktiPembayaran: parsed.buktiPembayaran || '',
       lunas: parsed.lunas === true,
       tanggalPelunasan: parsed.tanggalPelunasan || '',
@@ -232,6 +233,7 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       tanggalJatuhTempo: '',
       caraPembayaran: '',
       tanggalGiro: '',
+      tanggalPembayaran: '',
       buktiPembayaran: '',
       lunas: false,
       tanggalPelunasan: '',
@@ -240,6 +242,12 @@ function parseInvoiceData(entry: HistoryEntry): InvoiceData {
       uangCapek: 0,
     }
   }
+}
+
+// Tanggal hari ini dalam zona waktu lokal, format 'YYYY-MM-DD' (value input date)
+function todayLocalIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // --- Badge status (Lunas / Belum Lunas / Batal) — TIDAK bisa diklik ---
@@ -746,6 +754,16 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
     }
   }
 
+  // Tanggal pembayaran — disimpan sebagai 'YYYY-MM-DD' (format value input
+  // date) dan ikut tercetak di dokumen invoice ("Tgl Bayar:"). Kosongkan = hapus.
+  const handleSetTanggalBayar = (v: string) => {
+    if (!v) {
+      putPaymentData((p) => { delete p.tanggalPembayaran }, 'Tanggal pembayaran dihapus')
+    } else {
+      putPaymentData((p) => { p.tanggalPembayaran = v }, 'Tanggal pembayaran disimpan')
+    }
+  }
+
   // Upload bukti pembayaran — gambar otomatis dikompres ≤350KB (pola sama
   // dengan bukti pembayaran langganan) sebelum disimpan sebagai data URL.
   const handleBuktiFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -920,6 +938,38 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                 Cara bayar ikut tercetak di dokumen invoice (baris &quot;Cara Bayar:&quot;). Klik yang aktif lagi untuk menghapus.
               </p>
 
+              {/* Tanggal pembayaran — ikut tercetak "Tgl Bayar:" di dokumen invoice */}
+              <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Tanggal Pembayaran</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    type="date"
+                    value={data.tanggalPembayaran || ''}
+                    disabled={savingPayment}
+                    onChange={(e) => handleSetTanggalBayar(e.target.value)}
+                    className="h-8 w-[150px] bg-white text-xs"
+                    aria-label="Tanggal pembayaran"
+                  />
+                  {data.tanggalPembayaran && (
+                    <span className="text-[11px] font-medium text-violet-700">{formatTanggalShort(data.tanggalPembayaran)}</span>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={savingPayment}
+                    onClick={() => handleSetTanggalBayar(todayLocalIso())}
+                    className="h-8 min-h-[32px] px-2.5 text-xs text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+                    title="Isi dengan tanggal hari ini"
+                  >
+                    Hari ini
+                  </Button>
+                  {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Tanggal pembayaran ikut tercetak di dokumen invoice (&quot;Tgl Bayar:&quot;). Kosongkan untuk menghapus.
+              </p>
+
               {/* Bukti pembayaran — upload foto, tersimpan di invoice ini */}
               <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Bukti Pembayaran</p>
@@ -1082,25 +1132,35 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
             </DialogContent>
           </Dialog>
 
-          {/* Lightbox bukti pembayaran — foto bukti tampil besar fit layar */}
+          {/* Lightbox bukti pembayaran — foto bukti tampil besar fit layar.
+              Latar BELAKANG TETAP TERLIHAT (overlay semi-transparan tanpa
+              panel gelap pekal) — halaman detail invoice tetap tampak di
+              belakang popup (permintaan owner). */}
           <Dialog open={buktiZoom} onOpenChange={setBuktiZoom}>
             <DialogContent
               showCloseButton={false}
               aria-label="Bukti pembayaran diperbesar"
               aria-describedby={undefined}
-              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-stone-950/95 p-0 overflow-hidden gap-0"
+              overlayClassName="bg-stone-950/40"
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-transparent p-0 overflow-hidden gap-0 shadow-none"
               style={{ height: '100dvh' }}
             >
               <button
                 type="button"
                 onClick={() => setBuktiZoom(false)}
                 aria-label="Tutup bukti pembayaran"
-                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white transition-colors hover:bg-black/80"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-black/55 text-white shadow-lg transition-colors hover:bg-black/80"
               >
                 <X className="h-5 w-5" />
               </button>
-              <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
-                <img src={buktiPembayaran} alt="Bukti pembayaran" className="max-h-full max-w-full object-contain rounded-lg bg-white shadow-2xl" />
+              {/* Klik area latar (bukan gambar) juga menutup popup —
+                  panel content full-screen sehingga klik "luar" Radix
+                  tidak pernah terpicu; tangani manual di backdrop. */}
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4 sm:p-8"
+                onClick={(e) => { if (e.target === e.currentTarget) setBuktiZoom(false) }}
+              >
+                <img src={buktiPembayaran} alt="Bukti pembayaran" className="max-h-full max-w-full object-contain rounded-lg bg-white shadow-2xl ring-1 ring-black/10" onClick={(e) => e.stopPropagation()} />
               </div>
             </DialogContent>
           </Dialog>

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v178'
+export const CURRENT_VERSION = '2026-11-04-v179'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v179',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Detail Invoice: Tanggal Pembayaran & Foto Bukti Tampil di Atas Halaman',
+      en: 'Invoice Detail: Payment Date & Proof Photo Displayed Over the Page',
+    },
+    items: [
+      {
+        id: 'Kartu Pembayaran kini punya Tanggal Pembayaran: pilih lewat input tanggal atau tombol "Hari ini" — ikut tercetak di dokumen invoice (baris "Tgl Bayar:")',
+        en: 'The Pembayaran card now has a Payment Date: pick it via the date input or the "Hari ini" (today) button — it is printed on the invoice document ("Tgl Bayar:" line)',
+      },
+      {
+        id: 'Klik gambar bukti pembayaran → foto besar tampil sebagai popup DENGAN latar belakang halaman Detail Invoice tetap terlihat (overlay transparan, bukan layar gelap pekal)',
+        en: 'Clicking the payment proof photo now shows the large image as a popup WITH the Invoice Detail page still visible as the backdrop (transparent overlay instead of a solid dark screen)',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v178',
     date: { id: '4 November 2026', en: '4 November 2026' },

@@ -223,15 +223,24 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
       </div>
 
       {/* === PAYMENT INFO === */}
-      {data.caraPembayaran && (
-        <div style={{ marginBottom: '2mm', fontSize: '9pt', display: 'flex', alignItems: 'center', gap: '1.5mm' }}>
-          <span style={{ color: '#000' }}>Cara Bayar:</span>
-          <span style={{ fontWeight: '600', color: '#000', textTransform: 'uppercase' }}>
-            {data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}
-          </span>
+      {(data.caraPembayaran || data.tanggalPembayaran) && (
+        <div style={{ marginBottom: '2mm', fontSize: '9pt', display: 'flex', alignItems: 'center', gap: '1.5mm', flexWrap: 'wrap' }}>
+          {data.caraPembayaran && (
+            <>
+              <span style={{ color: '#000' }}>Cara Bayar:</span>
+              <span style={{ fontWeight: '600', color: '#000', textTransform: 'uppercase' }}>
+                {data.caraPembayaran === 'giro' ? 'Giro' : data.caraPembayaran === 'transfer' ? 'Transfer' : 'Cash'}
+              </span>
+            </>
+          )}
           {data.caraPembayaran === 'giro' && data.tanggalGiro && (
             <span style={{ color: '#000' }}>
               (Tgl: {new Date(data.tanggalGiro).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })})
+            </span>
+          )}
+          {data.tanggalPembayaran && (
+            <span style={{ color: '#000' }}>
+              {data.caraPembayaran ? '• ' : ''}Tgl Bayar: {new Date(`${data.tanggalPembayaran}T00:00:00`).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}
             </span>
           )}
         </div>
