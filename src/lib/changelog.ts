@@ -35,6 +35,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         id: 'Popup Tambah Harga Customer: kolom "Untuk Pelanggan" dipindah ke atas kolom "Nama Barang" — pilih pelanggan lebih dulu, lalu pilih/ketik barang; urutan kolom di popup lain (Master Barang, Buat Invoice) tidak berubah',
         en: 'Add Harga Customer popup: the "Untuk Pelanggan" field moved above "Nama Barang" — pick the customer first, then choose/type the item; field order in other popups (Master Barang, Buat Invoice) is unchanged',
       },
+      {
+        id: 'Popup Tambah Harga Customer: kolom Qty tidak lagi tampil saat barang yang sudah ada dipilih dari dropdown — simpan hanya mendaftarkan harga khusus, qty barang tidak berubah; kolom Qty tetap ada saat membuat barang baru',
+        en: 'Add Harga Customer popup: the Qty field no longer appears when an existing item is picked from the dropdown — saving only registers the special price and the item qty stays untouched; Qty remains when creating a new item',
+      },
     ],
   },
   {

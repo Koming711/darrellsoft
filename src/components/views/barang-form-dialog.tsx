@@ -564,7 +564,11 @@ export function BarangFormDialog({
               </div>
             </div>
           )}
-          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Barang SUDAH ADA dipilih (mode dropdown, mis. Tambah Harga
+              Customer) → kolom Qty DISEMBUNYIKAN: simpan = daftarkan harga
+              khusus saja, qty barang master tidak tersentuh — kolom Qty di
+              popup ini hanya relevan utk barang baru. */}
+          <div className={pickedBarang ? 'grid gap-1.5' : 'grid sm:grid-cols-2 gap-3 sm:gap-4'}>
             <div className="grid gap-1.5">
               <Label htmlFor="item-unit">Satuan</Label>
               <Select value={form.unit} onValueChange={(v) => setForm((f) => ({ ...f, unit: v }))}>
@@ -578,19 +582,21 @@ export function BarangFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-qty">Qty</Label>
-              <Input
-                id="item-qty"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step="any"
-                value={form.qty}
-                onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
+            {!pickedBarang && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-qty">Qty</Label>
+                <Input
+                  id="item-qty"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step="any"
+                  value={form.qty}
+                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+            )}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="item-price">Harga Jual (Rp) <span className="text-destructive">*</span></Label>
