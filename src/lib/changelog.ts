@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v169'
+export const CURRENT_VERSION = '2026-11-04-v170'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v170',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Popup Tambah Barang Kembali di Daftar Barang',
+      en: 'Add Item Popup Is Back on the Daftar Barang Page',
+    },
+    items: [
+      {
+        id: 'Halaman Daftar Barang: klik "Tambah Barang" kembali memunculkan popup form (nama, satuan, qty awal, harga modal, harga jual, keterangan) di desktop maupun HP — baris isian inline di tabel diganti popup',
+        en: 'Daftar Barang page: clicking "Tambah Barang" opens the form popup again (name, unit, initial qty, cost, price, notes) on desktop and mobile — the inline table row is replaced by the popup',
+      },
+      {
+        id: 'Edit barang tetap memakai popup yang sama; kode barang tetap dibuat otomatis oleh sistem',
+        en: 'Editing an item still uses the same popup; the item code is still generated automatically by the system',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v169',
     date: { id: '4 November 2026', en: '4 November 2026' },

@@ -13,14 +13,14 @@
  * - TanStack Query dipertahankan; QueryClientProvider dipasang lokal di /barang.
  * - stockMin TIDAK dipakai (model Barang tak punya kolom tsb) — form edit
  *   menyediakan Stok (Qty) langsung; peringatan "menipis" mengikuti stok 0.
- * - Tambah barang: baris isian INLINE di tabel (popup tambah dihapus) —
- *   qty awal diisi saat menambah; harga & qty dikelola di tabel barang.
+ * - Tambah barang: klik "Tambah Barang" membuka POPUP form (nama, satuan,
+ *   qty awal, harga modal, harga jual, keterangan); edit memakai popup yang sama.
  * - Hak akses   : canAdd/canEdit/canDelete dr Matriks Hak Akses (fitur 'barang').
  */
 
-import { useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Package, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -158,7 +158,6 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM)
   const [formError, setFormError] = useState('')
@@ -213,8 +212,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         description: vars.data.name.trim(),
       })
       if (!vars.id) {
-        // Barang baru: tutup baris isian inline di tabel
-        setAdding(false)
+        // Barang baru: reset isian utk pembukaan berikutnya
         setForm(EMPTY_FORM)
       }
       setDialogOpen(false)
@@ -245,21 +243,14 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     },
   })
 
-  // Tambah barang kini INLINE di tabel barang (popup tambah dihapus) —
-  // baris isian muncul di baris pertama tabel (desktop) / kartu isian
-  // pertama (mobile). Hint: "Qty awal barang; kelola harga & qty di tabel
-  // barang."
+  // Tambah barang memakai POPUP (dialog): klik "Tambah Barang" membuka form
+  // popup berisi nama, satuan, qty awal, harga modal, harga jual & keterangan.
+  // Kode barang dibuat otomatis oleh server (ITM-xxx).
   const openAdd = () => {
     setEditing(null)
     setForm(EMPTY_FORM)
     setFormError('')
-    setAdding(true)
-  }
-
-  const cancelAdd = () => {
-    setAdding(false)
-    setForm(EMPTY_FORM)
-    setFormError('')
+    setDialogOpen(true)
   }
 
   const openEdit = (p: Product) => {
@@ -292,16 +283,8 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     return ''
   }
 
-  /** Simpan barang BARU dari baris isian inline di tabel (tanpa popup). */
-  const submitAdd = () => {
-    const err = validateForm()
-    setFormError(err)
-    if (err) return
-    saveMutation.mutate({ data: form })
-  }
-
-  /** Simpan perubahan barang dari dialog Edit. */
-  const handleEditSubmit = (e: FormEvent<HTMLFormElement>) => {
+  /** Simpan barang dari popup (id undefined = barang baru, ada id = edit). */
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const err = validateForm()
     setFormError(err)
@@ -309,15 +292,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     saveMutation.mutate({ id: editing?.id, data: form })
   }
 
-  /** Enter pada input baris tambah = simpan (baris inline tidak memakai <form>). */
-  const onAddInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      submitAdd()
-    }
-  }
-
-  // Warna teks margin utk baris tambah inline, kartu tambah mobile & footer dialog edit
+  // Warna teks margin di footer popup tambah/edit
   const marginToneCls = marginInfo
     ? marginInfo.margin > 0
       ? 'text-emerald-600'
@@ -366,7 +341,7 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
-      ) : filtered.length === 0 && !(adding && canAdd) ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed py-16 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Package className="h-6 w-6 text-muted-foreground" aria-hidden />
@@ -388,12 +363,6 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         </div>
       ) : (
         <>
-          {/* Petunjuk baris tambah inline (desktop) — teks sama dgn hint Qty lama */}
-          {adding && canAdd && (
-            <p className="hidden text-xs text-muted-foreground md:block">
-              Qty awal barang; kelola harga &amp; qty di tabel barang.
-            </p>
-          )}
           {/* Tabel (desktop) — tinggi baris presisi 10mm + baris zebra
               (baris ganjil abu slate-100, genap putih; hover seragam lebih gelap) */}
           <div className="hidden overflow-x-auto rounded-md border md:block">
@@ -413,124 +382,6 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Baris isian TAMBAH BARANG — inline di tabel (popup dihapus).
-                    Kode otomatis dari server (ITM-xxx); Harga Khusus dikelola
-                    di halaman Harga Customer. */}
-                {adding && canAdd && (
-                  <TableRow className="bg-muted/40 dark:bg-zinc-800/40">
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                      otomatis
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={form.name}
-                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="Nama barang"
-                        aria-label="Nama barang baru"
-                        aria-invalid={!!formError && form.name.trim() === ''}
-                        className="h-8 min-w-[140px]"
-                        autoFocus
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={form.unit}
-                        onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="pcs"
-                        aria-label="Satuan barang baru"
-                        className="h-8 w-16 min-w-16"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={form.stock}
-                        onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="0"
-                        inputMode="decimal"
-                        aria-label="Qty awal barang"
-                        className="h-8 w-20 min-w-20 text-right tabular-nums"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={form.costPrice}
-                        onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="0"
-                        inputMode="numeric"
-                        aria-label="Harga modal barang baru"
-                        className="h-8 w-24 min-w-24 text-right tabular-nums"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={form.sellPrice}
-                        onChange={(e) => setForm((f) => ({ ...f, sellPrice: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="0"
-                        inputMode="numeric"
-                        aria-label="Harga jual barang baru"
-                        className="h-8 w-24 min-w-24 text-right tabular-nums"
-                      />
-                    </TableCell>
-                    <TableCell
-                      className={cn('text-right text-sm font-medium tabular-nums', marginToneCls)}
-                    >
-                      {marginInfo ? formatIDR(marginInfo.margin) : '—'}
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground">—</TableCell>
-                    <TableCell>
-                      <Input
-                        value={form.keterangan}
-                        onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
-                        onKeyDown={onAddInputKeyDown}
-                        placeholder="Keterangan (opsional)"
-                        aria-label="Keterangan barang baru"
-                        maxLength={500}
-                        autoComplete="off"
-                        className="h-8 min-w-[140px]"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Simpan barang baru"
-                          title="Simpan"
-                          onClick={submitAdd}
-                          disabled={isPending}
-                        >
-                          <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          aria-label="Batal tambah barang"
-                          title="Batal"
-                          onClick={cancelAdd}
-                          disabled={isPending}
-                        >
-                          <X className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
                 {filtered.map((p, idx) => {
                   const margin = (p.sellPrice ?? 0) - (p.costPrice ?? 0)
                   return (
@@ -613,129 +464,6 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
 
           {/* Kartu (mobile) */}
           <div className="flex flex-col gap-3 md:hidden">
-            {/* Kartu isian TAMBAH BARANG (mobile) — inline, tanpa popup */}
-            {adding && canAdd && (
-              <Card className="gap-3 border-dashed py-4">
-                <CardContent className="flex flex-col gap-3 px-4">
-                  <p className="font-medium leading-snug">Tambah Barang</p>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      submitAdd()
-                    }}
-                    className="flex flex-col gap-3"
-                  >
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="add-product-name">
-                        Nama Barang <span className="text-rose-600">*</span>
-                      </Label>
-                      <Input
-                        id="add-product-name"
-                        value={form.name}
-                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        placeholder="Contoh: Paper Bowl 500ml"
-                        aria-invalid={!!formError && form.name.trim() === ''}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-product-unit">Satuan</Label>
-                        <Input
-                          id="add-product-unit"
-                          value={form.unit}
-                          onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                          placeholder="pcs"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-product-stock">Qty Awal</Label>
-                        <Input
-                          id="add-product-stock"
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={form.stock}
-                          onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                          placeholder="0"
-                          inputMode="decimal"
-                          className="text-right tabular-nums"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-product-cost">
-                          Harga Modal <span className="text-rose-600">*</span>
-                        </Label>
-                        <Input
-                          id="add-product-cost"
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={form.costPrice}
-                          onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
-                          placeholder="0"
-                          inputMode="numeric"
-                          className="text-right tabular-nums"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="add-product-sell">
-                          Harga Jual <span className="text-rose-600">*</span>
-                        </Label>
-                        <Input
-                          id="add-product-sell"
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={form.sellPrice}
-                          onChange={(e) => setForm((f) => ({ ...f, sellPrice: e.target.value }))}
-                          placeholder="0"
-                          inputMode="numeric"
-                          className="text-right tabular-nums"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="add-product-keterangan">Keterangan</Label>
-                      <Input
-                        id="add-product-keterangan"
-                        value={form.keterangan}
-                        onChange={(e) => setForm((f) => ({ ...f, keterangan: e.target.value }))}
-                        placeholder="Keterangan tambahan (opsional)"
-                        maxLength={500}
-                        autoComplete="off"
-                      />
-                    </div>
-                    {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}
-                    <p className={cn('text-sm font-medium', marginToneCls)}>
-                      {marginInfo
-                        ? `Margin: ${formatIDR(marginInfo.margin)}${
-                            marginInfo.pct !== null ? ` (${fmtPct(marginInfo.pct)}%)` : ''
-                          }`
-                        : 'Margin akan muncul saat harga diisi.'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Qty awal barang; kelola harga &amp; qty di tabel barang.
-                    </p>
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={isPending} className="flex-1">
-                        {isPending ? 'Menyimpan...' : 'Simpan'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={cancelAdd}
-                        disabled={isPending}
-                      >
-                        Batal
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
             {filtered.map((p) => {
               const margin = (p.sellPrice ?? 0) - (p.costPrice ?? 0)
               return (
@@ -827,25 +555,23 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
         </>
       )}
 
-      {/* Dialog EDIT saja — popup TAMBAH BARANG sudah dihapus; tambah barang
-          kini via baris isian inline di tabel barang. */}
+      {/* Popup TAMBAH & EDIT barang — klik "Tambah Barang" membuka form popup
+          ini dgn isian kosong (editing = null), tombol pensil membukanya terisi
+          data barang yang diedit. */}
       <Dialog
         open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open)
-          // Bila baris tambah inline sedang aktif, jaga isian tetap kosong
-          if (!open && adding) {
-            setForm(EMPTY_FORM)
-            setFormError('')
-          }
-        }}
+        onOpenChange={setDialogOpen}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Barang</DialogTitle>
-            <DialogDescription>Perbarui informasi barang berikut.</DialogDescription>
+            <DialogTitle>{editing ? 'Edit Barang' : 'Tambah Barang'}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? 'Perbarui informasi barang berikut.'
+                : 'Isi data barang baru. Kode barang dibuat otomatis oleh sistem.'}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="product-name">
                 Nama Barang <span className="text-rose-600">*</span>
@@ -916,7 +642,9 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                 className="text-right tabular-nums"
               />
               <p className="text-xs text-muted-foreground">
-                Qty saat ini tercantum di kolom Qty — ubah lewat kolom ini bila perlu.
+                {editing
+                  ? 'Qty saat ini tercantum di kolom Qty — ubah lewat kolom ini bila perlu.'
+                  : 'Qty awal barang; kelola harga & qty di tabel barang.'}
               </p>
             </div>
             <div className="flex flex-col gap-2">
