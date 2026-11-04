@@ -1,10 +1,45 @@
 'use client'
 
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { scheduleOfflineWarmup } from '@/lib/offline-warmup'
 
 // App version - bump this when deploying new content to force users to get fresh version
-const APP_VERSION = '2026-11-03-v165'
+const APP_VERSION = '2026-11-04-v168'
+
+/**
+ * NUDGE "Versi Baru Siap" — TANPA auto-reload.
+ *
+ * Sejak v142 aplikasi TIDAK PERNAH me-reload dirinya sendiri (kebijakan
+ * "selalu standby"). Akibatnya halaman yang dibiarkan terbuka berhari-hari
+ * terus memakai kode LAMA walau deploy baru sudah aktif di SW — bug yang
+ * sudah diperbaiki di versi baru tetap terasa ada di perangkat user
+ * (contoh nyata: "tambah customer tidak masuk Master Customer" padahal
+ * POST 201 sukses — daftar tak di-refresh oleh bundle lama).
+ *
+ * Solusi seimbang: begitu SW baru selesai AKTIVASI di halaman yang sedang
+ * terbuka (arti: ada deploy baru, halaman ini masih jalan dgn kode lama),
+ * tampilkan TOAST kecil dengan tombol "Muat Ulang". User memilih waktu —
+ * tidak ada reload mendadak, tapi update tak lagi menunggu cold start.
+ */
+let updateNudgeShown = false
+function showUpdateNudge(): void {
+  if (updateNudgeShown) return // cukup sekali per sesi halaman
+  updateNudgeShown = true
+  try {
+    toast.info('Versi baru aplikasi siap dipakai', {
+      description:
+        'Muat ulang sekarang untuk mendapat perbaikan & fitur terbaru. Data tidak hilang.',
+      duration: Infinity,
+      action: {
+        label: 'Muat Ulang',
+        onClick: () => window.location.reload(),
+      },
+    })
+  } catch {
+    // sonner belum siap — abaikan (nudge berikutnya saat deploy lagi)
+  }
+}
 const IS_DEV = process.env.NODE_ENV !== 'production'
 
 export function ServiceWorkerRegistration() {
@@ -121,10 +156,15 @@ export function ServiceWorkerRegistration() {
             reg.addEventListener('updatefound', () => {
               const newWorker = reg.installing
               if (newWorker) {
+                // "Update" = sudah ada SW aktif sebelumnya (bukan install
+                // pertama). Bila SW BARU mencapai activated di halaman yang
+                // terbuka ini, beri tahu user dgn tombol Muat Ulang.
+                const isUpdate = !!reg.active
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'activated') {
                     console.log('New SW activated')
                     window.dispatchEvent(new Event('swactivated'))
+                    if (isUpdate) showUpdateNudge()
                   }
                 })
               }

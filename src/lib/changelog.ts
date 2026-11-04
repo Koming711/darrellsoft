@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v167'
+export const CURRENT_VERSION = '2026-11-04-v168'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v168',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Pemberitahuan Versi Baru dengan Tombol Muat Ulang',
+      en: 'New Version Notice with Reload Button',
+    },
+    items: [
+      {
+        id: 'Saat ada pembaruan baru, muncul pemberitahuan kecil dengan tombol "Muat Ulang" — ketuk sekali untuk langsung memakai versi terbaru tanpa menunggu buka-tutup aplikasi; tidak ada refresh mendadak tanpa izin',
+        en: 'When an update is available, a small notice with a "Muat Ulang" (Reload) button appears — tap once to use the latest version immediately without closing and reopening the app; no unrequested refresh',
+      },
+      {
+        id: 'Memastikan semua perbaikan terbaru (termasuk tambah customer langsung tampil di Master Customer & refresh daftar otomatis) benar-benar terpakai di perangkat yang aplikasinya dibiarkan terbuka lama',
+        en: 'Ensures all latest fixes (including added customers appearing right away in Master Customer & automatic list refresh) truly take effect on devices whose app has been left open for a long time',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v167',
     date: { id: '4 November 2026', en: '4 November 2026' },
