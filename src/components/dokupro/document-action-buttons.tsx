@@ -33,6 +33,10 @@ interface DocumentActionButtonsProps {
   /** Dipanggil setelah data tersimpan (create/update/409) dengan id record —
    *  dipakai Buat Invoice untuk menuju halaman pratinjau (Detail Invoice). */
   onSaved?: (id: string) => void;
+  /** Validasi tambahan SEBELUM simpan (mis. cek duplikat barang di Buat
+   *  Invoice). Return pesan error bila validasi gagal — simpan dibatalkan,
+   *  dialog konfirmasi tidak dibuka, pesan ditampilkan via toast. */
+  validateBeforeSave?: (data: Record<string, unknown>) => string | null;
 }
 
 function isDataEmpty(data: Record<string, unknown>): boolean {
@@ -56,6 +60,7 @@ export function DocumentActionButtons({
   onUpdateSuccess,
   showPrintActions = true,
   onSaved,
+  validateBeforeSave,
 }: DocumentActionButtonsProps) {
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -63,6 +68,13 @@ export function DocumentActionButtons({
   const dataEmpty = isDataEmpty(currentData);
 
   const handleSave = async () => {
+    // Lapisan kedua: walau tombol Simpan sudah memvalidasi saat klik,
+    // cek ulang di sini (data bisa berubah saat dialog konfirmasi terbuka).
+    const validationError = validateBeforeSave?.(currentData) ?? null;
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     setSaving(true);
     try {
       const data = currentData as {
@@ -296,6 +308,15 @@ export function DocumentActionButtons({
             <Button
               size="sm"
               disabled={saving || dataEmpty}
+              onClick={(e) => {
+                // Validasi sebelum dialog konfirmasi dibuka — bila gagal
+                // (mis. ada nama barang duplikat) dialog tidak muncul.
+                const err = validateBeforeSave?.(currentData) ?? null;
+                if (err) {
+                  e.preventDefault();
+                  toast.error(err);
+                }
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />
@@ -381,6 +402,15 @@ export function DocumentActionButtons({
             <Button
               size="sm"
               disabled={saving || dataEmpty}
+              onClick={(e) => {
+                // Validasi sebelum dialog konfirmasi dibuka — bila gagal
+                // (mis. ada nama barang duplikat) dialog tidak muncul.
+                const err = validateBeforeSave?.(currentData) ?? null;
+                if (err) {
+                  e.preventDefault();
+                  toast.error(err);
+                }
+              }}
               className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 h-9"
             >
               <Save className="mr-1.5 h-3.5 w-3.5" />

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v175'
+export const CURRENT_VERSION = '2026-11-04-v176'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v176',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Barang yang Sudah Dipakai di Invoice Tidak Bisa Dipakai Lagi',
+      en: 'An Item Already Used on an Invoice Can No Longer Be Used Again',
+    },
+    items: [
+      {
+        id: 'Buat Invoice & Editor Pelunasan: barang yang sudah dipakai di satu baris kini BENAR-BENAR tidak bisa dipakai di baris lain — dropdown menonaktifkannya dengan label "Sudah dipakai" (kini juga mengenali perbedaan huruf besar/kecil & spasi ganda)',
+        en: 'Create Invoice & Pelunasan editor: an item already used on one row can now truly not be reused on another row — the dropdown disables it with a "Sudah dipakai" label (now also recognizing case & double-space differences)',
+      },
+      {
+        id: 'Celah ketikan manual ditutup: mengetik nama barang yang sama dengan baris lain (walau beda kapital/spasi) memunculkan kotak merah + peringatan di baris tersebut',
+        en: 'Manual-typing loophole closed: typing an item name that matches another row (even with different case/spaces) shows a red box + warning on that row',
+      },
+      {
+        id: 'Tombol Simpan menolak invoice/pelunasan yang masih punya barang duplikat — muncul pesan yang menyebut nama barang & nomor barisnya; PO & Surat Jalan tidak berubah',
+        en: 'The Save button rejects invoices/pelunasan that still contain duplicate items — with a message naming the item and its row numbers; PO & Surat Jalan are unchanged',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v175',
     date: { id: '4 November 2026', en: '4 November 2026' },

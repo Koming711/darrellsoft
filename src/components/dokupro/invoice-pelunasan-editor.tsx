@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover';
 import { InvoicePreview } from './invoice-preview';
 import { DocumentEditorLayout } from './document-editor-layout';
-import { ItemsFields, type BarangOption, type BarangFormSavedItem } from './items-fields';
+import { ItemsFields, cariDuplikatBarang, type BarangOption, type BarangFormSavedItem } from './items-fields';
 import { formatRupiah } from '@/lib/format';
 import { getAuthHeaders } from '@/lib/auth';
 import { notifyDataChange } from '@/lib/data-sync';
@@ -550,6 +550,13 @@ export function InvoicePelunasanEditor({ preselectInvoiceId }: { preselectInvoic
   // Save pelunasan — update the existing history entry
   const handleSavePelunasan = async () => {
     if (!selectedEntry || !invoiceData) return;
+    // Anti-duplikat barang: tolak simpan bila ada nama barang yang dipakai
+    // di lebih dari satu baris (menutup celah ketikan manual).
+    const dup = cariDuplikatBarang(invoiceData.items);
+    if (dup) {
+      toast.error(`Barang "${dup.name}" dipakai di ${dup.rows.length} baris (baris ${dup.rows.join(', ')}) — barang yang sudah dipakai tidak bisa dipakai lagi. Hapus duplikatnya dulu.`);
+      return;
+    }
     setPelunasanSaving(true);
     try {
       const parsed = JSON.parse(selectedEntry.dataJson);

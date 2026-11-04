@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,31 @@ function generateId(): string {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+/** Normalisasi nama barang utk deteksi duplikat: trim + lowercase + spasi
+ *  ganda jadi satu — supaya "Paperbowl  800ML" dianggap sama dgn
+ *  "paperbowl 800ml" dan tidak bisa dipakai dua kali. */
+export function normalizeNamaBarang(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Cari nama barang yang dipakai di LEBIH DARI SATU baris item (mode barang /
+ *  Buat Invoice & Pelunasan). Return duplikat pertama (nama + nomor barisnya)
+ *  atau null bila bersih — dipakai validator sebelum simpan. */
+export function cariDuplikatBarang(items: { deskripsi: string }[]): { name: string; rows: number[] } | null {
+  const byNama = new Map<string, { name: string; rows: number[] }>();
+  items.forEach((it, i) => {
+    const n = normalizeNamaBarang(it.deskripsi);
+    if (!n) return;
+    const found = byNama.get(n);
+    if (found) found.rows.push(i + 1);
+    else byNama.set(n, { name: it.deskripsi.trim(), rows: [i + 1] });
+  });
+  for (const entry of byNama.values()) {
+    if (entry.rows.length > 1) return entry;
+  }
+  return null;
 }
 
 export interface BarangOption {
@@ -177,10 +203,18 @@ export function ItemsFields({
   const pickBarang = (index: number, barang: BarangOption) => {
     // Anti-duplikat: barang yang sudah dipakai di baris LAIN tidak bisa
     // dipilih lagi — 1 barang hanya boleh muncul di 1 baris item invoice.
-    const taken = items.some(
-      (it, j) => j !== index && it.deskripsi.trim() === barang.name.trim()
+    // Nama dibandingkan dinormalisasi (trim + lowercase + spasi ganda) supaya
+    // varian kapital/spasi tidak lolos.
+    const takenIdx = items.findIndex(
+      (it, j) => j !== index && normalizeNamaBarang(it.deskripsi) === normalizeNamaBarang(barang.name)
     );
-    if (taken) return;
+    if (takenIdx >= 0) {
+      setOpenBarangIndex(null);
+      toast.error(
+        `"${barang.name}" sudah dipakai di baris #${takenIdx + 1} — satu barang hanya boleh di satu baris.`
+      );
+      return;
+    }
     setOpenBarangIndex(null);
     if (onPickBarang) {
       onPickBarang(index, barang);
@@ -258,7 +292,16 @@ export function ItemsFields({
         </div>
       </div>
       <div className="space-y-3">
-        {items.map((item, index) => (
+        {items.map((item, index) => {
+        // MODE BARANG (Buat Invoice/Pelunasan): deteksi nama barang baris ini
+        // yang SAMA dengan baris lain (dinormalisasi) — dipakai border merah
+        // + warning inline. Mode kertas (PO) & teks bebas tidak dibatasi.
+        const dupSourceIdx = isBarangMode && item.deskripsi.trim() !== ''
+          ? items.findIndex(
+              (it, j) => j !== index && normalizeNamaBarang(it.deskripsi) === normalizeNamaBarang(item.deskripsi)
+            )
+          : -1;
+        return (
           <div key={item.id} className="relative rounded-lg border bg-muted/30 p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
               <span className="text-[10px] font-semibold text-slate-400 mt-1 shrink-0">#{index + 1}</span>
@@ -361,7 +404,7 @@ export function ItemsFields({
                         value={item.deskripsi}
                         onChange={(e) => updateItem(item.id, 'deskripsi', e.target.value)}
                         placeholder="Ketik nama barang atau pilih lewat tombol dropdown"
-                        className="text-sm min-h-[84px] pr-11"
+                        className={`text-sm min-h-[84px] pr-11 ${dupSourceIdx >= 0 ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
                         rows={3}
                       />
                       <button
@@ -388,8 +431,10 @@ export function ItemsFields({
                           // Barang yang sudah dipakai di baris lain → tidak
                           // bisa dipilih lagi di baris ini (anti duplikat).
                           // Baris sendiri tetap boleh (nama tetap highlighted).
+                          // Nama dibandingkan dinormalisasi (trim + lowercase
+                          // + spasi ganda) supaya varian tidak lolos.
                           const used = items.some(
-                            (it, j) => j !== index && it.deskripsi.trim() === b.name.trim()
+                            (it, j) => j !== index && normalizeNamaBarang(it.deskripsi) === normalizeNamaBarang(b.name)
                           );
                           return (
                             <button
@@ -436,6 +481,14 @@ export function ItemsFields({
                   className="text-sm min-h-[60px]"
                   rows={2}
                 />
+              )}
+              {/* Warning inline: nama barang baris ini sama dengan baris lain
+                  (mode barang/Buat Invoice) — ketikan manual pun diblokir,
+                  bukan hanya lewat dropdown. */}
+              {isBarangMode && dupSourceIdx >= 0 && (
+                <p className="text-[11px] font-medium text-red-600" role="alert">
+                  Nama barang ini sama dengan baris #{dupSourceIdx + 1} — barang yang sudah dipakai tidak bisa dipakai lagi.
+                </p>
               )}
             </div>
             <div className={`grid gap-2 ${showPrice ? (showModal ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3') : 'grid-cols-1'}`}>
@@ -500,7 +553,8 @@ export function ItemsFields({
               )}
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Popup "Tambah Barang" (mode barang / Buat Invoice) — komponen

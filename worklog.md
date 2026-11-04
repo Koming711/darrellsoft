@@ -1,6 +1,26 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Invoice — barang yang sudah dipakai tidak bisa dipakai lagi (tutup celah anti-duplikat)
+
+Work Log:
+- Investigasi: anti-duplikat lama (commit 192762f) hanya melindungi klik dropdown baris — masih ada 3 celah: (1) ketikan manual di kotak Nama Barang sama sekali tidak divalidasi, (2) perbandingan nama case-sensitive & spasi persis sehingga "Paperbowl  800ML" lolos, (3) tidak ada blokir saat Simpan
+- items-fields.tsx: helper normalizeNamaBarang (trim + lowercase + spasi ganda → satu) & cariDuplikatBarang (ekspor utk validator); dropdown "Daftar Barang" kini menonaktifkan barang terpakai dgn perbandingan dinormalisasi; pickBarang yang diblokir kini menampilkan toast error (bukan diam); baris dengan nama sama dgn baris lain mendapat border merah + warning inline "Nama barang ini sama dengan baris #N — barang yang sudah dipakai tidak bisa dipakai lagi" (hanya mode barang/invoice — PO kertas & Surat Jalan teks bebas tidak berubah)
+- document-action-buttons.tsx: prop opsional validateBeforeSave — tombol Simpan (desktop & mobile) menjalankan validasi saat klik; bila gagal dialog konfirmasi tidak dibuka + toast error; handleSave memvalidasi ulang (defense in depth)
+- invoice-editor.tsx: validateNoDuplikatBarang dipasang ke DocumentActionButtons (mencakup tab Regular/DP/Pelunasan) — pesan menyebut nama barang & nomor baris
+- invoice-pelunasan-editor.tsx: handleSavePelunasan menolak simpan bila ada barang duplikat (cek sama di awal)
+- Verifikasi DB menemukan 2 barang master bernama sama "paperbowl 800ml" (jual 1900 & 1800) — perbandingan berbasis nama ternormalisasi tetap menangani kasus ini dgn benar
+- Verifikasi agent-browser (customer "The Kat"): (A) dropdown baris 2 menampilkan "paperbowl 800ml · Sudah dipakai" disabled; (B) ketik "Paperbowl  800ML" manual → warning merah muncul di kedua baris; (C) Simpan → dialog konfirmasi TIDAK terbuka + toast "Barang "paperbowl 800ml" dipakai di 2 baris (baris 1, 2) — ..."; (D) nama diganti "ongkir" → warning hilang, dialog konfirmasi normal muncul → Batal; popup "Tambah Barang" buka-tutup normal; dokumen direset bersih; tanpa error console
+- Versi: SW v177, APP_VERSION/CURRENT_VERSION 2026-11-04-v176, entri changelog v176
+
+Stage Summary:
+- 1 barang = 1 baris di invoice/pelunasan kini dijamin 3 lapis: dropdown menonaktifkan barang terpakai (normalisasi nama), ketikan manual duplikat ditandai merah real-time, dan tombol Simpan menolak dgn pesan jelas
+- Halaman lain (PO, Surat Jalan, Master Barang, Harga Customer) tidak berubah perilaku
+- Tidak dideploy (sesuai instruksi berjalan)
+
+---
+Task ID: 1
+Agent: Main
 Task: Fix checkout "Bayar Sekarang" to auto-redirect to beranda after payment success
 
 Work Log:
