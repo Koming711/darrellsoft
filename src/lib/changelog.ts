@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v172'
+export const CURRENT_VERSION = '2026-11-04-v173'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v173',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Untuk Pelanggan Kini di Atas Nama Barang di Popup Tambah Harga Customer',
+      en: 'Untuk Pelanggan Now Above Nama Barang in the Add Harga Customer Popup',
+    },
+    items: [
+      {
+        id: 'Popup Tambah Harga Customer: kolom "Untuk Pelanggan" dipindah ke atas kolom "Nama Barang" — pilih pelanggan lebih dulu, lalu pilih/ketik barang; urutan kolom di popup lain (Master Barang, Buat Invoice) tidak berubah',
+        en: 'Add Harga Customer popup: the "Untuk Pelanggan" field moved above "Nama Barang" — pick the customer first, then choose/type the item; field order in other popups (Master Barang, Buat Invoice) is unchanged',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v172',
     date: { id: '4 November 2026', en: '4 November 2026' },

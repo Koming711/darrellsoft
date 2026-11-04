@@ -156,6 +156,11 @@ interface BarangFormDialogProps {
    *  "Tambah Barang" — halaman Harga Customer menimpa dgn
    *  "Tambah Harga Customer" supaya sesuai konteks halamannya. */
   addTitle?: string
+  /** Posisi blok "Untuk Pelanggan" di mode tambah. false (default) =
+   *  setelah Foto Barang (urutan Master Barang); true = di ATAS
+   *  "Nama Barang" — dipakai popup Tambah Harga Customer (pelanggan
+   *  dipilih dulu sebelum memilih barang). */
+  customerFieldFirst?: boolean
   /** Dipanggil setelah barang berhasil disimpan (item hasil save + customerId terpilih) */
   onSaved?: (item: BarangFormSavedItem | null, customerId: string) => void
 }
@@ -170,6 +175,7 @@ export function BarangFormDialog({
   customerFilter = 'all',
   lockedCustomerNote = 'Mengikuti filter pelanggan aktif di atas.',
   addTitle = 'Tambah Barang',
+  customerFieldFirst = false,
   onSaved,
 }: BarangFormDialogProps) {
   const [form, setForm] = useState<ItemFormState>(EMPTY_FORM)
@@ -407,6 +413,54 @@ export function BarangFormDialog({
     }
   }
 
+  // Blok "Untuk Pelanggan" (hanya mode tambah/duplikat). Posisi default =
+  // setelah Foto Barang (urutan Master Barang); halaman Harga Customer
+  // (customerFieldFirst) menaruhnya DI ATAS "Nama Barang" supaya pelanggan
+  // dipilih lebih dulu sebelum memilih barang.
+  const customerField = !editing ? (
+    <div className="grid gap-1.5">
+      <Label htmlFor="item-customer">Untuk Pelanggan</Label>
+      {customerFilter !== 'all' ? (
+        <>
+          <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
+            <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {customers.filter((c) => c.id === customerFilter).map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">{lockedCustomerNote}</p>
+        </>
+      ) : (
+        <>
+          <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
+            <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
+              <SelectValue placeholder="Pilih pelanggan (opsional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
+              {customers.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {/* Nama pelanggan = nama yang terisi di Master Customer */}
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
+          </p>
+        </>
+      )}
+    </div>
+  ) : null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg p-4 sm:p-6 gap-3 sm:gap-4 max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin">
@@ -421,6 +475,8 @@ export function BarangFormDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:gap-4">
+          {/* MODE HARGA CUSTOMER: "Untuk Pelanggan" di ATAS "Nama Barang" */}
+          {customerFieldFirst && customerField}
           <div className="grid gap-1.5">
             <Label htmlFor="item-name">Nama Barang <span className="text-destructive">*</span></Label>
             {!editing && !duplicateFrom && barangOptions.length > 0 ? (
@@ -479,49 +535,9 @@ export function BarangFormDialog({
             )}
           </div>
           <PhotoUpload value={form.photoUrl} onChange={(v) => setForm((f) => ({ ...f, photoUrl: v }))} label="Foto Barang" />
-          {!editing && (
-            <div className="grid gap-1.5">
-              <Label htmlFor="item-customer">Untuk Pelanggan</Label>
-              {customerFilter !== 'all' ? (
-                <>
-                  <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))} disabled>
-                    <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.filter((c) => c.id === customerFilter).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {/* Nama pelanggan = nama yang terisi di Master Customer */}
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">{lockedCustomerNote}</p>
-                </>
-              ) : (
-                <>
-                  <Select value={form.customerId} onValueChange={(v) => setForm((f) => ({ ...f, customerId: v }))}>
-                    <SelectTrigger id="item-customer" className="w-full min-h-[44px]" aria-label="Pelanggan tujuan">
-                      <SelectValue placeholder="Pilih pelanggan (opsional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— Barang umum (tanpa pelanggan) —</SelectItem>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {/* Nama pelanggan = nama yang terisi di Master Customer */}
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Barang umum (tanpa pelanggan) bisa dipakai untuk semua pelanggan.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
+          {/* POSISI DEFAULT: "Untuk Pelanggan" setelah Foto Barang (Master
+              Barang / Buat Invoice — urutan lama tetap sama) */}
+          {!customerFieldFirst && customerField}
           {editing && (
             <div className="grid gap-1.5">
               <Label>Pelanggan Terdaftar</Label>
