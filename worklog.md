@@ -16532,3 +16532,21 @@ Work Log:
 Stage Summary:
 - Klik "Tambah Barang" di Daftar Barang kembali memunculkan popup form (desktop & mobile); baris inline dihapus; edit tetap popup sama; kode otomatis
 - Commit 0dc2bcb + worklog pushed; live di www.darrellsoft.com (SW v171)
+---
+Task ID: 1
+Agent: Main
+Task: Buat Invoice Baru — klik Tambah Barang memunculkan popup seperti popup Tambah Barang di halaman Harga Customer
+
+Work Log:
+- Pola permintaan sama dgn Daftar Barang sebelumnya: user ingin klik "Tambah Barang" → popup form langsung muncul
+- Diagnosa: di Buat Invoice popup BarangFormDialog SUDAH ada (via ItemsFields), tapi tombol DINONAKTIFKAN selama customer invoice belum dikenali/dipilih (addBarangDisabled = filter 'all') → klik terasa mati, popup tidak pernah muncul dgn cara seperti di Harga Customer (yang langsung membuka popup + select pelanggan bebas)
+- Fix items-fields.tsx: hapus gating addBarangDisabled — tombol "Tambah Barang" SELALU aktif; saat customer belum dikenali popup terbuka dgn select "Untuk Pelanggan" bebas (Barang umum + semua pelanggan, sama persis dgn Harga Customer); saat customer sudah dikenali select tetap terkunci mengikuti customer invoice ("Mengikuti customer pada invoice ini.")
+- Otomatis berlaku utk editor Regular/DP (invoice-editor) & Pelunasan (invoice-pelunasan-editor) — keduanya lewat ItemsFields; handleBarangCreated tetap menambahkan barang baru ke dropdown nama barang
+- SW v171→v172, APP_VERSION/changelog v171 ("Popup Tambah Barang Langsung Muncul di Buat Invoice"); eslint bersih
+- Verifikasi lokal (dev 3000): tanpa customer → klik Tambah Barang → popup langsung tampil, select pelanggan bebas berisi semua customer ✓; dgn customer "Budi Susanto" → popup terkunci ke Budi Susanto ✓; screenshots .verify-popup-1/2.png; console/errors bersih
+- Deploy produksi sukses; curl /sw.js = darrell-soft-v172; dialog "Versi Baru! v171" tampil di produksi
+- Verifikasi produksi (www.darrellsoft.com): Buat Invoice → klik Tambah Barang tanpa customer → popup langsung muncul dgn select "— Barang umum (tanpa pelanggan) —" ✓; errors bersih; .env.local & .vercel dibersihkan
+
+Stage Summary:
+- Klik "Tambah Barang" di Buat Invoice Baru kini SELALU langsung memunculkan popup form, perilaku sama seperti halaman Harga Customer; tidak lagi menunggu customer dipilih; select pelanggan bebas saat customer belum dikenali, terkunci saat sudah
+- Commit 046bc96 + worklog; live di www.darrellsoft.com (SW v172)
