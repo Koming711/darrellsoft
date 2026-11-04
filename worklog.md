@@ -19,7 +19,15 @@ Work Log:
 Stage Summary:
 - Detail Invoice: kartu Pembayaran kini punya Tanggal Pembayaran (input tanggal + tombol "Hari ini") yang ikut tercetak di dokumen invoice (baris "Tgl Bayar:"), dan klik gambar bukti pembayaran menampilkan popup foto besar dengan latar belakang halaman detail invoice tetap terlihat (overlay transparan; tutup via ✕, Esc, atau klik area latar)
 - Halaman lain & dialog lain tidak berubah perilaku (overlayClassName opsional; lightbox pratinjau invoice tetap gelap)
-- Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)
+- Commit 57bc909 dipush; BELUM dideploy (instruksi "jangan deploy" masih berlaku saat itu)
+
+Deploy (permintaan owner "deploy ke www.darrellsoft.com" + token Vercel):
+- Token pertama (vcp_3VxM…) DITOLAK Vercel — CLI whoami & API /v2/user, /v9/projects, /v2/teams semuanya 403 invalidToken (juga tanpa prefix); dilaporkan ke owner
+- Token kedua (vcp_82u6…) VALID — akun koming711 (mmichael711@yahoo.com), team team_QBdS4SJeRhBe19sMKMlDvqsj; project ditemukan: darrellsoft (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) — dipastikan BUKAN project "my-project" (jebakan deploy lama); domain produksi www.darrellsoft.com ✓, env DATABASE_URL/Midtrans/NEXT_PUBLIC_BASE_URL ada
+- Prosedur (pola deploy.sh): node scripts/prepare-build.js (schema sqlite→postgresql) → vercel link --project darrellsoft → npx vercel --prod --yes --token → node scripts/revert-schema.js + prisma generate (kembali SQLite utk dev lokal); .env.local hasil link (isinya VERCEL_OIDC_TOKEN saja) dihapus; .vercel/project.json dibiarkan (gitignored, memudahkan deploy berikutnya)
+- HASIL: deploy sukses "Ready in 2m" → https://darrellsoft-1hcrj4j31-koming711s-projects.vercel.app ter-alias ke www.darrellsoft.com; curl /sw.js = darrell-soft-v181 ✓ (sebelumnya v173 — 7 rilis tertinggal ikut naik: v174–v181); homepage 200
+- Verifikasi produksi (agent-browser): popup "Versi Baru! v179" tampil dgn judul changelog benar ✓; login admin → /invoice (data produksi, Budi Susanto) → detail INV/10/26/0003 (DP): kartu PEMBAYARAN + Cara Pembayaran + Tanggal Pembayaran + Bukti Pembayaran tampil ✓, pratinjau DP & Pelunasan side-by-side (2 scaler) ✓; siklus "Hari ini" → simpan 2026-11-04 + dokumen "Tgl Bayar: 04 Nov 26" ✓ → dikosongkan lagi (data dikembalikan) ✓; tanpa page error
+- Catatan: terlihat saran CLI "connect Git utk auto-deploy" — saat ini auto-deploy masih nonaktif (live tadi masih v173 walau push rutin); deploy berikutnya tetap butuh token atau aktifkan vercel git connect (menunggu keputusan owner)
 
 ---
 Task ID: 1
