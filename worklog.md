@@ -16478,3 +16478,20 @@ Work Log:
 
 Stage Summary:
 - Tambah Customer di Buat Invoice TERBUKTI tersimpan benar di produksi (POST 201 → tampil di Master Customer; pencarian online normal). Keluhan berulang disebabkan perangkat memakai bundle lama yang tidak pernah di-reload (kebijakan no-auto-reload v142) — kini tiap deploy baru menampilkan notifikasi "Muat Ulang" di halaman yang terbuka, jadi perbaikan benar-benar sampai tanpa menunggu buka-tutup aplikasi dan tanpa refresh mendadak.
+---
+Task ID: 1
+Agent: Main
+Task: Halaman Master Customer — kotak tabel fit to desktop
+
+Work Log:
+- Diagnosa via agent-browser (viewport 1600x900): kotak tabel desktop tercap max-h-96 (384px), menyisakan ruang kosong besar di bawah tabel
+- Ukur offset presisi: topbar 65px + main pt-32px + blok judul ~57px + gap 20px + pb-32px (lg) → box top y=174; md (900x800): pt-16/pb-80 → box top y=159
+- customers-view.tsx: scroll container tabel desktop diganti dari max-h-96 → tinggi tetap mengisi sisa viewport: md:h-[calc(100vh-240px)] lg:h-[calc(100vh-208px)] (md:max-h-none), scroll tetap di dalam kotak, sticky header utuh
+- Verifikasi lokal: lg 1600x900 box 174→866 (692px, pas sisa viewport); md 900x800 box 159→719 (560px); laptop 1366x700 box 174→666 (492px)
+- Verifikasi interaksi: klik baris → /master-customer/[id] navigasi OK, back OK; mobile 390px tetap kartu (9 kartu, tabel disembunyikan); eslint bersih
+- Deploy produksi sukses (darrellsoft-r55u4wpuq → www.darrellsoft.com), sekaligus membawa commit tertahan 5742c1e (barang inline add) + v168/v169; .env.local & .vercel dihapus setelah deploy
+- Verifikasi produksi: box 191→883 @1600x900 fit-to-desktop, klik baris → detail invoice pelanggan OK, tanpa error console
+
+Stage Summary:
+- Kotak tabel Master Customer di desktop kini SELALU mengisi sisa tinggi layar (fit to desktop), tabel scroll di dalam kotak saat data banyak; mobile tetap tampilan kartu
+- Commit 26f9441 pushed; produksi www.darrellsoft.com sudah live dengan fix ini
