@@ -21,10 +21,16 @@ Work Log:
   - Cleanup: record uji dihapus, counter lokal dikembalik ke 51 (baseline); guard lastNum ≤ 99999 bekerja (pen-set 359383 ditolak)
   - bunx eslint file berubah = 0 error
 - Versi: SW v184→v185, APP_VERSION/CURRENT_VERSION 2026-11-05-v182→v183, entri changelog baru v183 "Perbaikan Nomor Potong Kertas — 4 Digit Berlanjut"
-- DEPLOY + REPAIR PRODUKSI: dilakukan sesudah commit ini (token owner via IM, tidak pernah ditulis ke file) — hasil diverifikasi & didokumentasikan di commit chore(deploy) berikutnya
+- DEPLOY + REPAIR PRODUKSI (www.darrellsoft.com, token owner via IM — tidak pernah ditulis ke file; .env.local & .env.prod-inspect dihapus setelah pakai):
+  - vercel link (project darrellsoft prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB) → prepare-build.js (schema→postgresql) → vercel --prod OK (darrellsoft-4nqo5o99o) → revert-schema.js + prisma generate
+  - Deploy ini membawa 2 rilis sekaligus: v182 (upload Bukti Pembayaran Pelunasan, commit a6bff72 yg belum terdeploy) + v183 (fix nomor PK ini)
+  - REPAIR via endpoint baru (login admin): scan aming → counter PK = 359383 (tercemar), stat PK 165 record / 53 nomor 6 digit / max4 79 → set-counter potongKertas lastNum=129 → respons: key riwayatPotongKertas|PK|cmptzbbqj0001l804fpa7zg2k = 129, upcoming PK/11/26/0130, tanpa collision, nextPreview PK/11/26/0130
+  - Verifikasi produksi: preview PK aming = PK/11/26/0130 ✓ (sebelumnya 359384); konteks lain tak berubah: HC/11/26/0130, GB/11/26/0003, INV/11/26/0038 ✓; popup "Versi Baru! v183" tampil dgn entri changelog benar ✓; halaman /potong-kertas live render normal (cakupan admin: PK/11/26/0004, sesuai — counter admin tak disentuh); console & page error bersih ✓
+  - Record uji TIDAK dibuat di produksi (agar nomor 0130 benar-benar jadi nomor berikutnya utk dokumen asli aming)
 
 Stage Summary:
-- Nomor Potong Kertas aming di produksi kembali 4 digit berlanjut: counter PK di-reset agar nomor berikutnya PK/11/26/0130, lalu 0131, 0132, … tanpa reset tiap ganti bulan; tool admin /api/database/fix-doc-numbers (scan + set-counter) ditambahkan utk perbaikan counter serupa; semua generator diperkuat (retry 50×) agar nomor fallback 6 digit tidak terulang
+- Nomor Potong Kertas aming di produksi kembali 4 digit berlanjut: counter PK di-reset 359383→129 sehingga nomor berikutnya PK/11/26/0130, lalu 0131, 0132, … tanpa reset tiap ganti bulan; tool admin /api/database/fix-doc-numbers (scan + set-counter) ditambahkan utk perbaikan counter serupa; semua generator diperkuat (retry 50×) agar nomor fallback 6 digit tidak terulang
+- LIVE di www.darrellsoft.com sejak 5 Nov 2026 (v183) — bersama rilis v182 (Bukti Pembayaran Pelunasan)
 
 ---
 Task ID: 2
