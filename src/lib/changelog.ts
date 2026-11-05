@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v183'
+export const CURRENT_VERSION = '2026-11-05-v184'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v184',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Perbaikan Dropdown: Pilihan Nama Ganda Disederhanakan',
+      en: 'Dropdown Fix: Duplicate Name Options Deduplicated',
+    },
+    items: [
+      {
+        id: 'Dropdown pilihan (mis. Nama Customer & Nama Suplier di Hitung Cetakan) kini otomatis menyaring pilihan dengan nama sama yang muncul dua kali — daftar dropdown bersih dan pesan error konsol "Encountered two children with the same key" hilang',
+        en: 'Selection dropdowns (e.g. Customer Name & Supplier Name in Print Calculation) now automatically filter out options with the same name appearing twice — the dropdown list is clean and the console error "Encountered two children with the same key" is gone',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v183',
     date: { id: '5 November 2026', en: '5 November 2026' },

@@ -1,4 +1,24 @@
 ---
+Task ID: 2
+Agent: Main
+Task: Hitung Cetakan — dropdown pilihan ganda (duplicate key "testing") diperbaiki di FormSelect
+
+Work Log:
+- Laporan owner: console error "Encountered two children with the same key, `testing`" di src/components/hitung-cetakan/form-select.tsx (62:11), dipicu dari halaman Hitung Cetakan
+- DIAGNOSA:
+  - Sumber: dropdown Nama Customer (src/app/hitung-cetakan/page.tsx:2604-2610) — options memakai value = c.name (nama, bukan id); DB memuat customer ganda: "testing" 2× (dibuat 4 Nov 2026, jarak 35 menit) → dua SelectItem key/value "testing"
+  - Data master juga memuat nama lain terduplikasi massal ("Budi Susanto"/"Jaya Wijaya"/"Siti Rohana"/"jaya"/"Lunggan" masing-masing 45×, indikasi impor berulang) — semuanya memicu warning key ganda yang sama
+  - Dropdown lain pada halaman yang sama aman: mesin/kertas/finishing memakai id sbg value; filter pelanggan riwayat sudah di-dedupe via Set
+- FIX: src/components/hitung-cetakan/form-select.tsx — options di-dedupe by value (kemunculan pertama menang) sebelum render SelectItem; satu titik perbaikan utk SEMUA pemakai FormSelect (hitung-cetakan + gabungan-riwayat), melindungi juga dropdown Nama Suplier (key = namaToko) dr kasus serupa
+- Verifikasi agent-browser (lokal, akun admin): halaman hitung-cetakan render tanpa console error/key warning; dropdown Nama Customer menampilkan "testing" tepat 1×; pemilihan customer berfungsi normal
+- Versi: SW v185→v186, APP_VERSION/CURRENT_VERSION 2026-11-05-v183→2026-11-05-v184, entri changelog baru v184 "Perbaikan Dropdown: Pilihan Nama Ganda Disederhanakan"
+- bunx eslint file berubah = 0 error
+
+Stage Summary:
+- Dropdown FormSelect kini otomatis menyaring pilihan dengan value ganda — warning React "two children with the same key" hilang dan daftar pilihan bersih dr nama dobel (customer "testing" 2×, nama impor 45×, dll.)
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner); catatan data: duplikasi master customer (5 nama ×45 + "testing" ×2) masih ada di DB — hanya ditoleransi di UI, tidak dibersihkan
+
+---
 Task ID: 1
 Agent: Main
 Task: Potong Kertas — nomor PK 6 digit diperbaiki jadi 4 digit berlanjut (PK/11/26/0130) + deploy ke www.darrellsoft.com

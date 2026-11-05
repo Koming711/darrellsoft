@@ -38,6 +38,10 @@ interface FormSelectProps {
 }
 
 export function FormSelect({ value, onValueChange, options, placeholder, className, id, ariaLabel, disabled }: FormSelectProps) {
+  // Dedupe by value (occurrence pertama menang) — master data bisa memuat nama ganda
+  // (mis. customer "testing" dibuat 2×) → key/value SelectItem duplikat memicu
+  // React warning "Encountered two children with the same key".
+  const uniqueOptions = options.filter((o, i) => options.findIndex((x) => x.value === o.value) === i)
   return (
     <Select
       value={value ? value : NONE}
@@ -58,7 +62,7 @@ export function FormSelect({ value, onValueChange, options, placeholder, classNa
       </SelectTrigger>
       <SelectContent position="popper" className="max-h-72">
         <SelectItem value={NONE} className="text-muted-foreground">{placeholder}</SelectItem>
-        {options.map((o) => (
+        {uniqueOptions.map((o) => (
           <SelectItem key={o.value} value={o.value} disabled={o.disabled}>{o.label}</SelectItem>
         ))}
       </SelectContent>
