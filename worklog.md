@@ -1,4 +1,32 @@
 ---
+Task ID: 1
+Agent: Main
+Task: Potong Kertas — nomor PK 6 digit diperbaiki jadi 4 digit berlanjut (PK/11/26/0130) + deploy ke www.darrellsoft.com
+
+Work Log:
+- Permintaan owner: "di online. dihalaman potong kertas, rubah nomor PK/11/26/359384 jadi nomor PK/11/26/0130 dan nomor berlanjut terus walaupun ganti bulan. deploy ke www.darrellsoft.com"
+- DIAGNOSA (produksi www.darrellsoft.com, via API login admin + header x-user-id utk cakupan akun lain):
+  - "PK/11/26/359384" = nomor BERIKUTNYA (GET /api/riwayat-potong-kertas?preview=next-number utk akun aming) — bukan record yang sudah ada (record terakhir aming: PK/11/26/359383, manggang, dibuat hari ini 13:22 WIB)
+  - Akun aming: 165 record PK; s/d Sep kebanyakan 4 digit per bulan, tapi 53 record bernomor fallback timestamp 6 digit (PK/05/26/359309 … PK/11/26/359383); sejak Okt SEMUA record ikut lanjut 6 digit karena counter kontinu di-seed dr max lama (359383) — "menular"
+  - Skema penomoran kontinu (DocumentCounter TANPA periode bulan — "berlanjut walau ganti bulan") SUDAH benar sejak commit dd380c5 & aktif di produksi; yang salah hanya NILAI counter aming (359383)
+  - Konteks lain aming sehat: HC = HC/11/26/0130 (asal angka 0130 yang diminta owner), GB 0003, INV 0038, PO 0006, SJ 0003; admin: 0 record PK (preview 0004)
+  - DB produksi tak terjangkau langsung dr sandbox (Supabase direct = IPv6-only, pooler "tenant not found" di semua region, sandbox tanpa rute IPv6) → perbaikan data dieksekusi via endpoint aplikasi
+- FIX:
+  - src/app/api/database/fix-doc-numbers/route.ts (BARU, admin-only requireAdmin): mode "scan" (semua DocumentCounter + stat nomor PK/HC/GB user tujuan: total, jumlah nomor >4 digit, max 4 digit, contoh) & mode "set-counter" (set counter target: potongKertas/cetakan/gabungan/INV/PEL/PO/SJ/SPK; key dihitung PERSIS seperti generator via counterKeyFor+getDataFilter — otomatis benar utk user/grup; validasi lastNum 0..99999; respons memuat preview nomor berikutnya)
+  - src/lib/doc-number.ts: maxRetries collision 3→50 di SEMUA generator nomor (fallback timestamp 6 digit kini nyaris mustahil terpicu; dulu 3 collision habis → fallback Date.now().slice(-6) → nomor 6 digit yang lama terbit & menular ke counter kontinu) + export counterKeyFor
+- Verifikasi LOKAL (dev server + agent-browser):
+  - scan admin: keys benar (riwayatPotongKertas|PK|user-admin dst), stats PK total 26 / max4 46
+  - set-counter 129 → nextPreview PK/11/26/0130; POST record uji → tersimpan PK/11/26/0130; preview lanjut → PK/11/26/0131 (kontinu lintas periode — key tanpa bulan)
+  - UI halaman potong-kertas: kotak "No. Potong Kertas" tampil nomor preview dgn benar (PK/11/26/0052 setelah restore); console, page error, dev.log bersih
+  - Cleanup: record uji dihapus, counter lokal dikembalik ke 51 (baseline); guard lastNum ≤ 99999 bekerja (pen-set 359383 ditolak)
+  - bunx eslint file berubah = 0 error
+- Versi: SW v184→v185, APP_VERSION/CURRENT_VERSION 2026-11-05-v182→v183, entri changelog baru v183 "Perbaikan Nomor Potong Kertas — 4 Digit Berlanjut"
+- DEPLOY + REPAIR PRODUKSI: dilakukan sesudah commit ini (token owner via IM, tidak pernah ditulis ke file) — hasil diverifikasi & didokumentasikan di commit chore(deploy) berikutnya
+
+Stage Summary:
+- Nomor Potong Kertas aming di produksi kembali 4 digit berlanjut: counter PK di-reset agar nomor berikutnya PK/11/26/0130, lalu 0131, 0132, … tanpa reset tiap ganti bulan; tool admin /api/database/fix-doc-numbers (scan + set-counter) ditambahkan utk perbaikan counter serupa; semua generator diperkuat (retry 50×) agar nomor fallback 6 digit tidak terulang
+
+---
 Task ID: 2
 Agent: Main
 Task: Detail Invoice — upload Bukti Pembayaran untuk invoice PELUNASAN (TANPA deploy)

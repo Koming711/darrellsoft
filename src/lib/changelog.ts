@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v182'
+export const CURRENT_VERSION = '2026-11-05-v183'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v183',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Perbaikan Nomor Potong Kertas — 4 Digit Berlanjut',
+      en: 'Paper Cutting Number Fix — Continuing 4-Digit Sequence',
+    },
+    items: [
+      {
+        id: 'Nomor Potong Kertas kembali normal: nomor berikutnya PK/11/26/0130 lalu terus bertambah (0131, 0132, …) walau bulan berganti — tidak lagi memakai angka 6 digit gaya PK/11/26/359384',
+        en: 'Paper Cutting numbers are back to normal: the next number is PK/11/26/0130 then keeps incrementing (0131, 0132, …) even across months — no more 6-digit numbers like PK/11/26/359384',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v182',
     date: { id: '5 November 2026', en: '5 November 2026' },

@@ -43,6 +43,18 @@ function buildCounterKey(
 }
 
 /**
+ * Ekspose resolusi counter key utk tool admin (POST /api/database/fix-doc-numbers)
+ * supaya perbaikan counter memakai key yang PERSIS sama dengan generator nomor.
+ */
+export function counterKeyFor(
+  context: string,
+  prefix: string,
+  dataFilter: Record<string, any>
+): string {
+  return buildCounterKey(context, prefix, dataFilter)
+}
+
+/**
  * Nilai counter LEGACY tertinggi (skema lama per-bulan:
  * "context|prefix|YYMM|user"). Dipakai saat seeding counter global baru
  * supaya nomor yang pernah dipakai (termasuk dokumen yang sudah dihapus,
@@ -141,7 +153,7 @@ export async function generateDocNumber(
   numberField: 'invoiceNumber' | 'suratJalanNumber' | 'poNumber' | 'nomorUrut',
   prefix: 'INV' | 'SJ' | 'PO' | 'HC' | 'PK',
   dataFilter: Record<string, any>,
-  maxRetries = 3
+  maxRetries = 50
 ): Promise<string> {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
@@ -204,7 +216,7 @@ export async function generateDocNumber(
  */
 export async function generatePotongKertasNumber(
   dataFilter: Record<string, any>,
-  maxRetries = 3
+  maxRetries = 50
 ): Promise<string> {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
@@ -295,7 +307,7 @@ export async function previewPotongKertasNumber(
  */
 export async function generateHitungCetakanNumber(
   dataFilter: Record<string, any>,
-  maxRetries = 3
+  maxRetries = 50
 ): Promise<string> {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
@@ -385,7 +397,7 @@ export async function previewHitungCetakanNumber(
  */
 export async function generateGabunganCetakanNumber(
   dataFilter: Record<string, any>,
-  maxRetries = 3
+  maxRetries = 50
 ): Promise<string> {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
@@ -479,7 +491,7 @@ export async function generateDocumentHistoryNumber(
   prefix: 'INV' | 'PEL' | 'PO' | 'SJ' | 'SPK',
   docType: string,
   dataFilter: Record<string, any>,
-  maxRetries = 3
+  maxRetries = 50
 ): Promise<string> {
   const now = new Date()
   const year = String(now.getFullYear()).slice(-2)
