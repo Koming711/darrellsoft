@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v180'
+export const CURRENT_VERSION = '2026-11-04-v181'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v181',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Detail Invoice: Kotak Pembayaran 2 Kolom',
+      en: 'Invoice Detail: Two-Column Payment Box',
+    },
+    items: [
+      {
+        id: 'Kotak Pembayaran di Detail Invoice kini tersusun 2 kolom — Cara Pembayaran di kiri, Tanggal Pembayaran di kanan (garis pemisah vertikal), Bukti Pembayaran full-width di bawahnya; di layar kecil tetap menumpuk 1 kolom',
+        en: 'The Payment box on Invoice Detail is now laid out in 2 columns — Payment Method on the left, Payment Date on the right (with a vertical divider), Payment Proof full-width below; on small screens it still stacks in 1 column',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v180',
     date: { id: '4 November 2026', en: '4 November 2026' },

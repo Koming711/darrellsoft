@@ -1,6 +1,30 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Detail Invoice — kotak Pembayaran dibuat 2 kolom (TANPA deploy)
+
+Work Log:
+- Permintaan owner: "dihalaman invoice. detail invoice di kotak pembayaran buat 2 kolom. fix"
+- Catatan: ringkasan sesi menyebut tugas "font +1pt" belum dikerjakan — setelah dicek ternyata SUDAH selesai di commit cfb3b4c (SW v182/changelog v180); ringkasan usang. Sesinya ini mengerjakan permintaan layout 2 kolom saja
+- src/app/invoice/page.tsx (DetailInvoiceView — kartu Pembayaran):
+  - Tata letak diubah dr 3 baris menumpuk → grid 2 KOLOM (grid-cols-1 sm:grid-cols-2 sm:gap-x-6): kolom kiri = Cara Pembayaran (Cash/Transfer/Giro + deskripsi), kolom kanan = Tanggal Pembayaran (input tanggal + "Hari ini" + deskripsi) dgn garis pemisah vertikal (sm:border-l sm:border-stone-100 sm:pl-6); Bukti Pembayaran (semula baris 3) jadi FULL-WIDTH (sm:col-span-2) di bawah dgn garis pemisah horizontal — isinya tak berubah (label + thumbnail/Ganti/Hapus atau tombol Upload)
+  - Label di dalam kolom kini DI ATAS kontrol (mb-2) — sebelumnya di samping kontrol dgn min-w-[140px] (sesak bila kolom sempit)
+  - Mobile (<640px) tetap menumpuk 1 kolom, urutan sama: Cara → Tanggal → Bukti
+- Versi: SW v182→v183, APP_VERSION/CURRENT_VERSION 2026-11-04-v180→v181, entri changelog baru v181 "Detail Invoice: Kotak Pembayaran 2 Kolom"
+- Verifikasi agent-browser (login, INV/11/26/0007 DP & INV/11/26/0006 tanpa bukti):
+  - Desktop 1280px: grid terukur 2 kolom 572px+572px (pemisah vertikal), Bukti full-width 1167px; screenshot rapi tanpa overflow
+  - Mobile 390px: grid runtuh 1 kolom (324px), urutan benar, layout rapi
+  - Interaksi utuh: Cash → dokumen "Cara Bayar: Cash" → klik lagi → hilang; "Hari ini" → 2026-11-05 + dokumen "Tgl Bayar: 05 Nov 26" → dikosongkan → baris hilang; thumbnail bukti → lightbox transparan (overlay oklab 0.4, content transparan) → Esc menutup; popup "Versi Baru! v181" tampil saat load
+  - Invoice tanpa bukti: tombol "Upload Bukti Pembayaran" tampil benar di baris full-width
+  - Tanpa page error; console & dev.log bersih; data uji dikembalikan (tidak ada data user yang berubah)
+
+Stage Summary:
+- Kotak Pembayaran di halaman Detail Invoice kini 2 kolom: Cara Pembayaran | Tanggal Pembayaran berdampingan (garis pemisah), Bukti Pembayaran full-width di bawah — kartu lebih ringkas; layar kecil tetap menumpuk
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
+Task ID: 1
+Agent: Main
 Task: Detail Invoice — font seluruh halaman diperbesar 1pt (TANPA deploy)
 
 Work Log:

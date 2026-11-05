@@ -902,109 +902,116 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
 
           {/* PEMBAYARAN — cara pembayaran + bukti pembayaran (permintaan owner).
               Cara bayar ikut tampil di dokumen invoice ("Cara Bayar:"); bukti
-              (foto) tersimpan di invoice ini. Disembunyikan untuk invoice batal. */}
+              (foto) tersimpan di invoice ini. Disembunyikan untuk invoice batal.
+              Tata letak 2 KOLOM (permintaan owner): kolom kiri Cara Pembayaran,
+              kolom kanan Tanggal Pembayaran (garis pemisah vertikal di desktop);
+              Bukti Pembayaran full-width di bawahnya. Di mobile menumpuk 1 kolom. */}
           {status !== 'batal' && (
             <div className="rounded-xl border border-stone-200 bg-white p-4 mb-4 print:hidden">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Pembayaran</h3>
-              {/* Cara pembayaran — Cash / Transfer / Giro */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Cara Pembayaran</p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {([
-                    { v: 'cash' as const, label: 'Cash' },
-                    { v: 'transfer' as const, label: 'Transfer' },
-                    { v: 'giro' as const, label: 'Giro' },
-                  ]).map(({ v, label }) => (
-                    <button
-                      key={v}
-                      type="button"
-                      disabled={savingPayment}
-                      onClick={() => handleSetCara(v)}
-                      title={data.caraPembayaran === v ? 'Klik lagi untuk menghapus' : `Tandai dibayar via ${label}`}
-                      className={cn(
-                        'px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors min-h-[32px] disabled:opacity-60',
-                        data.caraPembayaran === v
-                          ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                          : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                  {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Cara bayar ikut tercetak di dokumen invoice (baris &quot;Cara Bayar:&quot;). Klik yang aktif lagi untuk menghapus.
-              </p>
-
-              {/* Tanggal pembayaran — ikut tercetak "Tgl Bayar:" di dokumen invoice */}
-              <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Tanggal Pembayaran</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Input
-                    type="date"
-                    value={data.tanggalPembayaran || ''}
-                    disabled={savingPayment}
-                    onChange={(e) => handleSetTanggalBayar(e.target.value)}
-                    className="h-8 w-[150px] bg-white text-xs"
-                    aria-label="Tanggal pembayaran"
-                  />
-                  {data.tanggalPembayaran && (
-                    <span className="text-[11px] font-medium text-violet-700">{formatTanggalShort(data.tanggalPembayaran)}</span>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={savingPayment}
-                    onClick={() => handleSetTanggalBayar(todayLocalIso())}
-                    className="h-8 min-h-[32px] px-2.5 text-xs text-violet-700 hover:bg-violet-50 hover:text-violet-800"
-                    title="Isi dengan tanggal hari ini"
-                  >
-                    Hari ini
-                  </Button>
-                  {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Tanggal pembayaran ikut tercetak di dokumen invoice (&quot;Tgl Bayar:&quot;). Kosongkan untuk menghapus.
-              </p>
-
-              {/* Bukti pembayaran — upload foto, tersimpan di invoice ini */}
-              <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <p className="text-xs font-medium text-foreground w-full sm:w-auto sm:min-w-[140px]">Bukti Pembayaran</p>
-                {buktiPembayaran ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setBuktiZoom(true)}
-                      className="group relative rounded-lg overflow-hidden border border-stone-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-                      aria-label="Perbesar bukti pembayaran"
-                      title="Klik untuk memperbesar"
-                    >
-                      <img src={buktiPembayaran} alt="Bukti pembayaran" className="h-16 w-16 object-cover" />
-                      <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </button>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
-                        {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />} Ganti
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleHapusBukti} disabled={savingPayment} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[32px]">
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
-                      </Button>
-                    </div>
+              <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-6">
+                {/* Kolom 1 — Cara pembayaran — Cash / Transfer / Giro */}
+                <div>
+                  <p className="text-xs font-medium text-foreground mb-2">Cara Pembayaran</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {([
+                      { v: 'cash' as const, label: 'Cash' },
+                      { v: 'transfer' as const, label: 'Transfer' },
+                      { v: 'giro' as const, label: 'Giro' },
+                    ]).map(({ v, label }) => (
+                      <button
+                        key={v}
+                        type="button"
+                        disabled={savingPayment}
+                        onClick={() => handleSetCara(v)}
+                        title={data.caraPembayaran === v ? 'Klik lagi untuk menghapus' : `Tandai dibayar via ${label}`}
+                        className={cn(
+                          'px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors min-h-[32px] disabled:opacity-60',
+                          data.caraPembayaran === v
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                            : 'bg-card text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                   </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
-                    {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
-                    Upload Bukti Pembayaran
-                  </Button>
-                )}
-                <input ref={buktiFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void handleBuktiFile(e) }} />
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Cara bayar ikut tercetak di dokumen invoice (baris &quot;Cara Bayar:&quot;). Klik yang aktif lagi untuk menghapus.
+                  </p>
+                </div>
+
+                {/* Kolom 2 — Tanggal pembayaran — ikut tercetak "Tgl Bayar:" di dokumen invoice */}
+                <div className="sm:border-l sm:border-stone-100 sm:pl-6">
+                  <p className="text-xs font-medium text-foreground mb-2">Tanggal Pembayaran</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Input
+                      type="date"
+                      value={data.tanggalPembayaran || ''}
+                      disabled={savingPayment}
+                      onChange={(e) => handleSetTanggalBayar(e.target.value)}
+                      className="h-8 w-[150px] bg-white text-xs"
+                      aria-label="Tanggal pembayaran"
+                    />
+                    {data.tanggalPembayaran && (
+                      <span className="text-[11px] font-medium text-violet-700">{formatTanggalShort(data.tanggalPembayaran)}</span>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={savingPayment}
+                      onClick={() => handleSetTanggalBayar(todayLocalIso())}
+                      className="h-8 min-h-[32px] px-2.5 text-xs text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+                      title="Isi dengan tanggal hari ini"
+                    >
+                      Hari ini
+                    </Button>
+                    {savingPayment && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Tanggal pembayaran ikut tercetak di dokumen invoice (&quot;Tgl Bayar:&quot;). Kosongkan untuk menghapus.
+                  </p>
+                </div>
+
+                {/* Full width — Bukti pembayaran — upload foto, tersimpan di invoice ini */}
+                <div className="sm:col-span-2 border-t border-stone-100 pt-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <p className="text-xs font-medium text-foreground shrink-0">Bukti Pembayaran</p>
+                    {buktiPembayaran ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setBuktiZoom(true)}
+                          className="group relative rounded-lg overflow-hidden border border-stone-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                          aria-label="Perbesar bukti pembayaran"
+                          title="Klik untuk memperbesar"
+                        >
+                          <img src={buktiPembayaran} alt="Bukti pembayaran" className="h-16 w-16 object-cover" />
+                          <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                        </button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
+                            {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />} Ganti
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={handleHapusBukti} disabled={savingPayment} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[32px]">
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => buktiFileRef.current?.click()} disabled={savingPayment} className="min-h-[32px]">
+                        {savingPayment ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                        Upload Bukti Pembayaran
+                      </Button>
+                    )}
+                    <input ref={buktiFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void handleBuktiFile(e) }} />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Foto bukti transfer / cash (JPG/PNG) — otomatis dikompres, tersimpan di invoice ini.
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Foto bukti transfer / cash (JPG/PNG) — otomatis dikompres, tersimpan di invoice ini.
-              </p>
             </div>
           )}
 
