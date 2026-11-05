@@ -1,4 +1,29 @@
 ---
+Task ID: 2
+Agent: Main
+Task: Detail Invoice — upload Bukti Pembayaran untuk invoice PELUNASAN (TANPA deploy)
+
+Work Log:
+- Permintaan owner: "tambahkan upload bukti pembayaran invoice pelunasan di detail invoice"
+- Interpretasi: di halaman Detail Invoice DP (yang menampilkan pratinjau Invoice Pelunasan tertaut), kini bisa upload/ganti/hapus FOTO BUKTI pembayaran sisa langsung — tanpa harus membuka detail invoice pelunasan-nya
+- src/app/invoice/page.tsx (DetailInvoiceView):
+  - State baru: savingPelBukti, pelBuktiFileRef, pelBuktiZoom; derived pelBuktiPembayaran = pelData?.buktiPembayaran
+  - Handler baru: putPelPaymentData() — PUT /api/history/[id] milik pelEntry (pola persis putPaymentData; setelah sukses: toast + dispatch dokupro:history-updated + notifyDataChange + refresh pelEntry lokal via setPelEntry agar pratinjau & thumbnail langsung update); handlePelBuktiFile() (kompres ≤350KB via compressImageToJpegDataUrl, sama dgn bukti DP) & handleHapusPelBukti()
+  - Kartu Pembayaran: baris full-width baru "Bukti Pembayaran Pelunasan" (dengan nomor PEL) DI BAWAH baris bukti utama — hanya tampil bila isDpInvoice && pelEntry (pelunasan sudah dibuat); thumbnail klik → lightbox transparan (overlay stone-950/40, halaman detail terlihat di belakang; tutup ✕/Esc/klik latar); tombol Upload Bukti Pembayaran Pelunasan / Ganti / Hapus
+  - Lightbox kedua (pelBuktiZoom) pola identik dgn lightbox bukti utama
+- Versi: SW v183→v184, APP_VERSION/CURRENT_VERSION 2026-11-04-v181→2026-11-05-v182, entri changelog baru v182 "Detail Invoice: Upload Bukti Pembayaran Invoice Pelunasan"
+- Verifikasi agent-browser (INV/11/26/0007 DP dgn PEL/11/26/0007 — bukti pel SUDAH ada (data user 145KB, terbaca benar dari PEL bukan bocoran DP)):
+  - Backup dataJson PEL ke sessionStorage dulu; lightbox pelunasan: overlay oklab 0.4 + content transparan + img tampil + Esc menutup ✓
+  - Upload uji (icon-192.png via DataTransfer → handler asli): toast, thumbnail & dataJson PEL ter-update (45.684B → terkompres 12.499B), persisten setelah reload penuh, dan tampil JUGA di halaman detail PEL/11/26/0007 sendiri (kartu Bukti Pembayaran-nya) ✓
+  - RESTORE: dataJson PEL dikembalikan dari backup — byte-identik (identik: true, bukti 144.963B); UI tampil data asli; backup dihapus dr sessionStorage ✓
+  - INV/11/26/0006 (non-DP): baris "Bukti Pembayaran Pelunasan" TIDAK tampil ✓; baris bukti biasa tetap ada
+  - Screenshot desktop 1280 & mobile 390: 2 kolom (Cara|Tanggal) + bukti DP + bukti pelunasan tersusun rapi dgn pemisah; console, page error, dev.log bersih; tidak ada data user yang berubah
+
+Stage Summary:
+- Detail Invoice DP kini punya baris "Bukti Pembayaran Pelunasan": upload/ganti/hapus foto bukti pembayaran sisa langsung dr halaman detail; foto tersimpan di invoice PELUNASAN tertaut (satu sumber — tampil juga di detail pelunasan sendiri) dan bisa diperbesar via popup transparan
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 1
 Agent: Main
 Task: Detail Invoice — kotak Pembayaran dibuat 2 kolom (TANPA deploy)

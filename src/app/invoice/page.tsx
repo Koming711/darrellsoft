@@ -344,12 +344,19 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   const [zoomDoc, setZoomDoc] = useState<'main' | 'pel' | null>(null)
   const zoomOpen = zoomDoc !== null
 
-  // Lightbox bukti pembayaran (foto diperbesar)
+  // Lightbox bukti pembayaran (foto diperbesar) — invoice utama & pelunasan
   const [buktiZoom, setBuktiZoom] = useState(false)
+  const [pelBuktiZoom, setPelBuktiZoom] = useState(false)
 
   // ===== PEMBAYARAN (cara pembayaran + bukti) — disimpan di dataJson invoice
   const [savingPayment, setSavingPayment] = useState(false)
   const buktiFileRef = useRef<HTMLInputElement>(null)
+
+  // ===== PEMBAYARAN PELUNASAN (bukti) — disimpan di dataJson invoice PELUNASAN
+  // tertaut (hanya utk invoice DP; permintaan owner: upload bukti pelunasan
+  // langsung dr halaman detail invoice DP)
+  const [savingPelBukti, setSavingPelBukti] = useState(false)
+  const pelBuktiFileRef = useRef<HTMLInputElement>(null)
 
   // Invoice PELUNASAN tertaut (untuk invoice DP) — pratinjau-nya tampil DI
   // SAMPING pratinjau invoice di halaman detail (permintaan owner).
@@ -420,6 +427,9 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   const zoomData = zoomDoc === 'pel' && pelData ? pelData : data
   // Bukti pembayaran (data URL foto) — diisi lewat kartu Pembayaran di halaman detail
   const buktiPembayaran = data?.buktiPembayaran || ''
+  // Bukti pembayaran INVOICE PELUNASAN tertaut — diisi lewat baris
+  // "Bukti Pembayaran Pelunasan" di kartu Pembayaran halaman detail invoice DP
+  const pelBuktiPembayaran = pelData?.buktiPembayaran || ''
 
   // Scale pratinjau A5 agar pas dengan container-nya masing-masing (desktop
   // ~+20% dari ukuran asli 148mm, mobile full-width). Mencakup SEMUA pratinjau
@@ -780,6 +790,51 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
 
   const handleHapusBukti = () => putPaymentData((p) => { delete p.buktiPembayaran }, 'Bukti pembayaran dihapus')
 
+  // ===== PELUNASAN: simpan/hapus bukti pembayaran di dataJson invoice
+  // PELUNASAN tertaut (PUT /api/history/[id] milik pelEntry; pola sama dgn
+  // putPaymentData — target & pesan toast-nya saja yang berbeda).
+  const putPelPaymentData = useCallback(async (mutate: (p: Record<string, unknown>) => void, successMsg: string) => {
+    if (!pelEntry) return
+    setSavingPelBukti(true)
+    try {
+      const parsed = JSON.parse(pelEntry.dataJson) as Record<string, unknown>
+      mutate(parsed)
+      const res = await fetcher(`/api/history/${pelEntry.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ dataJson: JSON.stringify(parsed) }),
+      })
+      if (res.ok) {
+        toast.success(successMsg)
+        window.dispatchEvent(new CustomEvent('dokupro:history-updated'))
+        notifyDataChange('invoice')
+        // Refresh state lokal — pratinjau pelunasan & baris bukti langsung update
+        setPelEntry((prev) => (prev ? { ...prev, dataJson: JSON.stringify(parsed) } : prev))
+      } else {
+        toast.error('Gagal menyimpan bukti pembayaran pelunasan')
+      }
+    } catch {
+      toast.error('Gagal menyimpan bukti pembayaran pelunasan')
+    } finally {
+      setSavingPelBukti(false)
+    }
+  }, [pelEntry])
+
+  // Upload bukti pembayaran PELUNASAN — kompresi ≤350KB, pola sama dgn bukti DP
+  const handlePelBuktiFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const dataUrl = await compressImageToJpegDataUrl(file, PAYMENT_PROOF_MAX_BYTES)
+      await putPelPaymentData((p) => { p.buktiPembayaran = dataUrl }, 'Bukti pembayaran pelunasan tersimpan')
+    } catch {
+      toast.error('Gagal memproses gambar. Gunakan file JPG/PNG.')
+    }
+  }
+
+  const handleHapusPelBukti = () => putPelPaymentData((p) => { delete p.buktiPembayaran }, 'Bukti pembayaran pelunasan dihapus')
+
   const actionButtons = (
     <div className="flex flex-wrap gap-2 print:hidden">
       <Button size="sm" onClick={handlePrint} disabled={isPrinting} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 min-h-[36px]">
@@ -1011,6 +1066,52 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                     Foto bukti transfer / cash (JPG/PNG) — otomatis dikompres, tersimpan di invoice ini.
                   </p>
                 </div>
+
+                {/* Full width — Bukti pembayaran PELUNASAN — hanya utk invoice DP
+                    yang sudah punya Invoice Pelunasan tertaut (permintaan owner:
+                    upload bukti pelunasan langsung dr detail invoice DP). Bukti
+                    tersimpan di dataJson invoice PELUNASAN-nya. */}
+                {isDpInvoice && pelEntry && (
+                  <div className="sm:col-span-2 border-t border-stone-100 pt-3">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <p className="text-xs font-medium text-foreground shrink-0">Bukti Pembayaran Pelunasan</p>
+                      {pelData?.nomor && (
+                        <span className="text-[11px] text-muted-foreground truncate">{pelData.nomor}</span>
+                      )}
+                      {pelBuktiPembayaran ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setPelBuktiZoom(true)}
+                            className="group relative rounded-lg overflow-hidden border border-stone-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+                            aria-label="Perbesar bukti pembayaran pelunasan"
+                            title="Klik untuk memperbesar"
+                          >
+                            <img src={pelBuktiPembayaran} alt="Bukti pembayaran pelunasan" className="h-16 w-16 object-cover" />
+                            <span className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                          </button>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => pelBuktiFileRef.current?.click()} disabled={savingPelBukti} className="min-h-[32px]">
+                              {savingPelBukti ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />} Ganti
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleHapusPelBukti} disabled={savingPelBukti} className="border-red-200 text-destructive hover:bg-red-50 hover:text-destructive min-h-[32px]">
+                              <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Hapus
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => pelBuktiFileRef.current?.click()} disabled={savingPelBukti} className="min-h-[32px]">
+                          {savingPelBukti ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5" />}
+                          Upload Bukti Pembayaran Pelunasan
+                        </Button>
+                      )}
+                      <input ref={pelBuktiFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void handlePelBuktiFile(e) }} />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Foto bukti pembayaran sisa (JPG/PNG) — otomatis dikompres, tersimpan di invoice pelunasan ini.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1168,6 +1269,35 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
                 onClick={(e) => { if (e.target === e.currentTarget) setBuktiZoom(false) }}
               >
                 <img src={buktiPembayaran} alt="Bukti pembayaran" className="max-h-full max-w-full object-contain rounded-lg bg-white shadow-2xl ring-1 ring-black/10" onClick={(e) => e.stopPropagation()} />
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Lightbox bukti pembayaran PELUNASAN — pola sama dgn lightbox bukti
+              utama: overlay semi-transparan, halaman detail tetap terlihat di
+              belakang popup; tutup via ✕ / Esc / klik area latar. */}
+          <Dialog open={pelBuktiZoom} onOpenChange={setPelBuktiZoom}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Bukti pembayaran pelunasan diperbesar"
+              aria-describedby={undefined}
+              overlayClassName="bg-stone-950/40"
+              className="h-screen max-h-none w-full max-w-none sm:max-w-none rounded-none border-0 bg-transparent p-0 overflow-hidden gap-0 shadow-none"
+              style={{ height: '100dvh' }}
+            >
+              <button
+                type="button"
+                onClick={() => setPelBuktiZoom(false)}
+                aria-label="Tutup bukti pembayaran pelunasan"
+                className="absolute right-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/40 bg-black/55 text-white shadow-lg transition-colors hover:bg-black/80"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div
+                className="absolute inset-0 flex items-center justify-center p-4 sm:p-8"
+                onClick={(e) => { if (e.target === e.currentTarget) setPelBuktiZoom(false) }}
+              >
+                <img src={pelBuktiPembayaran} alt="Bukti pembayaran pelunasan" className="max-h-full max-w-full object-contain rounded-lg bg-white shadow-2xl ring-1 ring-black/10" onClick={(e) => e.stopPropagation()} />
               </div>
             </DialogContent>
           </Dialog>

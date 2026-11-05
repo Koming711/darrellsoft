@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v181'
+export const CURRENT_VERSION = '2026-11-05-v182'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v182',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Detail Invoice: Upload Bukti Pembayaran Invoice Pelunasan',
+      en: 'Invoice Detail: Upload Payment Proof for the Settlement Invoice',
+    },
+    items: [
+      {
+        id: 'Di Detail Invoice DP kini tersedia baris "Bukti Pembayaran Pelunasan" — upload/ganti/hapus foto bukti pembayaran sisa langsung dari detail invoice; foto tersimpan di invoice pelunasan tertaut & bisa diperbesar lewat popup transparan',
+        en: 'The DP Invoice Detail page now has a "Bukti Pembayaran Pelunasan" row — upload/replace/delete the remaining-payment proof photo directly from the detail page; the photo is stored on the linked settlement invoice and can be zoomed via the transparent popup',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v181',
     date: { id: '4 November 2026', en: '4 November 2026' },
