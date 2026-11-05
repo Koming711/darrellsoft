@@ -853,6 +853,33 @@ body:has([data-panel-admin]) .text-\[9px\] { font-size: calc(9px + 1pt); }
 body:has([data-panel-admin]) .text-\[10px\] { font-size: calc(10px + 1pt); }
 body:has([data-panel-admin]) .text-\[11px\] { font-size: calc(11px + 1pt); }
 
+/* ===== Detail Invoice — font SELURUH halaman +1pt (permintaan user) =====
+   Naikkan var --text-* hanya di DALAM subtree [data-detail-invoice] (root
+   DetailInvoiceView) — BUKAN di body, karena halaman /invoice memakai
+   DashboardLayout: bila var dioverride di body, sidebar & navigasi aplikasi
+   ikut membesar hanya saat detail terbuka (aneh & tidak diminta).
+   Line-height Tailwind berupa rasio → ikut membesar proporsional. Portal
+   Radix (Dialog/Toast) tergantung di <body> (di luar subtree) → font
+   overlay tetap normal. Ukuran arbitrer text-[Npx] dipetakan manual.
+   Catatan: DOKUMEN A5 invoice (pratinjau/cetak/JPG) memakai ukuran font
+   inline dalam pt — sengaja TIDAK ikut diperbesar agar hasil cetak tidak
+   berubah. 1pt = 1,333px. */
+[data-detail-invoice] {
+  font-size: calc(1rem + 1pt); /* teks tanpa kelas text-* ikut naik */
+  --text-xs: calc(0.75rem + 1pt);
+  --text-sm: calc(0.875rem + 1pt);
+  --text-base: calc(1rem + 1pt);
+  --text-lg: calc(1.125rem + 1pt);
+  --text-xl: calc(1.25rem + 1pt);
+  --text-2xl: calc(1.5rem + 1pt);
+  --text-3xl: calc(1.875rem + 1pt);
+  --text-4xl: calc(2.25rem + 1pt);
+  --text-5xl: calc(3rem + 1pt);
+}
+[data-detail-invoice] .text-\[9px\] { font-size: calc(9px + 1pt); }
+[data-detail-invoice] .text-\[10px\] { font-size: calc(10px + 1pt); }
+[data-detail-invoice] .text-\[11px\] { font-size: calc(11px + 1pt); }
+
 /* =============================================================
    SPLASH KILL-SWITCH — buka menu langsung, tanpa splash screen
    =============================================================

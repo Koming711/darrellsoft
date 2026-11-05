@@ -805,7 +805,7 @@ function DetailInvoiceView({ id, onBack, onCreatePelunasan }: { id: string; onBa
   )
 
   return (
-    <div>
+    <div data-detail-invoice="">
       {/* Header — Kembali + judul "Detail Invoice" + tipe dokumen.
           Tulisan status "Lunas"/"Belum Lunas" DIHAPUS sesuai permintaan owner;
           yang tersisa: badge Batal (jika dibatalkan) + badge tipe dokumen. */}

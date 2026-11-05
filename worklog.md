@@ -1,6 +1,26 @@
 ---
 Task ID: 1
 Agent: Main
+Task: Detail Invoice — font seluruh halaman diperbesar 1pt (TANPA deploy)
+
+Work Log:
+- Permintaan owner: "di halaman detail invoice, font di perbesar 1 pt. fix"
+- Interpretasi: font UI HALAMAN detail invoice (sama seperti permintaan +1pt sebelumnya utk halaman Panel Admin — globals.css sudah punya blok pola body:has([data-panel-admin]) dgn override var --text-*); DOKUMEN A5 invoice (9pt inline, pratinjau/cetak/JPG) sengaja TIDAK diubah agar hasil cetak konsisten
+- src/app/invoice/page.tsx: root <div> DetailInvoiceView diberi atribut data-detail-invoice=""
+- src/app/globals.css: blok baru [data-detail-invoice] — font-size calc(1rem + 1pt) + override var --text-xs/sm/base/lg/xl/2xl/3xl/4xl/5xl = calc(rem + 1pt) + mapping manual .text-[9px]/[10px]/[11px] = calc(Npx + 1pt); 1pt = 1,333px
+- KOREKSI SCOPING (ditemukan saat verifikasi): versi awal memakai gate body:has([data-detail-invoice]) (pola panel-admin) → var naik di level body sehingga SIDEBAR DashboardLayout ikut membesar (16→17,33px) hanya saat detail terbuka — tidak diminta & janggal; diubah menjadi override di DALAM subtree [data-detail-invoice] saja → sidebar & topbar tetap normal; konsekuensi: portal Radix (Dialog/Toast) di luar subtree → font overlay tetap normal (acceptable)
+- Kendala infra: setelah edit globals.css, dev server lama tidak merecompile CSS (chunk stale, rule tak muncul di grep chunk); touch tidak memicu HMR → dev server di-restart; proses nohup polos ternyata dibunuh platform reaper antar-perintah → ditemukan mekanisme kanonik project: watchdog .zscripts/dev-keepalive.sh via spawn-daemon.py (double-fork, kebal reaper) yang menjaga port 3000 & respawn otomatis — daemon dinyalakan ulang, dev server kembali stabil + CSS terkompilasi (grep chunk = 4 kecocokan)
+- Verifikasi agent-browser (login, INV/11/26/0007): computed font di detail — text-xs 12→13,33px ✓, text-[11px] 11→12,33px ✓, heading text-2xl 24→25,33px ✓, tombol text-sm 14→15,33px ✓; dokumen A5 & td tabel tetap 12px (9pt) ✓; sidebar tetap 16px ✓; tutup detail (Kembali) → atribut hilang, font list kembali 12px ✓; screenshot desktop & mobile 390px: seluruh teks halaman detail terlihat lebih besar, layout rapi tanpa overflow (kartu Pembayaran wrap baik); tanpa page error
+- Versi: SW v181→v182, APP_VERSION/CURRENT_VERSION 2026-11-04-v179→v180, entri changelog baru v180 "Halaman Detail Invoice: Font Diperbesar 1pt"
+- Commit lokal + push; BELUM dideploy ke www.darrellsoft.com (menunggu permintaan deploy dari owner)
+
+Stage Summary:
+- Halaman Detail Invoice kini menampilkan seluruh teks UI +1pt lebih besar (pola sama dgn Panel Admin), hanya berlaku saat detail terbuka dan hilang saat kembali ke daftar; sidebar, topbar, dan dokumen invoice A5 (pratinjau/cetak) tidak berubah
+- Dev server kembali dijaga watchdog keepalive (respawn otomatis); deploy berikutnya tetap butuh perintah/token owner
+
+---
+Task ID: 1
+Agent: Main
 Task: Detail Invoice — tambah Tanggal Pembayaran + popup gambar bukti pembayaran besar dengan latar halaman detail invoice (TANPA deploy)
 
 Work Log:

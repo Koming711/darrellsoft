@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-04-v179'
+export const CURRENT_VERSION = '2026-11-04-v180'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-04-v180',
+    date: { id: '4 November 2026', en: '4 November 2026' },
+    title: {
+      id: 'Halaman Detail Invoice: Font Diperbesar 1pt',
+      en: 'Invoice Detail Page: Font Enlarged by 1pt',
+    },
+    items: [
+      {
+        id: 'Seluruh teks di halaman Detail Invoice kini tampil +1pt lebih besar (label, badge, tombol, kartu info & pembayaran) — pola sama dengan halaman Panel Admin; dokumen invoice A5 (pratinjau & cetak) tidak berubah',
+        en: 'All text on the Invoice Detail page now renders +1pt larger (labels, badges, buttons, info & payment cards) — same approach as the Admin Panel page; the A5 invoice document (preview & print) is unchanged',
+      },
+    ],
+  },
   {
     version: '2026-11-04-v179',
     date: { id: '4 November 2026', en: '4 November 2026' },
