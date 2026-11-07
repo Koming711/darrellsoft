@@ -1,4 +1,23 @@
 ---
+Task ID: 3
+Agent: Main
+Task: Sidebar "Barang" → "Daftar Barang" + popup daftar nama pemilik Harga Khusus di halaman Daftar Barang
+
+Work Log:
+- Permintaan owner: "di sidebar menu, tulisan barang dirubah jadi daftar barang. dihalaman aftar barang, apabila diklik kolom harga khusus, maka muncul popup nama suplier harga khusus. fix"
+- Sidebar: src/lib/i18n.ts — kunci translasi `barang` dipakai HANYA oleh sidebar mobile (sidebar.tsx) & desktop (sidebar-desktop.tsx); nilai id 'Barang'→'Daftar Barang', en 'Products'→'Product List' (2 kamus en). Label halaman Hak Akses/grup tidak disentuh (bukan sidebar)
+- Popup harga khusus: src/components/views/barang-view.tsx —
+  - Tipe Product.customerPrices diperluas { id, name, companyName } (API /api/items sudah mengembalikan nama+companyName per registrasi; view semula membuangnya)
+  - Badge angka kolom "Harga Khusus" (tabel desktop & baris kartu mobile) jadi tombol → klik membuka Dialog popup
+  - Popup: judul "Harga Khusus" + nama barang, daftar nama pemilik (nama + nama toko sbg subteks, max-h-80 scroll, empty state "Belum ada harga khusus"), footer jumlah + rujukan halaman Harga Customer
+- Versi: SW v186→v187, APP_VERSION/CURRENT_VERSION 2026-11-05-v184→2026-11-05-v185, entri changelog baru v185 "Menu Daftar Barang + Popup Nama Harga Khusus"
+- Verifikasi agent-browser (lokal, admin): sidebar tampil "Daftar Barang" (desktop & mobile); klik badge kolom Harga Khusus → popup nama pemilik tampil sesuai data; console/page error bersih; bunx eslint file berubah = 0 error
+
+Stage Summary:
+- Sidebar kini membaca "Daftar Barang"; di halaman Daftar Barang, angka kolom "Harga Khusus" bisa diklik (desktop & mobile) utk membuka popup berisi daftar nama pemilik harga khusus barang tsb
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 2
 Agent: Main
 Task: Hitung Cetakan — dropdown pilihan ganda (duplicate key "testing") diperbaiki di FormSelect

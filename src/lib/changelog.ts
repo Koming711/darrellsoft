@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v184'
+export const CURRENT_VERSION = '2026-11-05-v185'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v185',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Menu Daftar Barang + Popup Nama Harga Khusus',
+      en: 'Product List Menu + Special Price Names Popup',
+    },
+    items: [
+      {
+        id: 'Menu "Barang" di sidebar kini bernama "Daftar Barang"',
+        en: 'The "Products" menu in the sidebar is now named "Product List"',
+      },
+      {
+        id: 'Di halaman Daftar Barang, klik angka di kolom "Harga Khusus" (di tabel maupun kartu) untuk membuka popup daftar nama pemilik harga khusus barang tersebut',
+        en: 'On the Product List page, tap the number in the "Special Price" column (table or card) to open a popup listing the names behind that item\'s special prices',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v184',
     date: { id: '5 November 2026', en: '5 November 2026' },

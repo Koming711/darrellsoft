@@ -82,8 +82,9 @@ interface Product {
   costPrice: number
   sellPrice: number
   keterangan: string
-  /** Dipakai sbg jumlah harga khusus (badge) — di aplikasi ini = customers[] */
-  customerPrices: { id: string }[]
+  /** Dipakai sbg jumlah harga khusus (badge) — di aplikasi ini = customers[]
+   *  (registrasi harga khusus; name/companyName utk popup daftar nama pemilik). */
+  customerPrices: { id: string; name: string; companyName: string }[]
 }
 
 interface ItemResponse {
@@ -95,7 +96,7 @@ interface ItemResponse {
   hpp: number
   standardPrice: number
   keterangan?: string
-  customers?: { id: string }[]
+  customers?: { id: string; name?: string | null; companyName?: string | null }[]
 }
 
 function toProduct(it: ItemResponse): Product {
@@ -108,7 +109,11 @@ function toProduct(it: ItemResponse): Product {
     costPrice: it.hpp ?? 0,
     sellPrice: it.standardPrice ?? 0,
     keterangan: it.keterangan ?? '',
-    customerPrices: (it.customers ?? []).map((c) => ({ id: c.id })),
+    customerPrices: (it.customers ?? []).map((c) => ({
+      id: c.id,
+      name: c.name ?? '',
+      companyName: c.companyName ?? '',
+    })),
   }
 }
 
@@ -162,6 +167,8 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM)
   const [formError, setFormError] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  // Popup daftar nama pemilik harga khusus — terbuka saat badge kolom "Harga Khusus" diklik
+  const [hargaKhususTarget, setHargaKhususTarget] = useState<Product | null>(null)
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
@@ -417,9 +424,18 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                         {formatIDR(margin)}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={p.customerPrices?.length ? 'secondary' : 'outline'}>
-                          {p.customerPrices?.length ?? 0}
-                        </Badge>
+                        {/* Klik badge → popup daftar nama pemilik harga khusus barang ini */}
+                        <button
+                          type="button"
+                          onClick={() => setHargaKhususTarget(p)}
+                          aria-label={`Lihat daftar nama pemilik harga khusus ${p.name} (${p.customerPrices?.length ?? 0})`}
+                          title="Klik untuk lihat daftar nama pemilik harga khusus"
+                          className="inline-flex cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                          <Badge variant={p.customerPrices?.length ? 'secondary' : 'outline'} className="transition-opacity hover:opacity-75">
+                            {p.customerPrices?.length ?? 0}
+                          </Badge>
+                        </button>
                       </TableCell>
                       <TableCell>
                         <div
@@ -533,9 +549,18 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Harga Khusus</span>
-                        <Badge variant={p.customerPrices?.length ? 'secondary' : 'outline'}>
-                          {p.customerPrices?.length ?? 0}
-                        </Badge>
+                        {/* Klik badge → popup daftar nama pemilik harga khusus (sama dgn tabel desktop) */}
+                        <button
+                          type="button"
+                          onClick={() => setHargaKhususTarget(p)}
+                          aria-label={`Lihat daftar nama pemilik harga khusus ${p.name} (${p.customerPrices?.length ?? 0})`}
+                          title="Klik untuk lihat daftar nama pemilik harga khusus"
+                          className="inline-flex min-h-11 cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                        >
+                          <Badge variant={p.customerPrices?.length ? 'secondary' : 'outline'} className="transition-opacity active:opacity-75">
+                            {p.customerPrices?.length ?? 0}
+                          </Badge>
+                        </button>
                       </div>
                       <div className="flex items-start justify-between gap-2">
                         <span className="shrink-0 text-muted-foreground">Keterangan</span>
@@ -677,6 +702,41 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
               </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Popup DAFTAR NAMA PEMILIK HARGA KHUSUS — klik angka di kolom "Harga Khusus"
+          (tabel desktop maupun kartu mobile) membuka daftar nama tsb. */}
+      <Dialog open={!!hargaKhususTarget} onOpenChange={(open) => !open && setHargaKhususTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Harga Khusus</DialogTitle>
+            <DialogDescription>
+              Daftar nama pemilik harga khusus untuk barang &quot;{hargaKhususTarget?.name}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          {hargaKhususTarget && hargaKhususTarget.customerPrices.length > 0 ? (
+            <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1">
+              {hargaKhususTarget.customerPrices.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded-md border bg-stone-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/60"
+                >
+                  <p className="text-sm font-medium leading-snug">{c.name || '(tanpa nama)'}</p>
+                  {c.companyName ? (
+                    <p className="text-xs text-muted-foreground">{c.companyName}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Belum ada harga khusus untuk barang ini.</p>
+          )}
+          <DialogFooter>
+            <p className="text-xs text-muted-foreground">
+              Jumlah: {hargaKhususTarget?.customerPrices.length ?? 0} · diatur di halaman Harga Customer
+            </p>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
