@@ -15,7 +15,7 @@ Work Log:
 
 Stage Summary:
 - Sidebar kini membaca "Daftar Barang"; di halaman Daftar Barang, angka kolom "Harga Khusus" bisa diklik (desktop & mobile) utk membuka popup berisi daftar nama pemilik harga khusus barang tsb
-- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+- LIVE di www.darrellsoft.com sejak 5 Nov 2026 (v185) — deploy membawa juga rilis v184 (dedupe dropdown FormSelect); kode ITM count-based → uji popup produksi (ITM-001 "uji-popup-hk" + registrasi "angel") dihapus bersih tanpa residu, state admin kembali 0 barang
 
 ---
 Task ID: 2
