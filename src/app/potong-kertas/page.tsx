@@ -2298,9 +2298,12 @@ function CalculatorPage() {
             }}
             disabled={preparingHc}
             style={{
-              background: ((results && !needsRecalc) || pkHcLink?.hcId) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
+              // Gradient AKTIF hanya saat tombol siap & TIDAK disabled — saat
+              // disabled/nonaktif biarkan class abu-abu (spt tombol Preview) yg tampak,
+              // jangan ditimpa inline style (inline style menang atas class CSS).
+              background: (!preparingHc && ((results && !needsRecalc) || pkHcLink?.hcId)) ? 'linear-gradient(135deg, #2563eb, #3b82f6, #2563eb)' : undefined,
             }}
-            className="flex items-center justify-center gap-1.5 text-white disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200 text-sm font-semibold py-3 rounded-lg border border-blue-500 cursor-pointer transition-colors">
+            className={`flex items-center justify-center gap-1.5 text-sm font-semibold py-3 rounded-lg border cursor-pointer transition-colors ${((results && !needsRecalc) || pkHcLink?.hcId) ? 'text-white border-blue-500 disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200' : 'bg-[var(--color-slate-200)] text-[var(--color-slate-400)] border-[var(--color-slate-200)]'}`}>
             {preparingHc && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {preparingHc ? 'Menyiapkan riwayat…' : pkHcLink?.hcId ? 'Buka Hitung Cetakan' : 'Hitung Cetakan Lengkap'}
           </button>

@@ -1,4 +1,20 @@
 ---
+Task ID: 13
+Agent: Main
+Task: Potong Kertas — tombol "Hitung Cetakan Lengkap" nonaktif disamakan dgn tampilan tombol Preview nonaktif
+
+Work Log:
+- Permintaan owner: "dihalaman potong kertas, rubah tombol hitung cetakan lengkap seperti tombol preview apabila nonaktif. fix"
+- DIAGNOSA (src/app/potong-kertas/page.tsx, tombol "Link to Hitung Cetakan" ±line 2120): saat kondisi nonaktif (results kosong / needsRecalc / tak ada link HC) inline style `background: ... : undefined` → tombol TRANSPARAN + teks putih (class dasar text-white) + border biru → teks nyaris tak terlihat di kartu putih. Tombol Preview nonaktif = `disabled:bg-slate-200 disabled:text-slate-400` (abu polos). Bug bonus: saat disabled (preparingHc) inline gradient MENANG atas class `disabled:bg-slate-200` → tombol tetap biru walau nonaktif.
+- FIX (tombol tsb): (1) inline gradient hanya saat `!preparingHc && ((results && !needsRecalc) || pkHcLink?.hcId)`; (2) className ternary — kondisi aktif: `text-white border-blue-500 disabled:bg-slate-200 disabled:text-slate-400 disabled:border-slate-200` (perilaku lama saat siap); kondisi nonaktif: `bg-[var(--color-slate-200)] text-[var(--color-slate-400)] border-[var(--color-slate-200)]` — pakai CSS var Tailwind v4 (oklch) yang SAMA dgn sumber warna disabled: Preview.
+- PENTING: class polos `text-slate-400` TIDAK dipakai karena rule global light-mode `html:not(.dark) .text-slate-300..700 → rgb(0,0,0)` (globals.css "Semua tulisan abu-abu → hitam") memaksanya HITAM; varian `disabled:text-slate-400` & arbitrary `text-[var(--color-slate-400)]` lolos dari override tsb.
+- Verifikasi agent-browser (admin/268899, popup "Versi Baru!" ditutup dulu): (a) desktop 1440x900 form kosong — computed via canvas toRGB: bg HC = bg Preview = rgb(226,232,240) slate-200 ✓, teks HC = teks Preview = rgb(144,161,185) slate-400 oklch ✓, border = slate-200 ✓ (percobaan pertama dgn hex v3 #94a3b8 beda 4/255 dari oklch Preview → diganti CSS var agar identik piksel); (b) state aktif (Ivory 210gsm, 21.5×28, 1000×4 → hitung): gradient biru `linear-gradient(135deg,#2563eb,#3b82f6,#2563eb)` + teks putih kembali ✓; (c) mobile 390x844 nonaktif — abu polos serasi Preview/Cetak/WA ✓; (d) dark mode — bg & teks tetap identik dgn Preview disabled ✓; (e) bunx eslint 0 error; dev.log bersih
+- Versi: SW v193→v194, APP_VERSION/CURRENT_VERSION 2026-11-08-v191→2026-11-08-v192, entri changelog v192 "Tombol Hitung Cetakan Lengkap Kini Jelas Saat Nonaktif" — BELUM dideploy
+
+Stage Summary:
+- Saat belum siap (belum ada hasil hitung / data berubah / tidak terhubung riwayat HC), tombol "Hitung Cetakan Lengkap" di halaman Potong Kertas kini tampil abu-abu redup PERSIS seperti tombol Preview nonaktif — di mode terang & gelap, desktop & HP; saat siap, tampilan gradient biru + teks putih tidak berubah; saat menyiapkan riwayat (disabled) kini juga benar-benar abu (dulu tetap biru).
+
+---
 Task ID: 12
 Agent: Main
 Task: Landing — 4 kotak paket harga jadi 1 baris (desktop)

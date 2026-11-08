@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v191'
+export const CURRENT_VERSION = '2026-11-08-v192'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v192',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Tombol Hitung Cetakan Lengkap Kini Jelas Saat Nonaktif',
+      en: 'Hitung Cetakan Lengkap Button Now Clear When Inactive',
+    },
+    items: [
+      {
+        id: 'Di halaman Potong Kertas, tombol "Hitung Cetakan Lengkap" yang belum siap (hasil hitung belum ada / data berubah) kini tampil abu-abu redup persis seperti tombol Preview nonaktif — sebelumnya transparan dengan teks putih yang nyaris tak terlihat',
+        en: 'On the Paper Cutting page, the "Hitung Cetakan Lengkap" button when not ready (no results / inputs changed) now appears dimmed gray exactly like the disabled Preview button — previously it was transparent with nearly invisible white text',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v191',
     date: { id: '8 November 2026', en: '8 November 2026' },
