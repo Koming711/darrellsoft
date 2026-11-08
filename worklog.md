@@ -1,4 +1,20 @@
 ---
+Task ID: 18
+Agent: Main
+Task: Halaman Potong Kertas → tab Riwayat Potong Kertas — kolom Tanggal (dd/mm/yy) pindah kiri No. PK + tanda "Diedit" bila diedit & disimpan (naik ke atas, nomor PK tetap)
+
+Work Log:
+- Permintaan owner: "dihalaman potong kertas, tab riwayat potong kertas. dihalaman hitung cetakan, kolom tanggal formatnya dd/mm/yy dipindah ke samping sebelah kiri kolom no pk. apabila ada data yang diedit lalu disimpan, maka di tabel riwayat dipindahin ke atas, nomor pk tetap, tapi tanggalnya berubah. tambahkan tanda edit, apabila di edit." (cermin Task 17, target = tab Riwayat di dalam halaman /potong-kertas)
+- DIAGNOSA (src/app/potong-kertas/page.tsx): tabel tab Riwayat urutan No. | No. PK | Tanggal — Tanggal posisi 3 format panjang "05 Jun 2025" (formatTanggalRiwayat, createdAt); kartu mobile "20 Sep, 10.25" (formatTanggalRiwayatShort, createdAt); filter periode (±line 329) memakai createdAt; tidak ada penanda edit. Yang SUDAH beres sebelumnya: GET /api/riwayat-potong-kertas orderBy updatedAt desc (Task 15) & PUT [id] update record sama tanpa menyentuh nomorUrut (dipastikan lagi: route PUT tidak ada assign nomorUrut) → syarat "naik ke atas + nomor PK tetap" sudah terpenuhi di API.
+- FIX (src/app/potong-kertas/page.tsx): (a) helper module-level baru — effectiveDateOfRiwayat (updatedAt||createdAt), isRiwayatEdited (selisih >2 dtk), formatTanggalDdMmYy (dd/mm/yy), DieditBadge (amber ikon pensil, identik dgn halaman riwayat & tab HC) — formatTanggalRiwayat & formatTanggalRiwayatShort dihapus (kedua konsumennya diganti). (b) Tabel desktop: header & body Tanggal dipindah ke posisi 2 SEBELAH KIRI "No. PK" → urutan No. | Tanggal | No. PK | Customer | ...; sel = dd/mm/yy (tgl efektif) + DieditBadge. (c) Kartu mobile: dd/mm/yy + DieditBadge. (d) Filter periode memakai tanggal efektif (riwayat lama yg diedit hari ini ikut "Hari ini"). (e) Preview potong-kertas tidak menampilkan tanggal → tidak perlu diubah.
+- Verifikasi agent-browser (admin/268899, desktop 1440x900): (a) header: No. | Tanggal | No. PK | Customer | ... ✓, sel "08/11/26" di kiri PK/11/26/xxxx ✓ (4 record PK belum pernah diedit → tanpa badge, benar); (b) E2E dalam tab: klik baris 0052 (posisi 4) → preview → Edit → editor mode "Update Riwayat" nomor PK/11/26/0052 → Update → PUT /api/riwayat-potong-kertas/[id] 200 (dev.log) → kembali tab: urutan [0052, 0055, 0054, 0053] — 0052 NAIK KE ATAS, nomor tetap, 08/11/26 + badge "Diedit" HANYA di baris 0052 ✓; (c) mobile 390x844: kartu pertama PK/11/26/0052, 08/11/26 + badge Diedit ✓. Screenshot: tool-results/pk-tab-after.png, pk-tab-mobile2.png.
+- Versi: SW v198→v199, APP_VERSION/CURRENT_VERSION 2026-11-08-v196→2026-11-08-v197, entri changelog v197 "Tab Riwayat Potong Kertas: Tanggal Kiri No. PK + Tanda Diedit". BELUM dideploy.
+- Lint: bunx eslint 3 file ubah = 0 error.
+
+Stage Summary:
+- Di dalam halaman Potong Kertas, tab Riwayat Potong Kertas kini menampilkan kolom Tanggal di sebelah kiri kolom No. PK dengan format dd/mm/yy. Mengedit lalu menyimpan memindahkan baris ke paling atas dengan nomor PK tetap, tanggal berubah jadi tanggal edit, dan tanda "Diedit" muncul — perilaku kini identik di ketiga tempat: halaman Riwayat Potong Kertas, halaman Riwayat Hitung Cetakan, dan tab riwayat di dalam kedua kalkulator. Kartu mobile & filter periode ikut konsisten.
+
+---
 Task ID: 17
 Agent: Main
 Task: Halaman Hitung Cetakan → tab Riwayat Hitung Cetakan — kolom Tanggal (dd/mm/yy) pindah kiri No. HC + tanda "Diedit" bila pernah diedit

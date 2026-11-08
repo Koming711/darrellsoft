@@ -67,13 +67,39 @@ function setSharedSuplier(v: string) {
   try { localStorage.setItem(SHARED_SUPLIER_KEY(), v) } catch {}
 }
 
-// Format tanggal riwayat potong kertas (gaya Riwayat Invoice: 05 Jun 2025)
-function formatTanggalRiwayat(value?: string | null): string {
+// Tanggal efektif riwayat = terakhir disimpan (bila pernah diedit → tgl edit);
+// fallback createdAt. Dipakai kolom Tanggal & filter periode tab riwayat.
+const effectiveDateOfRiwayat = (r?: { createdAt?: string | null; updatedAt?: string | null }) => r?.updatedAt || r?.createdAt || ''
+
+// Tanda "pernah DIEDIT": updatedAt menyimpang dr createdAt lebih dr 2 dtk
+// (PUT Prisma auto-bump updatedAt; record baru dibuat dgn keduanya sama).
+const EDITED_TOLERANCE_MS = 2000
+const isRiwayatEdited = (r?: { createdAt?: string | null; updatedAt?: string | null }) => {
+  const c = new Date(r?.createdAt || '').getTime()
+  const u = new Date(r?.updatedAt || r?.createdAt || '').getTime()
+  if (isNaN(c) || isNaN(u)) return false
+  return u - c > EDITED_TOLERANCE_MS
+}
+
+// Format dd/mm/yy utk kolom Tanggal tab riwayat (permintaan owner).
+const formatTanggalDdMmYy = (value?: string | null) => {
   if (!value) return '-'
   const d = new Date(value)
-  if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (isNaN(d.getTime())) return value
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`
 }
+
+// Keterangan "Diedit": riwayat pernah disimpan ulang — nomor PK tetap,
+// tanggal mengikuti waktu terakhir disimpan (permintaan owner).
+const DieditBadge = () => (
+  <span
+    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold whitespace-nowrap"
+    title="Riwayat pernah diedit — tanggal mengikuti terakhir disimpan"
+  >
+    <Pencil className="w-2.5 h-2.5" />
+    Diedit
+  </span>
+)
 
 // Rupiah ringkas utk kartu riwayat mobile (hemat ruang): ≥1 jt → "4,7 jt"
 const fmtRpCompact = (n: number) => {
@@ -83,13 +109,6 @@ const fmtRpCompact = (n: number) => {
   return '-'
 }
 
-// Tanggal pendek utk kartu riwayat mobile: "20 Sep, 10.25"
-function formatTanggalRiwayatShort(value?: string | null): string {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return '-'
-  return `${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
-}
 
 interface FormData {
   paperWidth: string
@@ -326,7 +345,9 @@ function CalculatorPage() {
     const q = searchQuery.trim().toLowerCase()
     if (!q && !customerFilter && !eff.dateFrom && !eff.dateTo) return riwayatList
     return riwayatList.filter((r: any) => {
-      const t = (r.createdAt || '').slice(0, 10)
+      // Periode memakai TANGGAL EFEKTIF (terakhir disimpan): riwayat lama yang
+      // diedit hari ini ikut muncul di periode "Hari ini" (tgl berubah jadi tgl edit).
+      const t = String(effectiveDateOfRiwayat(r)).slice(0, 10)
       if (eff.dateFrom && t && t < eff.dateFrom) return false
       if (eff.dateTo && t && t > eff.dateTo) return false
       if (customerFilter && String(r?.namaCustomer || '').trim() !== customerFilter) return false
@@ -2669,8 +2690,10 @@ function CalculatorPage() {
                     <TableHeader className="bg-stone-50">
                       <TableRow className="bg-stone-50 hover:bg-stone-50">
                         <TableHead className="w-10">No.</TableHead>
-                        <TableHead className="w-0 min-w-0">No. PK</TableHead>
+                        {/* Kolom Tanggal pindah ke SEBELAH KIRI kolom No. PK (permintaan
+                            owner): format dd/mm/yy + tanda "Diedit" bila pernah diedit. */}
                         <TableHead>Tanggal</TableHead>
+                        <TableHead className="w-0 min-w-0">No. PK</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Nama Barang</TableHead>
                         <TableHead className="hidden lg:table-cell">Kertas</TableHead>
@@ -2694,8 +2717,15 @@ function CalculatorPage() {
                           onClick={() => handlePreviewRiwayat(r)}
                         >
                           <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          {/* Tanggal efektif (tgl terakhir disimpan) — SEBELAH KIRI
+                              No. PK; format dd/mm/yy + keterangan Diedit. */}
+                          <TableCell className="text-muted-foreground whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <span>{formatTanggalDdMmYy(effectiveDateOfRiwayat(r))}</span>
+                              {isRiwayatEdited(r) && <DieditBadge />}
+                            </div>
+                          </TableCell>
                           <TableCell className="whitespace-nowrap w-px"><span className="font-mono text-xs">{r.nomorUrut || '-'}</span></TableCell>
-                          <TableCell className="text-muted-foreground whitespace-nowrap">{formatTanggalRiwayat(r.createdAt)}</TableCell>
                           <TableCell className="max-w-40 truncate">{r.namaCustomer && r.namaCustomer !== '-' ? r.namaCustomer : '-'}</TableCell>
                           <TableCell className="max-w-40 text-muted-foreground" title={r.namaCetakan}>
                             <span className="truncate block">{r.namaCetakan || '-'}</span>
@@ -2754,7 +2784,10 @@ function CalculatorPage() {
                         {/* Baris 1: nomor + tanggal (kompak) */}
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-mono text-[11px] font-semibold truncate">{r.nomorUrut || '-'}</p>
-                          <p className="text-[11px] text-muted-foreground whitespace-nowrap">{formatTanggalRiwayatShort(r.createdAt)}</p>
+                          <p className="text-[11px] text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                            {formatTanggalDdMmYy(effectiveDateOfRiwayat(r))}
+                            {isRiwayatEdited(r) && <DieditBadge />}
+                          </p>
                         </div>
                         {/* Baris 2: customer + cetakan */}
                         <div className="min-w-0">
