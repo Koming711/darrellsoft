@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v188'
+export const CURRENT_VERSION = '2026-11-08-v189'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v189',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Info Lokasi File Backup di Pengaturan Database',
+      en: 'Backup File Location Info in Database Settings',
+    },
+    items: [
+      {
+        id: 'Kartu Backup & Restore Penuh kini menampilkan lokasi file database yang dibackup (mis. db/custom.db) lengkap dengan ukuran dan waktu perubahan terakhir',
+        en: 'The Full Backup & Restore card now shows the database file location being backed up (e.g. db/custom.db) complete with its size and last modified time',
+      },
+      {
+        id: 'Ditampilkan juga lokasi penyimpanan salinan backup: folder backups/ di server dan tabel BackupFile di database',
+        en: 'It also shows where backup copies are stored: the backups/ folder on the server and the BackupFile table in the database',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v188',
     date: { id: '5 November 2026', en: '5 November 2026' },

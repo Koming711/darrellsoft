@@ -1,4 +1,22 @@
 ---
+Task ID: 8
+Agent: Main
+Task: Pengaturan Database — tampilkan lokasi file yang dibackup + lokasi salinan backup
+
+Work Log:
+- Permintaan owner: "dihalaman pengaturan database. tambahkan lokasi file yang mau di backup."
+- Kondisi awal: tab Database di halaman Pengaturan (src/app/administrasi/pengaturan/page.tsx) kartu "Backup & Restore Penuh" hanya punya tombol Backup/Restore + Auto Backup + Riwayat — user tidak tahu file database mana yang dibackup dan salinan backup disimpan di mana
+- API baru GET /api/database/db-info (requireAuth, semua user login — konsisten dgn /backups): parse DATABASE_URL tanpa PERNAH membocorkan kredensial — provider sqlite → path file (relatif thd root project bila bisa, mis. db/custom.db) + exists + size + modified (fs.stat); provider postgresql → host + nama database saja; plus backupFolder (dari getBackupFolder(), setting `backup_folder`, default `backups`) dan environment local/production
+- UI (kartu Backup & Restore Penuh): info box putih baru berisi 2 baris — (1) ikon HardDrive "Lokasi file yang dibackup": path mono db/custom.db + ukuran + waktu perubahan terakhir (⚠️ "file tidak ditemukan" bila exists=false); provider postgresql → "PostgreSQL — host / db"; (2) ikon Database "Salinan backup disimpan di": `backups/` (folder di server) + tabel BackupFile (database). fetchDbInfo dipanggil saat tab Database dibuka & setelah backup sukses; urutan hook dirapikan (fetchDbInfo didefinisikan SEBELUM useEffect yg memakainya — hindari TDZ)
+- i18n: 5 key baru (backup_source_location, backup_source_not_found, backup_copy_location, backup_copy_in_folder, backup_copy_in_db) id+en
+- Versi: SW v190→v191, APP_VERSION/CURRENT_VERSION 2026-11-05-v188→2026-11-08-v189, entri changelog baru v189 "Info Lokasi File Backup di Pengaturan Database"
+- Verifikasi agent-browser (lokal, admin): tab Database → info box tampil "Lokasi file yang dibackup / db/custom.db / 3.5 MB • 8 Nov 2026, 04.09" + "Salinan backup disimpan di / backups/ (folder di server) + tabel BackupFile (database)"; GET /api/database/db-info 200; popup "Versi Baru! v189" muncul lalu ditutup; mobile 390px info box rapi tanpa overflow (box right 337 < 391); console & page error bersih, dev.log bersih; bunx eslint 5 file berubah = 0 error
+
+Stage Summary:
+- Halaman Pengaturan → Database kini transparan: terlihat jelas file database mana yang dijadikan sumber backup (db/custom.db + ukuran + waktu berubah) dan salinan backup disimpan di folder backups/ + tabel BackupFile; aman untuk produksi (PostgreSQL hanya menampilkan host, tanpa password)
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 7
 Agent: Main
 Task: Deploy produksi ke www.darrellsoft.com (v188 / SW v190) — semua rilis tertunda terkirim
