@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v188'
+export const CURRENT_VERSION = '2026-11-08-v189'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v189',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Headline Baru di Halaman Utama: Hitung Potong Kertas & Hitung Cetakan Akurat',
+      en: 'New Homepage Headline: Paper Cutting & Accurate Printing Calculation',
+    },
+    items: [
+      {
+        id: 'Headline halaman utama kini diawali "Hitung Potong Kertas, Hitung Cetakan Akurat" sebelum "Buat Invoice" — kalkulator andalan bisnis cetak makin menonjol',
+        en: 'The homepage headline now opens with "Calculate Paper Cutting, Accurate Printing" before "Create Invoices" — the printing calculators are now front and center',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v188',
     date: { id: '5 November 2026', en: '5 November 2026' },
