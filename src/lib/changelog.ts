@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v190'
+export const CURRENT_VERSION = '2026-11-08-v191'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v191',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: '4 Kartu Paket Harga di Landing Kini Sebaris',
+      en: '4 Pricing Cards on the Landing Page Now in One Row',
+    },
+    items: [
+      {
+        id: 'Di layar lebar (laptop/desktop), 4 kartu paket (Trial, Basic, Pro, Premium) tampil rapi dalam SATU baris — tidak lagi 3+1; di HP tetap tersusun ke bawah dan di tablet 2×2',
+        en: 'On wide screens (laptop/desktop), the 4 plan cards (Trial, Basic, Pro, Premium) now display neatly in ONE row — no more 3+1; on phones they still stack and tablets show 2×2',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v190',
     date: { id: '8 November 2026', en: '8 November 2026' },

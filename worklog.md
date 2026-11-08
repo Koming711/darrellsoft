@@ -1,4 +1,19 @@
 ---
+Task ID: 12
+Agent: Main
+Task: Landing — 4 kotak paket harga jadi 1 baris (desktop)
+
+Work Log:
+- Permintaan owner: "rubah landing kotak 4 paket harga jadi 1 baris."
+- KONDISI SEBELUM: grid harga `grid-cols-1 sm:grid-cols-3` dgn 4 paket aktif (Trial/Basic/Pro/Premium) → di desktop wrap 3+1 (1 kartu terbuang di baris kedua)
+- FIX (src/app/page.tsx): grid harga → `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` — desktop/laptop (≥1024px) 4 kartu SATU baris, tablet 2×2, HP tetap susun ke bawah; skeleton loading ikut 3→4 placeholder agar match dgn jumlah kartu nyata
+- Verifikasi agent-browser: desktop 1280px — 4 kartu top sejajar (320/320/322/320 — selisih 2px artefak animasi FadeIn), left 64/356/650/940 rapi, lebar kartu ±276px, screenshot visual OK (Pro dgn badge HEMAT BANGET); tablet 768px — 2×2 (lebar 344px); HP 390px — 4 baris susun (left seragam 16px, lebar 358px); bunx eslint 0 error
+- Versi: SW v192→v193, APP_VERSION/CURRENT_VERSION 2026-11-08-v190→2026-11-08-v191, entri changelog v191 "4 Kartu Paket Harga di Landing Kini Sebaris" — v189/v190/v191 BELUM dideploy
+
+Stage Summary:
+- Di layar lebar, keempat kartu paket harga kini tampil sebaris rapi (tidak ada lagi kartu sendirian di baris kedua); responsivitas tablet (2×2) & HP (stack) tetap terjaga
+
+---
 Task ID: 11
 Agent: Main
 Task: Landing — daftar harga paket disamakan dengan Panel Admin → Kelola Paket (check and fix)

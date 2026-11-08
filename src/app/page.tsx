@@ -1830,7 +1830,7 @@ export default function Home() {
           </div>
         </FadeIn>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 max-w-6xl mx-auto">
           {plansStatus === 'ready' && livePlans.length > 0
             ? livePlans.map((p, idx) => (
                 <PricingCard
@@ -1917,7 +1917,7 @@ export default function Home() {
                  dari Panel Admin → Kelola Paket walau sesaat. */
               <>
                 <p className="sr-only" role="status">Memuat daftar paket harga…</p>
-                {[0, 1, 2].map((i) => (
+                {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
                     aria-hidden="true"
