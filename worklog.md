@@ -1,4 +1,24 @@
 ---
+Task ID: 4
+Agent: Main
+Task: Potong Kertas — tabel "Perbandingan Ukuran Kertas" ditambahkan ke dokumen Preview (ikut tercetak & ter-JPG)
+
+Work Log:
+- Permintaan owner: "dihalaman potong kertas, tambahkan perbandingan ukuran kertas di preview potong kertas dan cetak. fix"
+- Kondisi awal: tabel "Perbandingan Ukuran Kertas" hanya tampil di panel hasil halaman editor (mode otomatis) — dokumen Preview Potong Kertas tidak memuatnya; karena Cetak/JPG meng-capture isi preview (FixedDocScaler 720px), perbandingan juga tidak ikut tercetak
+- FIX (semua di src/app/potong-kertas/page.tsx):
+  - Dokumen preview: bagian baru `data-pk="candidates"` — tabel gaya dokumen (putih, border slate, header bg-slate-50) dgn kolom Ukuran Kertas / Potongan/Lbr / Lembar / Efisiensi / Total Biaya + badge TERBAIK (idx 0) & DIPILIH (baris terpakai), diletakkan antara "Strategi Optimasi" dan diagram → otomatis ikut tercetak (Cetak A5) & ter-JPG karena capture = isi preview
+  - Sumber data preview: `previewCandidates` — mode editor = kandidat sesi (`candidates`, hanya mode otomatis; mode manual kosong); mode riwayat = kandidat segar
+  - Mode riwayat: `handlePreviewRiwayat` kini memanggil POST /api/potong-kertas/optimize memakai data baris (bahan=paperName, gramatur, ukuran potong, quantity, insit) SEBELUM dialog dibuka (dok konsisten utk print); gagal/data kurang → tabel disembunyikan, preview tetap terbuka; badge DIPILIH dicocokkan dr ukuran kertas baris (toleransi 0,01 cm)
+  - Reset state baru (previewRiwayatCandidates / previewRiwayatSelectedIdx): tutup dialog, tombol Edit dari preview, tombol Preview editor — kandidat riwayat tidak bocor ke sesi editor
+- Versi: SW v187→v188, APP_VERSION/CURRENT_VERSION 2026-11-05-v185→2026-11-05-v186, entri changelog baru v186 "Preview Potong Kertas Kini Menampilkan Perbandingan Ukuran Kertas"
+- Verifikasi agent-browser (lokal, admin): hitung otomatis Ivory 300gsm potong 10×10 → preview menampilkan tabel "(1)" = sama dgn panel editor; buka preview riwayat PK/11/26/0046 (art karton 260gsm 30×45, 1.913 lbr) → tabel "(4)" dihitung ulang dr Master Kertas, baris 90×120·Indojaya TERBAIK+DIPILIH dgn total Rp 6.446.810 persis baris riwayat; kembali ke editor → kembali "(1)" (reset benar, tidak bocor); mobile 390px rapi tanpa overflow; tabel ada di dalam root capture previewRef (terbukti ikut Cetak/JPG); console, page error, dev.log bersih; bunx eslint file berubah = 0 error
+
+Stage Summary:
+- Dokumen Preview Potong Kertas kini menyertakan tabel Perbandingan Ukuran Kertas (alternatif Master Kertas + badge TERBAIK/DIPILIH) — dan karena hasil Cetak/JPG identik dgn isi preview, perbandingan ikut tercetak/terkirim; preview dr Riwayat dihitung ulang sesuai data barisnya
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 3
 Agent: Main
 Task: Sidebar "Barang" → "Daftar Barang" + popup daftar nama pemilik Harga Khusus di halaman Daftar Barang

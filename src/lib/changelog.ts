@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v185'
+export const CURRENT_VERSION = '2026-11-05-v186'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v186',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Preview Potong Kertas Kini Menampilkan Perbandingan Ukuran Kertas',
+      en: 'Paper Cutting Preview Now Shows Paper Size Comparison',
+    },
+    items: [
+      {
+        id: 'Dokumen Preview Potong Kertas kini menyertakan tabel "Perbandingan Ukuran Kertas" (alternatif ukuran dari Master Kertas, lengkap badge TERBAIK & DIPILIH) — tabel ikut tercetak dan ter-JPG karena hasil cetak identik dengan isi preview',
+        en: 'The Paper Cutting preview document now includes a "Paper Size Comparison" table (alternatives from the Paper Master, with BEST & SELECTED badges) — it is included in print and JPG output because the print matches the preview exactly',
+      },
+      {
+        id: 'Saat membuka preview dari Riwayat, perbandingan dihitung ulang dari Master Kertas sesuai data baris (bahan, gramatur, ukuran potong, jumlah) sehingga selalu relevan',
+        en: 'When opening the preview from History, the comparison is recalculated from the Paper Master based on that row (material, grammage, cut size, quantity) so it always stays relevant',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v185',
     date: { id: '5 November 2026', en: '5 November 2026' },

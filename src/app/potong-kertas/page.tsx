@@ -351,6 +351,11 @@ function CalculatorPage() {
   const [previewRiwayatData, setPreviewRiwayatData] = useState<CuttingResult | null>(null)
   const [previewRiwayatInfo, setPreviewRiwayatInfo] = useState<{ customer: string; paper: string; jumlahPesanan: string; berapaMata: string; setelanKertas: string }>({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
   const [previewRiwayatRow, setPreviewRiwayatRow] = useState<any>(null)
+  // Perbandingan Ukuran Kertas utk preview mode RIWAYAT: kandidat dihitung ulang
+  // dari Master Kertas (bahan+gramatur+ukuran potong baris) saat baris dibuka —
+  // state `candidates` milik sesi editor bisa saja basi/tidak cocok dgn baris.
+  const [previewRiwayatCandidates, setPreviewRiwayatCandidates] = useState<CandidateResult[] | null>(null)
+  const [previewRiwayatSelectedIdx, setPreviewRiwayatSelectedIdx] = useState(0)
   const [pkPhotoZoom, setPkPhotoZoom] = useState(false)
   // Foto lampiran aktif untuk popup preview: mode riwayat pakai photoUrl baris riwayat, mode editor pakai foto di form
   const previewPhotoUrl = previewRiwayatData ? ((previewRiwayatRow?.photoUrl as string) || '') : photoUrl
@@ -375,6 +380,15 @@ function CalculatorPage() {
     ? (riwayatList.find(x => x.id === restoredRiwayatId)?.nomorUrut || '')
     : ''
   const noPkPreview: string = (previewRiwayatRow?.nomorUrut as string) || editedNomorUrut || ''
+  // Kandidat Perbandingan Ukuran Kertas untuk dokumen preview (+ ikut tercetak/di-JPG):
+  // - mode editor → pakai kandidat sesi (hanya mode otomatis; mode manual tidak ada perbandingan)
+  // - mode riwayat → kandidat segar hasil fetch saat baris dibuka (null = sembunyikan tabel)
+  const previewCandidates: CandidateResult[] = previewRiwayatData
+    ? (previewRiwayatCandidates || [])
+    : (cutMode === 'otomatis' ? candidates : [])
+  // Baris kandidat yang sedang dipakai perhitungan (badge DIPILIH): mode editor =
+  // pilihan user di panel perbandingan; mode riwayat = ukuran kertas baris yg cocok.
+  const previewSelectedIdx: number = previewRiwayatData ? previewRiwayatSelectedIdx : selectedCandidateIdx
   const [isGeneratingJpg, setIsGeneratingJpg] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
@@ -1271,6 +1285,45 @@ function CalculatorPage() {
     }
 
     if (resultData) {
+      // Perbandingan Ukuran Kertas utk preview riwayat: hitung ulang kandidat dari
+      // Master Kertas memakai data baris (bahan + gramatur + ukuran potong + jumlah).
+      // Gagal / data tidak lengkap → tabel perbandingan disembunyikan, preview tetap terbuka.
+      let riwayatCandidates: CandidateResult[] | null = null
+      let riwayatSelectedIdx = 0
+      try {
+        const cw = parseFloat(r.cutWidth)
+        const ch = parseFloat(r.cutHeight)
+        const g = Math.round(parseFloat(r.grammage) || 0)
+        const qty = parseInt(r.quantity) || 0
+        if (r.paperName && g > 0 && cw > 0 && ch > 0 && qty > 0) {
+          const res = await fetcher('/api/potong-kertas/optimize', {
+            method: 'POST',
+            headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              bahan: r.paperName,
+              grammage: g,
+              cutWidth: cw,
+              cutHeight: ch,
+              quantity: qty,
+              setelanKertas: parseInt(r.setelanKertas) || 0,
+              optimizationMode,
+            }),
+          })
+          const data = await res.json().catch(() => null)
+          if (res.ok && data?.ok && Array.isArray(data.candidates) && data.candidates.length > 0) {
+            riwayatCandidates = data.candidates as CandidateResult[]
+            // Tandai baris kandidat yang ukuran kertasnya sama dgn baris riwayat (badge DIPILIH)
+            const refW = resultData.paperWidth
+            const refH = resultData.paperHeight
+            const found = riwayatCandidates.findIndex(
+              c => Math.abs(c.paperWidth - refW) < 0.01 && Math.abs(c.paperHeight - refH) < 0.01
+            )
+            riwayatSelectedIdx = found >= 0 ? found : 0
+          }
+        }
+      } catch {}
+      setPreviewRiwayatCandidates(riwayatCandidates)
+      setPreviewRiwayatSelectedIdx(riwayatSelectedIdx)
       setPreviewRiwayatData(resultData)
       setPreviewRiwayatRow(r)
       setPreviewRiwayatInfo({
@@ -1293,6 +1346,8 @@ function CalculatorPage() {
     setPreviewOpen(false)
     setPreviewRiwayatData(null)
     setPreviewRiwayatRow(null)
+    setPreviewRiwayatCandidates(null)
+    setPreviewRiwayatSelectedIdx(0)
     setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' })
   }
 
@@ -2017,7 +2072,7 @@ function CalculatorPage() {
               </button>
             </div>
             <div className="grid grid-cols-4 gap-2">
-              <button onClick={() => { if (!results) { toast.error('Hitung potongan terlebih dahulu!'); return; } setPreviewOpen(true) }} disabled={!results || needsRecalc}
+              <button onClick={() => { if (!results) { toast.error('Hitung potongan terlebih dahulu!'); return; } setPreviewRiwayatCandidates(null); setPreviewRiwayatSelectedIdx(0); setPreviewOpen(true) }} disabled={!results || needsRecalc}
                 className="flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors" title={t('preview')}>
                 {t('preview')}
               </button>
@@ -2725,7 +2780,7 @@ function CalculatorPage() {
       {previewOpen && (
         <>
         <PreviewDialog
-          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
+          onClose={() => { setPreviewOpen(false); setPreviewRiwayatData(null); setPreviewRiwayatRow(null); setPreviewRiwayatCandidates(null); setPreviewRiwayatSelectedIdx(0); setPreviewRiwayatInfo({ customer: '-', paper: '-', jumlahPesanan: '', berapaMata: '', setelanKertas: '' }) }}
           title="Preview Potong Kertas"
           footer={
             <div className="sticky bottom-0 bg-card border-t border-slate-200 p-3 flex gap-2">
@@ -2831,6 +2886,41 @@ function CalculatorPage() {
               <p className="text-[10px] text-slate-600 font-medium text-center">Strategi Optimasi</p>
               <p className="text-sm font-bold text-black text-center">{previewRiwayatData?.strategy || results?.strategy}</p>
             </div>
+
+            {/* Perbandingan Ukuran Kertas — alternatif dari Master Kertas (mode otomatis / riwayat
+                hasil optimasi). Bagian dokumen preview → ikut tercetak (Cetak) dan ter-JPG. */}
+            {previewCandidates.length > 0 && (
+              <div data-pk="candidates" className="mb-3">
+                <h3 className="text-xs font-bold text-slate-700 mb-1.5">Perbandingan Ukuran Kertas ({previewCandidates.length}):</h3>
+                <table className="w-full border border-slate-200 rounded-lg overflow-hidden text-[10px]">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="text-left px-2 py-1 font-semibold border-b border-slate-200">Ukuran Kertas</th>
+                      <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Potongan/Lbr</th>
+                      <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Lembar</th>
+                      <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Efisiensi</th>
+                      <th className="text-right px-2 py-1 font-semibold border-b border-slate-200">Total Biaya</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewCandidates.map((c, idx) => (
+                      <tr key={`${c.paperId}-${idx}`} className={`border-b border-slate-100 last:border-b-0 ${idx === previewSelectedIdx ? 'bg-emerald-50' : ''}`}>
+                        <td className="px-2 py-1 font-semibold">
+                          {c.paperWidth} × {c.paperHeight} cm
+                          {c.suplier ? <span className="text-slate-400"> · {c.suplier}</span> : null}
+                          {idx === 0 && <span className="ml-1.5 text-[8.5px] font-bold text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded-full align-middle">TERBAIK</span>}
+                          {idx === previewSelectedIdx && <span className="ml-1.5 text-[8.5px] font-bold text-white bg-emerald-600 px-1 py-0.5 rounded-full align-middle">DIPILIH</span>}
+                        </td>
+                        <td className="px-2 py-1 text-right tabular-nums">{c.piecesPerSheet.toLocaleString('id-ID')}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{c.sheetsNeeded.toLocaleString('id-ID')}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">{c.efficiency.toFixed(1)}%</td>
+                        <td className="px-2 py-1 text-right tabular-nums font-bold text-emerald-700">Rp {Math.round(c.totalPrice).toLocaleString('id-ID')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Diagram full-width, di bawahnya Cara Potong + Detail per Blok berdampingan (mengikuti layout cetak A4) */}
             {(previewRiwayatData || results) && (
