@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v189'
+export const CURRENT_VERSION = '2026-11-05-v188'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,28 +23,6 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
-  {
-    version: '2026-11-08-v189',
-    date: { id: '8 November 2026', en: '8 November 2026' },
-    title: {
-      id: 'Tab Baru: Penyimpanan Database (lokasi backup & folder di komputer)',
-      en: 'New Tab: Database Storage (backup location & computer folder)',
-    },
-    items: [
-      {
-        id: 'Tab Penyimpanan DB di Pengaturan: atur folder penyimpanan backup di server (validasi + uji tulis), lihat jenis penyimpanan, status, dan backup terakhir beserta ukurannya',
-        en: 'DB Storage tab in Settings: configure the server backup folder (with validation & write test), see storage type, status, and the latest backup with its size',
-      },
-      {
-        id: 'Folder di Komputer: pilih folder nyata (mis. D:/Darrellsoft/Backup) via File System Access API — file backup ditulis langsung ke sana, lengkap dengan pembuatan struktur folder otomatis (Database, Backup Harian/Mingguan/Bulanan, Restore, Export, Arsip) dan uji tulis',
-        en: 'Folder on Your Computer: pick a real folder (e.g. D:/Darrellsoft/Backup) via the File System Access API — backup files are written directly there, including automatic folder structure creation (Database, Daily/Weekly/Monthly Backup, Restore, Export, Archive) and a write test',
-      },
-      {
-        id: 'Riwayat Backup kini punya tabel dengan aksi Download, Restore & Hapus + pagination; semua aktivitas backup/restore/hapus dicatat ke log audit dan setiap restore otomatis menyimpan backup keamanan kondisi data terlebih dahulu',
-        en: 'Backup History now has a table with Download, Restore & Delete actions + pagination; every backup/restore/delete is written to the audit log and every restore automatically saves a safety backup of current data first',
-      },
-    ],
-  },
   {
     version: '2026-11-05-v188',
     date: { id: '5 November 2026', en: '5 November 2026' },

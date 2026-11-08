@@ -5,8 +5,6 @@ import fs from 'fs'
 import path from 'path'
 import { sanitizeError } from '@/lib/api-error'
 import { castRowBySchema } from '@/lib/restore-cast'
-import { pruneOldBackups } from '@/lib/backup-retention'
-import { logAudit } from '@/lib/audit'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -181,47 +179,6 @@ async function restoreDatabase(data: Record<string, any[]>, userId: string) {
   return restoredTables
 }
 
-/**
- * SAFETY BACKUP PRA-RESTORE: simpan kondisi data user SAAT INI ke tabel
- * BackupFile SEBELUM data lama dihapus. Dijalankan setelah file backup
- * lolos validasi (parse + filter tabel) — jadi kalau restore gagal di tengah,
- * kondisi terakhir tetap bisa dipulihkan dari file ini.
- */
-async function createPreRestoreSafetyBackup(userId: string): Promise<string | null> {
-  try {
-    const tableData: Record<string, unknown[]> = {}
-    let totalRows = 0
-    for (const config of Object.values(USER_TABLES)) {
-      try {
-        const rows = await config.model.findMany({ where: { userId } })
-        tableData[config.name] = rows
-        totalRows += rows.length
-      } catch { tableData[config.name] = [] }
-    }
-    const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const safetyFileName = `auto-pre-restore-${dateStr}.json`
-    const content = JSON.stringify({
-      version: '2.0',
-      type: 'pre-restore-safety',
-      timestamp: new Date().toISOString(),
-      userId,
-      database: tableData,
-    })
-    const size = Buffer.byteLength(content, 'utf-8')
-    const data = { content, size, tableCount: Object.keys(tableData).length, rowCount: totalRows, userId }
-    await db.backupFile.upsert({
-      where: { fileName: safetyFileName },
-      update: data,
-      create: { fileName: safetyFileName, ...data },
-    })
-    await pruneOldBackups()
-    return safetyFileName
-  } catch (e) {
-    console.warn('Safety backup pra-restore dilewati:', e instanceof Error ? e.name : 'unknown')
-    return null
-  }
-}
-
 export async function POST(req: NextRequest) {
   const user = getUserFromRequest(req)
   if (!user) {
@@ -231,8 +188,6 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || ''
     let data: Record<string, any[]>
-    let restoreSource: 'file' | 'server' = 'file'
-    let restoreFileName: string | null = null
 
     if (contentType.includes('multipart/form-data')) {
       // Excel file upload
@@ -243,7 +198,6 @@ export async function POST(req: NextRequest) {
       }
       const buffer = Buffer.from(await file.arrayBuffer())
       data = await parseExcelBackup(buffer)
-      restoreFileName = file.name
     } else {
       // JSON body (backward compatibility with old JSON backups & server restore)
       const body = await req.json()
@@ -252,8 +206,6 @@ export async function POST(req: NextRequest) {
       if (backupData && typeof backupData === 'object' && backupData.database) {
         data = backupData.database
       } else if (fileName && typeof fileName === 'string') {
-        restoreSource = 'server'
-        restoreFileName = fileName
         // Ambil isi backup dari DATABASE (tabel BackupFile) dulu — berlaku juga
         // di Vercel yang filesystem-nya read-only; fallback ke folder backups/ (file lama di lokal).
         let raw: string | null = null
@@ -297,22 +249,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validasi selesai → simpan backup kondisi data saat ini SEBELUM menghapus apa pun
-    const safetyFileName = await createPreRestoreSafetyBackup(user.id)
-
     const restoredTables = await restoreDatabase(filteredData, user.id)
-
-    await logAudit({
-      aktorId: user.id,
-      aksi: 'database-restore',
-      detail: { source: restoreSource, fileName: restoreFileName, restoredTables, safetyFileName },
-    })
 
     return NextResponse.json({
       success: true,
       message: 'Data berhasil di-restore (hanya data user Anda yang dipulihkan)',
       restoredTables,
-      safetyFileName,
     })
   } catch (error) {
     console.error('Restore error:', error)
