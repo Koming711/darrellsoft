@@ -171,11 +171,38 @@ export async function POST(req: NextRequest) {
 
     // 3) delete + create ATOMIK (satu transaksi): bila create gagal (mis. data
     //    bentrok constraint), delete ikut di-rollback — data lama tetap utuh.
-    await db.$transaction(async (tx) => {
-      // Only delete the current user's records (not all users')
-      await tableConfig.model.deleteMany({ where: deleteFilter })
-      await tableConfig.model.createMany({ data: castedData })
-    })
+    //
+    //    FIX STARVATION (insiden restore 500 berulang): query WAJIB lewat `tx`,
+    //    BUKAN delegate `db.<model>` yang tertangkap di tableConfig.model.
+    //    Dulu: tableConfig.model.deleteMany() di dalam $transaction menjalankan
+    //    query lewat pool UTAMA — koneksi pool menunggu koneksi yang sedang
+    //    dipegang transaksi itu sendiri → P2028 "transaction expired" /
+    //    P1008 "Socket timeout" setelah ~5-17 detik (terbukti di debug route:
+    //    tx.count 4ms, db.<model>.deleteMany 8 dtk hang). Dengan lewat `tx`
+    //    seluruh operasi memakai koneksi transaksi yang sama → <10ms.
+    //    Timeout interaktif tetap dinaikkan 5s → 30s (cadangan utk restore besar).
+    const txDelegateName =
+      tableConfig.modelName.charAt(0).toLowerCase() + tableConfig.modelName.slice(1)
+
+    await db.$transaction(
+      async (tx) => {
+        const txModel = (
+          tx as unknown as Record<string, {
+            deleteMany: (args: { where: Record<string, any> }) => Promise<{ count: number }>
+            createMany: (args: { data: Record<string, any>[] }) => Promise<{ count: number }>
+          }>
+        )[txDelegateName]
+
+        if (!txModel) {
+          throw new Error(`Model "${tableConfig.modelName}" tidak dikenal di transaksi`)
+        }
+
+        // Only delete the current user's records (not all users')
+        await txModel.deleteMany({ where: deleteFilter })
+        await txModel.createMany({ data: castedData })
+      },
+      { timeout: 30000, maxWait: 10000 }
+    )
 
     return NextResponse.json({
       success: true,

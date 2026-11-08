@@ -44,6 +44,7 @@ import {
   BadgePercent,
   Pencil,
   Plus,
+  Printer,
   Search,
   Trash2,
   Loader2,
@@ -359,6 +360,93 @@ export default function HargaCustomerPage() {
 
   const marginOf = (r: HargaRow) => r.harga - (r.hargaPokok ?? 0)
 
+  /** Cetak daftar harga customer (sesuai filter pencarian/customer/barang/status
+   *  aktif) via jendela print — pola sama dgn halaman master lain. */
+  const handlePrint = () => {
+    if (rows.length === 0) {
+      toast.error('Tidak ada data harga customer untuk dicetak')
+      return
+    }
+    // Escape nilai teks agar aman ditulis ke HTML print window
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+    const printWindow = window.open('', '', 'height=800,width=1100')
+    if (!printWindow) {
+      toast.error('Gagal membuka jendela print')
+      return
+    }
+
+    printWindow.document.write('<html><head><title>Harga Customer</title>')
+    printWindow.document.write(`
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+        h1 { text-align: center; margin-bottom: 4px; font-size: 18px; }
+        .sub { text-align: center; margin-bottom: 16px; font-size: 12px; color: #555; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; white-space: nowrap; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .footer { margin-top: 20px; font-size: 11px; color: #666; text-align: center; }
+        @media print { body { padding: 0; } }
+      </style>
+    `)
+    printWindow.document.write('</head><body>')
+
+    printWindow.document.write('<h1>Harga Customer</h1>')
+    printWindow.document.write('<p class="sub">Daftar harga jual khusus per customer</p>')
+    printWindow.document.write(`<p style="text-align: right; font-size: 11px; margin-bottom: 10px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`)
+
+    printWindow.document.write('<table>')
+    printWindow.document.write('<thead>')
+    printWindow.document.write('<tr>')
+    printWindow.document.write('<th class="center">No</th>')
+    printWindow.document.write('<th>Customer</th>')
+    printWindow.document.write('<th>Nama Barang</th>')
+    printWindow.document.write('<th class="center">Status</th>')
+    printWindow.document.write('<th class="right">Harga Standar</th>')
+    printWindow.document.write('<th class="right">Harga Khusus</th>')
+    printWindow.document.write('<th class="right">Selisih</th>')
+    printWindow.document.write('<th class="right">HPP</th>')
+    printWindow.document.write('<th class="right">Margin</th>')
+    printWindow.document.write('<th>Satuan</th>')
+    printWindow.document.write('</tr>')
+    printWindow.document.write('</thead>')
+    printWindow.document.write('<tbody>')
+
+    rows.forEach((r, index) => {
+      const selisih = r.harga - r.standardPrice
+      const margin = marginOf(r)
+      printWindow.document.write(`
+        <tr>
+          <td class="center">${index + 1}</td>
+          <td>${esc(r.customerName)}</td>
+          <td>${esc(r.namaBarang)}</td>
+          <td class="center">${r.isActive ? 'Aktif' : 'Nonaktif'}</td>
+          <td class="right">${rupiah(r.standardPrice)}</td>
+          <td class="right">${rupiah(r.harga)}</td>
+          <td class="right">${selisihText(selisih)}</td>
+          <td class="right">${rupiah(r.hargaPokok)}</td>
+          <td class="right">${r.hargaPokok > 0 ? rupiah(margin) : '-'}</td>
+          <td>${esc(r.satuan || '-')}</td>
+        </tr>
+      `)
+    })
+
+    printWindow.document.write('</tbody></table>')
+    printWindow.document.write('<div class="footer">Total Data: ' + rows.length + '</div>')
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+
+    toast.success('Mencetak daftar harga customer...')
+  }
+
   return (
     <DashboardLayout title="Harga Customer" subtitle="Harga jual khusus per customer — otomatis dipakai saat membuat invoice">
       {!ready ? (
@@ -415,6 +503,16 @@ export default function HargaCustomerPage() {
               </SelectContent>
             </Select>
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                title="Cetak daftar harga customer yang tampil (ikut filter)"
+                data-testid="harga-customer-cetak"
+                className="min-h-[44px] shrink-0 px-3 text-xs"
+              >
+                <Printer className="h-4 w-4" aria-hidden />
+                Cetak
+              </Button>
               {/* Backup & Restore data barang + harga per pelanggan (.xlsx) */}
               <BackupRestoreButtons onRestored={handleRestored} />
               <Button

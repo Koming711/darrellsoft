@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronRight, MapPin, Pencil, Phone, Plus, Power, PowerOff, Search, Trash2, Users,
+  ChevronRight, DatabaseBackup, Loader2, MapPin, Pencil, Phone, Plus, Power, PowerOff, Search, Trash2, Upload, Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
+import { authFetch } from '@/lib/auth-fetch'
 import { onDataChange, notifyDataChange } from '@/lib/data-sync'
 import { cn } from '@/lib/utils'
 import type { Customer, SessionUser } from '@/lib/types'
@@ -72,6 +73,12 @@ export default function CustomersView({
 
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Backup & restore master customer (.xlsx) — endpoint backup-master/restore-master
+  // table=customer (satu sumber dgn backup master halaman lain).
+  const [backupBusy, setBackupBusy] = useState<'backup' | 'restore' | null>(null)
+  const [restoreFile, setRestoreFile] = useState<File | null>(null)
+  const restoreFileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(searchInput.trim()), 300)
@@ -155,6 +162,75 @@ export default function CustomersView({
   const hasResults = customers.length > 0
   const countLabel = loading ? 'Memuat data…' : `${customers.length} pelanggan`
 
+  /** Backup master customer → unduh .xlsx (sheet Laporan + Data) via
+   *  /api/database/backup-master?table=customer — pola sama dgn master lain. */
+  const handleBackup = async () => {
+    setBackupBusy('backup')
+    try {
+      const res = await authFetch('/api/database/backup-master?table=customer')
+      if (!res.ok) {
+        let errMsg = 'Gagal backup data pelanggan'
+        try {
+          const errData = await res.json()
+          errMsg = errData?.error || errMsg
+        } catch {}
+        toast.error(errMsg)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        return
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      a.download = match ? decodeURIComponent(match[1]) : `backup-customer-${Date.now()}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('Backup pelanggan berhasil diunduh')
+    } catch (e) {
+      console.error('Backup customer error:', e)
+      toast.error('Gagal backup data pelanggan')
+    } finally {
+      setBackupBusy(null)
+    }
+  }
+
+  /** Restore: unggah file backup → GANTI semua data pelanggan milik user
+   *  (mode REPLACE via /api/database/restore-master, konfirmasi AlertDialog). */
+  const doRestore = async () => {
+    if (!restoreFile) return
+    setBackupBusy('restore')
+    try {
+      const fd = new FormData()
+      fd.append('file', restoreFile)
+      fd.append('table', 'customer')
+      const res = await authFetch('/api/database/restore-master', {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.success) {
+        toast.success(`Restore pelanggan berhasil (${data.count} data)`)
+        setRestoreFile(null)
+        // Invalidasi smart-cache 'customers' (dropdown invoice di halaman lain ikut segar)
+        notifyDataChange('customers')
+        void load()
+      } else {
+        toast.error(data?.error || 'Gagal restore data pelanggan')
+      }
+    } catch {
+      toast.error('File backup tidak valid')
+    } finally {
+      setBackupBusy(null)
+    }
+  }
+
   /** Klik baris pelanggan → halaman daftar invoice pelanggan tsb. */
   const openCustomerInvoices = (c: Customer) => {
     router.push(`/master-customer/${c.id}`)
@@ -168,7 +244,7 @@ export default function CustomersView({
           <h1 className="text-xl md:text-2xl font-bold tracking-tight">Master Customer</h1>
           <p className="text-sm text-muted-foreground mt-1">{countLabel}</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 pointer-events-none" />
             <Input
@@ -179,14 +255,46 @@ export default function CustomersView({
               className="pl-9 min-h-[44px]"
             />
           </div>
-          <Button
-            onClick={openCreate}
-            disabled={!canAdd}
-            title={canAdd ? 'Tambah pelanggan' : 'Anda tidak memiliki izin menambah pelanggan'}
-            className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4" /> Tambah
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {/* Backup: unduh .xlsx master customer (read-only, tanpa syarat izin) */}
+            <Button
+              variant="outline"
+              onClick={handleBackup}
+              disabled={backupBusy !== null}
+              title="Unduh backup data pelanggan (.xlsx)"
+              className="min-h-[44px] flex-1 sm:flex-none px-3 text-xs sm:text-sm"
+            >
+              {backupBusy === 'backup' ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <DatabaseBackup className="h-4 w-4" aria-hidden />
+              )}
+              Backup
+            </Button>
+            {/* Restore: ganti semua pelanggan dr file backup — butuh izin edit */}
+            <Button
+              variant="outline"
+              onClick={() => restoreFileRef.current?.click()}
+              disabled={backupBusy !== null || !canEdit}
+              title={canEdit ? 'Pulihkan data pelanggan dari file backup (.xlsx) — ganti semua data' : 'Anda tidak memiliki izin mengubah pelanggan'}
+              className="min-h-[44px] flex-1 sm:flex-none px-3 text-xs sm:text-sm"
+            >
+              {backupBusy === 'restore' ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Upload className="h-4 w-4" aria-hidden />
+              )}
+              Restore
+            </Button>
+            <Button
+              onClick={openCreate}
+              disabled={!canAdd}
+              title={canAdd ? 'Tambah pelanggan' : 'Anda tidak memiliki izin menambah pelanggan'}
+              className="bg-emerald-600 hover:bg-emerald-700 min-h-[44px] flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" /> Tambah
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -393,6 +501,56 @@ export default function CustomersView({
         editing={editing}
         onSaved={() => { void load() }}
       />
+
+      {/* Restore pelanggan: pilih file .xlsx → konfirmasi → GANTI semua data */}
+      <input
+        ref={restoreFileRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null
+          e.target.value = '' // izinkan memilih file yang sama lagi nanti
+          if (f) setRestoreFile(f)
+        }}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
+      {/* Konfirmasi restore — mode REPLACE, tidak bisa dibatalkan */}
+      <AlertDialog
+        open={!!restoreFile}
+        onOpenChange={(o) => {
+          if (!o && backupBusy !== 'restore') setRestoreFile(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pulihkan data pelanggan dari file backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Semua data pelanggan yang ada sekarang akan DIGANTI dengan isi file
+              &quot;{restoreFile?.name}&quot;. File backup master customer TIDAK memuat
+              registrasi Harga Khusus — registrasi harga khusus yang terhubung ke
+              pelanggan lama akan ikut terhapus (pulihkan lewat halaman Harga
+              Customer → Restore). Tindakan tidak bisa dibatalkan — pastikan file
+              adalah backup terbaru.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={backupBusy === 'restore'}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={backupBusy === 'restore'}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={(e) => {
+                e.preventDefault()
+                void doRestore()
+              }}
+            >
+              {backupBusy === 'restore' ? 'Memulihkan…' : 'Ya, Restore'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog hapus */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}>

@@ -142,7 +142,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await db.$transaction(async (tx) => {
+    // Timeout dinaikkan 5s → 30s: transaksi default P2028 (expired) saat SQLite
+    // sibuk/dipakai polling endpoint lain — sama dgn fix restore-master.
+    const result = await db.$transaction(
+      async (tx) => {
       // REPLACE: hapus semua barang milik user (registrasi ikut terhapus via cascade)
       await tx.barang.deleteMany({ where: { userId: user.id } })
 
@@ -197,7 +200,9 @@ export async function POST(req: NextRequest) {
       }
 
       return { barangCount, regCount, skippedReg, skippedBarang }
-    })
+      },
+      { timeout: 30000, maxWait: 10000 }
+    )
 
     return NextResponse.json({
       success: true,

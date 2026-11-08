@@ -20,7 +20,7 @@
 
 import { useMemo, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Package, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { Package, Pencil, Plus, Printer, Search, Trash2 } from 'lucide-react'
 import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/client'
@@ -187,6 +187,90 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
     )
   }, [products, search])
 
+  /** Cetak daftar barang (ikut kata kunci pencarian aktif) via jendela print —
+   *  pola sama dgn halaman master lain (master-toko-pemasok, dll). */
+  const handlePrint = () => {
+    if (filtered.length === 0) {
+      toast.error('Tidak ada data barang untuk dicetak')
+      return
+    }
+    // Escape nilai teks agar aman ditulis ke HTML print window
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+    const printWindow = window.open('', '', 'height=800,width=1000')
+    if (!printWindow) {
+      toast.error('Gagal membuka jendela print')
+      return
+    }
+
+    printWindow.document.write('<html><head><title>Daftar Barang</title>')
+    printWindow.document.write(`
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+        h1 { text-align: center; margin-bottom: 16px; font-size: 18px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; white-space: nowrap; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .right { text-align: right; }
+        .center { text-align: center; }
+        .footer { margin-top: 20px; font-size: 11px; color: #666; text-align: center; }
+        @media print { body { padding: 0; } }
+      </style>
+    `)
+    printWindow.document.write('</head><body>')
+
+    printWindow.document.write('<h1>Daftar Barang</h1>')
+    printWindow.document.write(`<p style="text-align: right; font-size: 11px; margin-bottom: 10px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`)
+
+    printWindow.document.write('<table>')
+    printWindow.document.write('<thead>')
+    printWindow.document.write('<tr>')
+    printWindow.document.write('<th class="center">No</th>')
+    printWindow.document.write('<th>Kode</th>')
+    printWindow.document.write('<th>Nama Barang</th>')
+    printWindow.document.write('<th>Satuan</th>')
+    printWindow.document.write('<th class="right">Qty</th>')
+    printWindow.document.write('<th class="right">Harga Modal</th>')
+    printWindow.document.write('<th class="right">Harga Jual</th>')
+    printWindow.document.write('<th class="right">Margin</th>')
+    printWindow.document.write('<th class="center">Harga Khusus</th>')
+    printWindow.document.write('<th>Keterangan</th>')
+    printWindow.document.write('</tr>')
+    printWindow.document.write('</thead>')
+    printWindow.document.write('<tbody>')
+
+    filtered.forEach((p, index) => {
+      const margin = (p.sellPrice ?? 0) - (p.costPrice ?? 0)
+      printWindow.document.write(`
+        <tr>
+          <td class="center">${index + 1}</td>
+          <td>${esc(p.kode || '-')}</td>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.unit || '-')}</td>
+          <td class="right">${formatNum(p.stock ?? 0)}</td>
+          <td class="right">${formatIDR(p.costPrice)}</td>
+          <td class="right">${formatIDR(p.sellPrice)}</td>
+          <td class="right">${formatIDR(margin)}</td>
+          <td class="center">${p.customerPrices?.length ?? 0}</td>
+          <td>${esc(p.keterangan || '-')}</td>
+        </tr>
+      `)
+    })
+
+    printWindow.document.write('</tbody></table>')
+    printWindow.document.write('<div class="footer">Total Data: ' + filtered.length + '</div>')
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+
+    toast.success('Mencetak daftar barang...')
+  }
+
   // Hint margin live di footer dialog (margin = jual - modal, % = margin/jual * 100)
   const marginInfo = useMemo(() => {
     const cost = Number(form.costPrice)
@@ -326,6 +410,15 @@ export default function BarangView({ canAdd = true, canEdit = true, canDelete = 
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={handlePrint}
+            variant="outline"
+            title="Cetak daftar barang yang tampil (ikut pencarian)"
+            className="min-h-[44px] shrink-0 px-3 text-xs"
+          >
+            <Printer aria-hidden />
+            Cetak
+          </Button>
           {/* Backup & Restore data barang + harga per pelanggan (.xlsx) */}
           {canEdit && (
             <BackupRestoreButtons

@@ -1,4 +1,25 @@
 ---
+Task ID: 6
+Agent: Main
+Task: Tombol Cetak (Daftar Barang & Harga Customer) + Backup/Restore (Master Customer) + FIX bug restore-master 500 (transaksi starvation)
+
+Work Log:
+- Permintaan owner: "tambahkan tombol cetak di halaman daftar barang dan halaman harga customer. dihalaman master customer, tambahkan tombol backup dan restore. check and fix"
+- Tombol Cetak Daftar Barang (src/components/views/barang-view.tsx): handlePrint pola window.open+document.write (konvensi master-toko-pemasok) — kolom No/Kode/Nama/Satuan/Qty/Harga Modal/Harga Jual/Margin/Harga Khusus (jml)/Keterangan, mengikuti kata kunci pencarian aktif, nilai teks di-escape HTML; tombol outline "Cetak" di toolbar (sebelum Backup/Restore)
+- Tombol Cetak Harga Customer (src/app/harga-customer/page.tsx): pola sama — kolom No/Customer/Nama Barang/Status/Harga Standar/Harga Khusus/Selisih/HPP/Margin/Satuan, mengikuti filter q/customer/barang/status aktif; tombol "Cetak" di toolbar (sebelum Backup/Restore, data-testid harga-customer-cetak)
+- Tombol Backup & Restore Master Customer (src/components/views/customers-view.tsx): Backup = GET /api/database/backup-master?table=customer → unduh .xlsx (sheet Laporan+Data); Restore = pilih file .xlsx → AlertDialog konfirmasi → POST /api/database/restore-master (multipart, table=customer) → notifyDataChange('customers') + reload; Restore butuh izin master-customer-edit (disabled tanpa izin); peringatan dialog menjelaskan registrasi Harga Khusus yang terhubung ikut terhapus (cascade FK, backup master tidak memuat registrasi — pulihkan via Harga Customer → Restore)
+- FIX BUG "check and fix" (src/app/api/database/restore-master/route.ts): endpoint 500 BERULANG (P2028 "transaction expired" / P1008 "Socket timeout", render 5-17 dtk) — AKAR: di dalam db.$transaction query dijalankan lewat `tableConfig.model` = delegate `db.<model>` (pool utama), BUKAN `tx` → query menunggu koneksi pool yang sedang dipegang transaksinya sendiri (starvation; terbukti via route debug sementara: tx.count 4ms sementara db.<model>.deleteMany 8 dtk hang sampai tx expired). Berdampak ke SEMUA restore master (finishing/paper/printing_cost/toko_pemasok/customer/riwayat). FIX: delegate diambil dari parameter tx via modelName ('Customer'→'customer', dll — nama properti sama dgn yang dipakai backup-master) sehingga delete+create memakai koneksi transaksi yang sama (<10ms); timeout interaktif 5s→30s (cadangan restore besar). restore-harga-per-customer sudah benar (tx.barang) — ikut dinaikkan timeout 30s
+- DB dev (db/custom.db) di-set PRAGMA journal_mode=WAL (persisten di file) — reader polling tidak lagi memblok writer SQLite
+- Versi: SW v189→v190, APP_VERSION/CURRENT_VERSION 2026-11-05-v187→2026-11-05-v188, entri changelog baru v188 "Tombol Cetak Daftar Barang & Harga Customer + Backup/Restore Master Customer"
+- Verifikasi agent-browser (lokal, admin): /barang tombol Cetak → dokumen print 10 kolom 3 baris + footer "Total Data: 3" (baris 1: ITM-002 ongkir pcs 1 Rp 140.000 Rp 150.000 Rp 10.000 1 -); /harga-customer Cetak → dokumen 10 kolom 2 baris (The Kat/ongkir/Aktif/Rp 150.000...); /master-customer Backup → toast "Backup pelanggan berhasil diunduh" + GET backup-master 200; Restore UI round-trip (file backup diinjeksi ke input via DataTransfer) → dialog konfirmasi tampil → "Ya, Restore" → toast "Restore pelanggan berhasil (9 data)", 9 pelanggan tampil kembali; POST restore-master via curl 500→200 dalam 152ms (dari 16,4 dtk); mobile 390px: 3 tombol master-customer & toolbar cetak/backup/restore harga-customer rapi tanpa overflow; console & page error bersih; bunx eslint semua file berubah = 0 error
+- Catatan data: uji round-trip menghapus 2 registrasi harga khusus uji lama (The Kat/ongkir dst) milik admin di DB LOKAL via cascade — data uji saja, produksi tidak tersentuh
+
+Stage Summary:
+- Halaman Daftar Barang & Harga Customer kini punya tombol Cetak (hasil cetak mengikuti pencarian/filter aktif); Master Customer punya tombol Backup (unduh .xlsx) & Restore (ganti semua pelanggan dr file, dengan konfirmasi + peringatan cascade Harga Khusus)
+- Bonus fix besar: endpoint restore-master (semua halaman master) yang selama ini rawan 500 karena query di dalam transaksi memakai pool yang salah kini benar (lewat tx) — restore 9 data dari 16,4 detik gagal menjadi 152ms sukses
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 5
 Agent: Main
 Task: Purchase Order — posisi Subtotal/Total/Terbilang di preview disamakan (sejajar) dengan Invoice

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v187'
+export const CURRENT_VERSION = '2026-11-05-v188'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v188',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Tombol Cetak Daftar Barang & Harga Customer + Backup/Restore Master Customer',
+      en: 'Print Buttons for Product List & Customer Prices + Customer Master Backup/Restore',
+    },
+    items: [
+      {
+        id: 'Halaman Daftar Barang & Harga Customer kini punya tombol Cetak — hasil cetak mengikuti kata kunci pencarian/filter yang sedang aktif',
+        en: 'The Product List & Customer Prices pages now have a Print button — the printout follows the currently active search keyword/filters',
+      },
+      {
+        id: 'Halaman Master Customer kini punya tombol Backup (unduh .xlsx) & Restore (pulihkan dari file backup, dengan konfirmasi dulu) untuk keamanan data pelanggan',
+        en: 'The Customer Master page now has Backup (download .xlsx) & Restore (recover from a backup file, with confirmation first) buttons for customer data safety',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v187',
     date: { id: '5 November 2026', en: '5 November 2026' },
