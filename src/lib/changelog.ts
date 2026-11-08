@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v195'
+export const CURRENT_VERSION = '2026-11-08-v196'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v196',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Tab Riwayat di Hitung Cetakan: Tanggal Kiri No. HC + Tanda Diedit',
+      en: 'History Tab in Hitung Cetakan: Date Left of HC No. + Edited Mark',
+    },
+    items: [
+      {
+        id: 'Di halaman Hitung Cetakan → tab Riwayat, kolom Tanggal dipindah ke SEBELAH KIRI kolom No. HC dengan format singkat dd/mm/yy (mis. 08/11/26)',
+        en: 'In Hitung Cetakan → History tab, the Date column moved to the LEFT of the HC Number column with a short dd/mm/yy format (e.g. 08/11/26)',
+      },
+      {
+        id: 'Riwayat yang pernah diedit & disimpan diberi tanda "Diedit" (badge kuning ikon pensil) — tanggalnya juga berubah jadi tanggal edit & barisnya naik ke paling atas',
+        en: 'Histories that were edited & saved get an "Diedit" (Edited) mark — a yellow badge with a pencil icon; their date becomes the edit date and the row moves to the very top',
+      },
+      {
+        id: 'Filter periode (Hari ini dst) & tanggal di detail rincian ikut memakai tanggal terakhir disimpan',
+        en: 'Period filters (Today etc.) & the date in the detail preview now use the last-saved date',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v195',
     date: { id: '8 November 2026', en: '8 November 2026' },

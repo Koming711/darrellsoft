@@ -1,4 +1,21 @@
 ---
+Task ID: 17
+Agent: Main
+Task: Halaman Hitung Cetakan → tab Riwayat Hitung Cetakan — kolom Tanggal (dd/mm/yy) pindah kiri No. HC + tanda "Diedit" bila pernah diedit
+
+Work Log:
+- Permintaan owner: "dihalaman hitung cetakan, tab riwayat hitung cetakan, kolom tanggal formatnya dd/mm/yy dipindah ke samping sebelah kiri kolom no hc. tambahkan tanda edit, apabila di edit." (target = tab Riwayat DI DALAM halaman /hitung-cetakan, BUKAN halaman /riwayat-hitung-cetakan yang sudah beres di Task 15/16)
+- DIAGNOSA (src/app/hitung-cetakan/page.tsx): tabel tab Riwayat urutannya No. | No. HC | No. PK | Tanggal — Tanggal di posisi 4 dgn format panjang "08 Nov 2026" (id-ID long) & memakai createdAt; tidak ada penanda pernah diedit; filter periode (line ±589) & recordDate preview (±1941) juga memakai createdAt.
+- FIX (src/app/hitung-cetakan/page.tsx): (a) helper module-level baru: effectiveDateOfRiwayat (updatedAt || createdAt), isRiwayatEdited (updatedAt−createdAt > 2 dtk, toleransi sama dgn halaman riwayat), formatTanggalDdMmYy (dd/mm/yy), DieditBadge (badge amber ikon pensil, sama persis gaya dgn halaman riwayat); formatTanggalPendek lama dihapus (konsumen tunggalnya diganti). (b) Tabel desktop: header & body — kolom Tanggal dipindah ke posisi 2, SEBELAH KIRI "No. HC" → urutan baru No. | Tanggal | No. HC | No. PK | Customer | ...; sel Tanggal = dd/mm/yy (tanggal efektif) + DieditBadge bila isRiwayatEdited. (c) Kartu mobile: tanggal "20 Sep, 13.31" → dd/mm/yy + DieditBadge. (d) Filter periode memakai tanggal efektif → riwayat lama yang diedit hari ini ikut "Hari ini". (e) recordDate preview detail memakai tanggal efektif (konsisten). (f) Urutan list TIDAK diubah — API /api/riwayat-cetakan sudah orderBy updatedAt desc (Task 15) → baris yang diedit otomatis di atas.
+- Verifikasi agent-browser (admin/268899, desktop 1440x900): (a) header tab: No. | Tanggal | No. HC | No. PK | ... ✓; sel: "08/11/26 [Diedit]" di kiri HC/11/26/xxxx ✓; (b) E2E dalam tab: klik baris 0036 (posisi 3) → preview → Edit → editor mode "Update Riwayat" nomor HC/11/26/0036 → Update → PUT 200 (dev.log) → kembali tab: urutan [0036, 0037, 0038] — 0036 NAIK KE ATAS, nomor tetap, 08/11/26 + Diedit ✓; (c) mobile 390x844: kartu pertama 0036, tanggal 08/11/26 + badge Diedit rapi ✓. Screenshot: tool-results/hc-tab-before.png, hc-tab-mobile.png.
+- INSIDEN: dev server mati saat verifikasi pertama (ERR_CONNECTION_REFUSED; proses next hilang tanpa jejak OOM/crash di dev.log — kemungkinan tewas saat hot-reload file 3.7k baris). Restart `bun run dev` background → normal, semua verifikasi ulang sukses.
+- Versi: SW v197→v198, APP_VERSION/CURRENT_VERSION 2026-11-08-v195→2026-11-08-v196, entri changelog v196 "Tab Riwayat di Hitung Cetakan: Tanggal Kiri No. HC + Tanda Diedit". BELUM dideploy.
+- Lint: bunx eslint 3 file ubah = 0 error.
+
+Stage Summary:
+- Di dalam halaman Hitung Cetakan, tab Riwayat Hitung Cetakan kini menampilkan kolom Tanggal di sebelah kiri kolom No. HC dengan format dd/mm/yy, dan baris yang pernah diedit & disimpan bertanda "Diedit" (tanggalnya berubah jadi tanggal edit dan otomatis naik ke paling atas). Kartu mobile, filter periode, dan tanggal di detail rincian ikut konsisten.
+
+---
 Task ID: 16
 Agent: Main
 Task: Riwayat Hitung Cetakan — verifikasi ulang fitur edit (tanggal kiri No HC + tanda "Diedit") & label kolom nomor jadi "No HC"/"No PK"
