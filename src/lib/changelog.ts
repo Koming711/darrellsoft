@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v192'
+export const CURRENT_VERSION = '2026-11-08-v193'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v193',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Klik "Hitung Cetakan Lengkap" Kini Langsung Terbuka Tanpa Menunggu',
+      en: '"Hitung Cetakan Lengkap" Button Now Opens Instantly Without Waiting',
+    },
+    items: [
+      {
+        id: 'Di halaman Potong Kertas, klik "Hitung Cetakan Lengkap" langsung membuka halaman Hitung Cetakan seketika — hitung otomatis potongan, simpan riwayat & cek relasi berjalan di belakang layar (dulu menunggu semuanya selesai dulu)',
+        en: 'On the Paper Cutting page, tapping "Hitung Cetakan Lengkap" now opens the Hitung Cetakan page instantly — auto cutting calculation, history saving & relation checks run in the background (previously everything was awaited first)',
+      },
+      {
+        id: 'Hasil potongan tetap otomatis terisi di form Hitung Cetakan beberapa saat kemudian (ukuran kertas terpilih, harga/lembar, dst.), termasuk nomor Potong Kertas agar riwayat tetap ter-link (kolom No. PK)',
+        en: 'Cutting results still auto-fill the Hitung Cetakan form moments later (selected paper size, price per sheet, etc.), including the Potong Kertas number so histories stay linked (No. PK column)',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v192',
     date: { id: '8 November 2026', en: '8 November 2026' },

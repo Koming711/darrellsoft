@@ -943,6 +943,63 @@ function HitungCetakanPage() {
     }
   }, [searchParams])
 
+  // ===== Hasil Potong Kertas via BACKGROUND (tombol "Hitung Cetakan Lengkap"
+  // kini membuka halaman ini LANGSUNG tanpa menunggu — permintaan owner):
+  // hasil optimasi potongan + id riwayat Potong Kertas dikirim menyusul dari
+  // halaman potong-kertas lewat (1) event 'pk-to-hc-cutinfo', dan (2) titipan
+  // sessionStorage 'pk-to-hc-pending-apply' — karena optimasi bisa selesai
+  // LEBIH CEPAT dari transisi halaman sehingga event terkirim sebelum listener
+  // halaman ini terpasang; titipan dibaca saat mount (hanya bila masih segar).
+  useEffect(() => {
+    const applyPkCutInfo = (d: {
+      paperLength?: number; paperWidth?: number; cutWidth?: number; cutHeight?: number
+      paperId?: string; paperName?: string; grammage?: number; pricePerSheet?: number
+      totalPaperPrice?: number; sheetsNeeded?: number; pkRiwayatId?: string
+    }) => {
+      if (d.pkRiwayatId) pkLinkRiwayatIdRef.current = d.pkRiwayatId
+      // Angka hasil hanya dikirim bila optimasi memang baru dijalankan di
+      // background (freshCalc) — jangan menimpa form bila tidak ada angka baru.
+      const pl = Number(d.paperLength) || 0
+      const pwi = Number(d.paperWidth) || 0
+      const pps = Number(d.pricePerSheet) || 0
+      if (!(pl > 0 && pwi > 0 && pps > 0)) return
+      const paper = papers.find(p => p.id === d.paperId)
+      const kgLen = paper?.width || pl
+      const kgWid = paper?.height || pwi
+      const kgGsm = paper?.grammage || d.grammage || 0
+      setFormData(prev => ({
+        ...prev,
+        paperLength: String(pl),
+        paperWidth: String(pwi),
+        ...(d.cutWidth ? { cutWidth: String(d.cutWidth) } : {}),
+        ...(d.cutHeight ? { cutHeight: String(d.cutHeight) } : {}),
+        ...(d.paperId ? { paperId: d.paperId } : {}),
+        pricePerSheet: String(pps),
+        pricePerKg: sheetToKgPrice(pps, kgLen, kgWid, kgGsm),
+      }))
+      if (d.totalPaperPrice) setTotalPaperPrice(d.totalPaperPrice)
+      toast.success('Hasil hitung potong kertas diterapkan otomatis.')
+    }
+    // (2) titipan sessionStorage — dibaca sekali saat mount (maks 20 detik umur)
+    try {
+      const raw = sessionStorage.getItem('pk-to-hc-pending-apply')
+      if (raw) {
+        sessionStorage.removeItem('pk-to-hc-pending-apply')
+        const d = JSON.parse(raw)
+        if (d && typeof d.savedAt === 'number' && (Date.now() - d.savedAt) < 20000) applyPkCutInfo(d)
+      }
+    } catch {}
+    // (1) event untuk hasil yang selesai setelah halaman ter-mount
+    const onPkCutInfo = (ev: Event) => {
+      const d = (ev as CustomEvent).detail as Record<string, unknown> | null
+      if (!d) return
+      try { sessionStorage.removeItem('pk-to-hc-pending-apply') } catch {}
+      applyPkCutInfo(d as Parameters<typeof applyPkCutInfo>[0])
+    }
+    window.addEventListener('pk-to-hc-cutinfo', onPkCutInfo)
+    return () => window.removeEventListener('pk-to-hc-cutinfo', onPkCutInfo)
+  }, [papers])
+
   const fetchCustomers = async () => {
     try {
       const response = await fetcher('/api/customers', { headers: getAuthHeaders() })

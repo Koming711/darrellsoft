@@ -2136,64 +2136,73 @@ function CalculatorPage() {
                 return
               }
               if (preparingHc) return
-              // === KLIK LANGSUNG (permintaan owner): bila hasil potongan belum ada
-              // / input berubah (needsRecalc), hitung OTOMATIS dulu di sini — tombol
-              // tidak lagi menuntut klik "Hitung Potongan"/"Hitung & Pilih Terbaik"
-              // terlebih dahulu. Bila input belum cukup utk menghitung, tetap
-              // lanjut membawa data form yang ada (tanpa angka hasil potongan).
-              const needAutoCalc = !results || needsRecalc
-              let freshCalc: { res: CuttingResult; paperId: string } | null = null
-              if (needAutoCalc) {
-                setPreparingHc(true)
-                freshCalc = await autoCalcFreshResults()
-                setPreparingHc(false)
-                if (freshCalc) toast.success('Potongan dihitung otomatis')
-              }
-              // Hasil aktif: dari auto-hitung barusan; bila hasil lama basi
-              // (needsRecalc) dan hitung ulang gagal → pakai data form mentah saja,
-              // jangan membawa angka basi.
-              const activeRes: CuttingResult | null = freshCalc?.res ?? (needsRecalc ? null : results)
-              // Form kosong total & tak ada yang bisa dihitung → jangan pindah halaman
+              // === TANPA DELAY (permintaan owner): klik → LANGSUNG pindah ke
+              // halaman Hitung Cetakan. Optimasi potongan, simpan riwayat, dan
+              // cek relasi HC dijalankan DI BELAKANG setelah navigasi (bukan
+              // ditunggu dulu); hasilnya dititipkan ke halaman HC via event
+              // 'pk-to-hc-cutinfo' (listener ada di src/app/hitung-cetakan/page.tsx).
+
+              // Guard sinkron (tanpa network): form kosong total & tak ada hasil
+              // segar → jangan pindah halaman.
+              const hasFreshResults = !!results && !needsRecalc
               const hasAnyData = !!printName || !!selectedCustomerId || !!jumlahPesanan ||
                 !!(parseFloat(cutWidth) > 0) || !!(parseFloat(cutHeight) > 0) ||
                 !!(parseInt(computedQuantity || quantity) > 0)
-              if (!activeRes && !hasAnyData) {
+              if (!hasFreshResults && !hasAnyData) {
                 toast.error('Isi data potongan terlebih dahulu!')
                 return
               }
-              // Navigasi langsung ke hitung cetakan
+
+              // Helper: payload rincian potong utk sessionStorage (pk-to-hc-cutInfo)
+              const buildCutInfo = (res: CuttingResult, pkId: string | null) => {
+                const wasteAreas: WasteArea[] = (Array.isArray(res.wasteAreas) && res.wasteAreas.length > 0)
+                  ? res.wasteAreas
+                  : (() => { try { return computeWasteAreas(res.paperWidth, res.paperHeight, res.blocks || [], res.cutWidth, res.cutHeight) } catch { return [] as WasteArea[] } })()
+                return {
+                  nomorPotong: pkId ? (riwayatList.find(x => x.id === pkId)?.nomorUrut || nextPotongKertasNumber || '') : (nextPotongKertasNumber || ''),
+                  bahan: res.paperMaterial || selectedPaper?.name || restoredPaperName || 'Custom',
+                  grammage: res.grammage > 0 ? String(res.grammage) : (grammage || '0'),
+                  ukuranKertas: `${res.paperWidth} × ${res.paperHeight} cm`,
+                  ukuranPotongan: `${res.cutWidth} × ${res.cutHeight} cm`,
+                  potonganPerLembar: res.totalPieces,
+                  lembarDibutuhkan: res.sheetsNeeded,
+                  totalBiayaKertas: res.totalPrice,
+                  efisiensi: res.efficiency,
+                  strategy: res.strategy || '',
+                  sisa: wasteAreas.map(w => ({ label: w.label, ukuran: `${w.width} × ${w.height} cm`, luas: w.area, status: w.statusLabel })),
+                  savedAt: new Date().toISOString(),
+                }
+              }
+
+              // === Params dari state SAAT INI (sinkron): hasil segar bila ada
+              // (user sudah klik Hitung Potongan), kalau tidak, data form mentah
+              // apa adanya — angka hasil menyusul via event pk-to-hc-cutinfo.
+              const activeResNow: CuttingResult | null = hasFreshResults ? results : null
               const params = new URLSearchParams()
               if (selectedCustomer?.name) params.set('customerName', selectedCustomer.name)
               if (printName) params.set('printName', printName)
               if (selectedCustomerId) params.set('customerId', selectedCustomerId)
-              if (paperWidth) params.set('paperLength', paperWidth)
-              if (paperHeight) params.set('paperWidth', paperHeight)
               const effectiveQuantity = computedQuantity || quantity
               if (effectiveQuantity) params.set('quantity', effectiveQuantity)
               if (jumlahPesanan) params.set('jumlahPesanan', jumlahPesanan)
               if (berapaMata) params.set('berapaMata', berapaMata)
               if (setelanKertas) params.set('setelanKertas', setelanKertas)
-              // === Ukuran kertas/potongan & angka hasil: utamakan dari hasil hitung
-              // aktif (lama atau hasil auto-hitung barusan) — state form di closure
-              // bisa basi saat auto-hitung mode otomatis baru selesai (ukuran kertas
-              // diisi dari kandidat Master Kertas).
-              if (activeRes) {
-                params.set('paperLength', String(activeRes.paperWidth))
-                params.set('paperWidth', String(activeRes.paperHeight))
-                params.set('cutWidth', String(activeRes.cutWidth))
-                params.set('cutHeight', String(activeRes.cutHeight))
-                const activePaperId = freshCalc?.paperId || (selectedPaperId && selectedPaperId !== 'custom' ? selectedPaperId : '')
-                if (activePaperId) params.set('paperId', activePaperId)
-                const activePaperName = activeRes.paperMaterial || selectedPaper?.name || restoredPaperName || ''
+              if (activeResNow) {
+                params.set('paperLength', String(activeResNow.paperWidth))
+                params.set('paperWidth', String(activeResNow.paperHeight))
+                params.set('cutWidth', String(activeResNow.cutWidth))
+                params.set('cutHeight', String(activeResNow.cutHeight))
+                if (selectedPaperId && selectedPaperId !== 'custom') params.set('paperId', selectedPaperId)
+                const activePaperName = activeResNow.paperMaterial || selectedPaper?.name || restoredPaperName || ''
                 if (activePaperName) params.set('paperName', activePaperName)
-                const activeGrammage = activeRes.grammage > 0 ? String(activeRes.grammage) : (grammage || '')
+                const activeGrammage = activeResNow.grammage > 0 ? String(activeResNow.grammage) : (grammage || '')
                 if (activeGrammage) params.set('grammage', activeGrammage)
-                const activePrice = activeRes.pricePerSheet > 0 ? String(Math.round(activeRes.pricePerSheet)) : (pricePerSheet || '')
+                const activePrice = activeResNow.pricePerSheet > 0 ? String(Math.round(activeResNow.pricePerSheet)) : (pricePerSheet || '')
                 if (activePrice) params.set('pricePerSheet', activePrice)
-                if (activeRes.totalPrice) params.set('totalPaperPrice', activeRes.totalPrice.toString())
-                if (activeRes.sheetsNeeded) params.set('sheetsNeeded', activeRes.sheetsNeeded.toString())
-                if (activeRes.totalPieces) params.set('totalPieces', activeRes.totalPieces.toString())
-                if (activeRes.efficiency) params.set('efficiency', activeRes.efficiency.toString())
+                if (activeResNow.totalPrice) params.set('totalPaperPrice', activeResNow.totalPrice.toString())
+                if (activeResNow.sheetsNeeded) params.set('sheetsNeeded', activeResNow.sheetsNeeded.toString())
+                if (activeResNow.totalPieces) params.set('totalPieces', activeResNow.totalPieces.toString())
+                if (activeResNow.efficiency) params.set('efficiency', activeResNow.efficiency.toString())
               } else {
                 // Tidak ada hasil hitung → bawa data form mentah apa adanya
                 if (paperWidth) params.set('paperLength', paperWidth)
@@ -2208,39 +2217,72 @@ function CalculatorPage() {
               params.set('fromPotongKertas', '1')
               params.set('reset', '1')
 
-              // === Tentukan id riwayat Potong Kertas yang terhubung, agar riwayat
-              // Hitung Cetakan yang disimpan dari sini SELALU ter-link (kolom "No. PK"
-              // di Riwayat Hitung Cetakan terisi nomor Potong Kertas-nya):
+              // === id riwayat Potong Kertas yang SUDAH ketahuan lokal (tanpa network):
               // a) sedang mengedit riwayat potong kertas → pakai id-nya;
-              // b) data form identik dengan riwayat yang sudah ada (mis. baru disimpan) → pakai id tsb;
-              // c) data baru → simpan riwayatnya DULU (tunggu sebentar) supaya id-nya jelas;
-              //    bila gagal simpan, tetap lanjut tanpa link (tidak memblokir pekerjaan).
+              // b) data form identik dengan riwayat yang sudah ada → pakai id tsb.
+              // (c) data baru → id diperoleh dari simpan di BACKGROUND, lalu dikirim
+              // ke HC via event pk-to-hc-cutinfo.
               let pkIdToLink: string | null = restoredRiwayatId
-              if (!pkIdToLink && activeRes) {
+              if (!pkIdToLink && activeResNow) {
+                const same = findSameRiwayat()
+                if (same) pkIdToLink = same.id
+              }
+              // Saat mengedit / terhubung riwayat potong kertas: kirim id-nya agar
+              // Hitung Cetakan melanjutkan riwayat hitung cetakan yang pernah
+              // dibuat dari data ini (simpan = update / simpan baru dgn link), bukan
+              // membuat riwayat yang lepas hubungan.
+              if (pkIdToLink) params.set('pkRiwayatId', pkIdToLink)
+              // Rincian potong via sessionStorage (sinkron, hanya bila hasil segar ada)
+              if (activeResNow) {
+                try { sessionStorage.setItem('pk-to-hc-cutInfo', JSON.stringify(buildCutInfo(activeResNow, pkIdToLink))) } catch {}
+              }
+              // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
+              // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
+              if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
+              else sessionStorage.removeItem('pk-to-hc-photoUrl')
+              // Bersihkan sisa apply yang tertinggal dari klik sebelumnya (stale)
+              try { sessionStorage.removeItem('pk-to-hc-pending-apply') } catch {}
+
+              // >>> NAVIGASI LANGSUNG — tidak menunggu optimasi / simpan / cek relasi <<<
+              router.push(`/hitung-cetakan?${params.toString()}`)
+
+              // ===== BACKGROUND (halaman sudah pindah): optimasi + simpan riwayat +
+              // cek relasi HC. Komponen lama sudah unmount → setState jadi no-op,
+              // tapi fetch/sessionStorage/localStorage/router/toast tetap berjalan.
+              let freshCalc: { res: CuttingResult; paperId: string } | null = null
+              if (!hasFreshResults) {
+                // Klik langsung tanpa hasil: hitung otomatis di background. Bila
+                // input belum cukup utk menghitung → null; data mentah sudah
+                // terkirim ke HC (sama seperti perilaku lama).
+                freshCalc = await autoCalcFreshResults()
+              }
+              const activeRes: CuttingResult | null = freshCalc?.res ?? activeResNow
+              if (!activeRes) return
+
+              if (!pkIdToLink) {
                 const same = findSameRiwayat()
                 if (same) pkIdToLink = same.id
               }
               // === ANTI-DUPLIKAT (§10): bila riwayat PK ini sudah punya Hitung
-              // Cetakan terhubung → BUKA data itu (jangan buat pekerjaan baru).
+              // Cetakan terhubung → GANTI halaman HC yang terbuka dgn data itu
+              // (jangan buat pekerjaan baru).
               if (pkIdToLink) {
                 try {
                   const linkRes = await fetcher(`/api/potong-cetakan-sync?pkId=${encodeURIComponent(pkIdToLink)}`, { headers: getAuthHeaders() })
                   if (linkRes.ok) {
-                    const linkData = await linkRes.json()
-                    if (linkData.linkedHc?.id) {
-                      // Data riwayat sudah ada & terhubung → auto-reset form sebelum pindah
+                    const linkData = await linkRes.json().catch(() => null)
+                    if (linkData?.linkedHc?.id) {
                       resetFormFields()
-                      router.push(`/hitung-cetakan?loadRiwayat=${linkData.linkedHc.id}&fromPotongKertas=1`)
+                      toast.info('Data ini sudah punya Hitung Cetakan terhubung — dibuka.')
+                      router.replace(`/hitung-cetakan?loadRiwayat=${linkData.linkedHc.id}&fromPotongKertas=1`)
                       return
                     }
                   }
                 } catch {}
-              }
-              // Auto-simpan riwayat hanya bila ada hasil hitung (riwayat tanpa
-              // hasil = data tidak lengkap); kirim hasil segar agar payload
-              // konsisten — state `results` bisa basi saat auto-hitung baru jalan.
-              if (activeRes && !pkIdToLink && !isDataSameAsAnyRiwayat()) {
-                setPreparingHc(true)
+              } else if (!isDataSameAsAnyRiwayat()) {
+                // Auto-simpan riwayat hanya bila ada hasil hitung (riwayat tanpa
+                // hasil = data tidak lengkap); kirim hasil segar agar payload
+                // konsisten.
                 try {
                   const res = await fetcher('/api/riwayat-potong-kertas', {
                     method: 'POST',
@@ -2254,47 +2296,40 @@ function CalculatorPage() {
                     fetchRiwayat()
                   }
                 } catch {}
-                setPreparingHc(false)
               }
 
-              // Saat mengedit / terhubung riwayat potong kertas: kirim id-nya agar
-              // Hitung Cetakan melanjutkan riwayat hitung cetakan yang pernah
-              // dibuat dari data ini (simpan = update / simpan baru dgn link), bukan
-              // membuat riwayat yang lepas hubungan.
-              if (pkIdToLink) params.set('pkRiwayatId', pkIdToLink)
-              // Kirim RINCIAN POTONG (efisiensi + rincian area sisa) ke Hitung Cetakan
-              // via sessionStorage — data ini berasal dari riwayat Potong Kertas yang
-              // ter-link (pkRiwayatId), bukan dikarang. Data URL terlalu besar utk query.
-              try {
-                if (activeRes) {
-                  const wasteAreas: WasteArea[] = (Array.isArray(activeRes.wasteAreas) && activeRes.wasteAreas.length > 0)
-                    ? activeRes.wasteAreas
-                    : (() => { try { return computeWasteAreas(activeRes.paperWidth, activeRes.paperHeight, activeRes.blocks || [], activeRes.cutWidth, activeRes.cutHeight) } catch { return [] as WasteArea[] } })()
-                  sessionStorage.setItem('pk-to-hc-cutInfo', JSON.stringify({
-                    nomorPotong: pkIdToLink ? (riwayatList.find(x => x.id === pkIdToLink)?.nomorUrut || nextPotongKertasNumber || '') : (nextPotongKertasNumber || ''),
-                    bahan: activeRes.paperMaterial || selectedPaper?.name || restoredPaperName || 'Custom',
-                    grammage: activeRes.grammage > 0 ? String(activeRes.grammage) : (grammage || '0'),
-                    ukuranKertas: `${activeRes.paperWidth} × ${activeRes.paperHeight} cm`,
-                    ukuranPotongan: `${activeRes.cutWidth} × ${activeRes.cutHeight} cm`,
-                    potonganPerLembar: activeRes.totalPieces,
-                    lembarDibutuhkan: activeRes.sheetsNeeded,
-                    totalBiayaKertas: activeRes.totalPrice,
-                    efisiensi: activeRes.efficiency,
-                    strategy: activeRes.strategy || '',
-                    sisa: wasteAreas.map(w => ({ label: w.label, ukuran: `${w.width} × ${w.height} cm`, luas: w.area, status: w.statusLabel })),
-                    savedAt: new Date().toISOString(),
-                  }))
-                }
-              } catch {}
-              // Foto lampiran ikut dibawa ke editor Hitung Cetakan.
-              // Data URL (≤300KB) terlalu besar untuk query string → kirim via sessionStorage.
-              if (photoUrl) sessionStorage.setItem('pk-to-hc-photoUrl', photoUrl)
-              else sessionStorage.removeItem('pk-to-hc-photoUrl')
+              // Kirim hasil akhir ke halaman HC yang sudah terbuka: angka hasil
+              // (bila optimasi memang baru dijalankan di background) + id link
+              // riwayat PK (bila sudah jelas). Data juga dititipkan ke sessionStorage
+              // (pk-to-hc-pending-apply) karena event bisa terkirim SEBELUM halaman
+              // HC selesai ter-mount (optimasi lokal/cepat) — HC membaca titipan
+              // ini saat mount, listener event menangani yang datang belakangan.
+              const applyPayload: Record<string, unknown> = {
+                ...(freshCalc ? {
+                  paperLength: activeRes.paperWidth,
+                  paperWidth: activeRes.paperHeight,
+                  cutWidth: activeRes.cutWidth,
+                  cutHeight: activeRes.cutHeight,
+                  paperId: freshCalc.paperId || (selectedPaperId && selectedPaperId !== 'custom' ? selectedPaperId : '') || '',
+                  paperName: activeRes.paperMaterial || selectedPaper?.name || restoredPaperName || '',
+                  grammage: activeRes.grammage > 0 ? activeRes.grammage : (parseInt(grammage) || 0),
+                  pricePerSheet: activeRes.pricePerSheet > 0 ? Math.round(activeRes.pricePerSheet) : (parseFloat(pricePerSheet) || 0),
+                  totalPaperPrice: activeRes.totalPrice,
+                  sheetsNeeded: activeRes.sheetsNeeded,
+                } : {}),
+                pkRiwayatId: pkIdToLink || '',
+              }
+              try { sessionStorage.setItem('pk-to-hc-cutInfo', JSON.stringify(buildCutInfo(activeRes, pkIdToLink))) } catch {}
+              if (applyPayload.pkRiwayatId || applyPayload.paperLength) {
+                try { sessionStorage.setItem('pk-to-hc-pending-apply', JSON.stringify({ ...applyPayload, savedAt: Date.now() })) } catch {}
+              }
+              window.dispatchEvent(new CustomEvent('pk-to-hc-cutinfo', { detail: applyPayload }))
+
               // Data sudah tersimpan di riwayat (id baru / ter-link / identik dgn yang ada)
-              // → auto-reset form sebelum pindah halaman (permintaan owner).
-              // Bila simpan GAGAL (pkIdToLink null), form TIDAK direset agar data tidak hilang.
+              // → auto-reset form (permintaan owner). Bila simpan GAGAL (pkIdToLink
+              // null), form TIDAK direset agar data tidak hilang. Komponen lama sudah
+              // unmount (setState no-op) tapi pembersihan localStorage tetap jalan.
               if (pkIdToLink) resetFormFields()
-              router.push(`/hitung-cetakan?${params.toString()}`)
             }}
             disabled={preparingHc}
             style={{

@@ -1,4 +1,21 @@
 ---
+Task ID: 14
+Agent: Main
+Task: Potong Kertas — klik "Hitung Cetakan Lengkap" langsung pindah halaman TANPA delay
+
+Work Log:
+- Permintaan owner: "dihalaman potong kertas, apabila diklik hitung cetakan lengkap maka langsung menuju halaman hitung cetakan tanpa delay. fix"
+- DIAGNOSA (handler tombol, src/app/potong-kertas/page.tsx ±line 2120): klik dulu MENUNGGU 4 hal async sebelum router.push: (1) autoCalcFreshResults → POST /api/potong-kertas/optimize (brute force, 150–400ms+; penyumbang delay terbesar), (2) GET /api/potong-cetakan-sync (cek anti-dup §10), (3) POST /api/riwayat-potong-kertas (auto-simpan riwayat PK), (4) PUT save saat edit riwayat dirty → total terasa beberapa detik.
+- FIX (potong-kertas/page.tsx): handler dirombak jadi SINKRON + BACKGROUND: guard form-kosong tetap sinkron (toast "Isi data potongan terlebih dahulu!", tidak pindah); params URL dibangun dari state saat ini — hasil segar (results && !needsRecalc) → angka lengkap via URL; bila belum dihitung → data mentah dulu, angka menyusul; id PK yang sudah ketahuan lokal (restoredRiwayatId / findSameRiwayat) langsung dikirim sbg pkRiwayatId; sessionStorage cutInfo+foto ditulis sinkron → router.push LANGSUNG → SISANYA jalan di background SETELAH navigasi (komponen lama unmount → setState no-op, tapi fetch/sessionStorage/localStorage/router/toast tetap jalan): autoCalcFreshResults → cari/simpan riwayat PK → GET anti-dup §10 (bila linkedHc ada → router.replace ke HC lama + toast info) → tulis cutInfo + sessionStorage 'pk-to-hc-pending-apply' + dispatch event 'pk-to-hc-cutinfo' → resetFormFields (localStorage bersih; gagal simpan → form dipertahankan, perilaku lama tetap).
+- RACE DITEMUKAN SAAT VERIFIKASI: optimasi bisa selesai LEBIH CEPAT dr transisi halaman (optimize 238ms < mount HC ±800ms) → event terkirim sebelum listener HC terpasang → angka hilang. FIX (hitung-cetakan/page.tsx): effect baru — (1) listener event 'pk-to-hc-cutinfo' menerapkan angka (paperLength/Width dari kandidat, cutWidth/Height, paperId, pricePerSheet, pricePerKg=derive, totalPaperPrice) + pkRiwayatId → pkLinkRiwayatIdRef; (2) saat MOUNT baca titipan sessionStorage 'pk-to-hc-pending-apply' (umur <20 dtk) utk hasil yg tiba sebelum mount; kunci dibersihkan di awal setiap klik (stale) & saat diterapkan.
+- FAST PATH DIPERTAHANKAN: pkHcLink?.hcId (label tombol "Buka Hitung Cetakan" — data form cocok riwayat yg punya HC terhubung via currentPkId useMemo yang sudah ada) → router.push loadRiwayat LANGSUNG; saveRestoredBeforeHc hanya blocking saat dirty (jarang); anti-dup §10 tetap terjaga (fast path + background GET + replace).
+- Verifikasi agent-browser (admin/268899): (a) klik-langsung Ivory 210gsm 21.5×28 1000×4 → navigasi 824–1001ms (murni transisi route; dulu optimasi+simpan+cek ditunggu dulu) → form HC terisi otomatis sesaat kemudian: kertas 65×100, Harga/Lembar 2157, Harga/kg 15802, Sub Total Rp 53.925 = persis hitungan PK, Nama Bahan "Ivory (65x100, 210gsm)" ✓; (b) hasil segar (sudah Hitung & Pilih Terbaik) → navigasi 329ms, semua angka langsung via URL ✓; (c) background POST riwayat PK 201 + form PK auto-reset saat kembali (localStorage dibersihkan background) ✓; (d) anti-dup: HC disimpan → data sama di PK → tombol "Buka Hitung Cetakan" → klik membuka HC/11/26/0037 yang LAMA ✓; (e) form kosong → toast error, tidak pindah ✓; (f) mobile 390x844 + desktop 1440x900 OK; bunx eslint 0 error; dev.log bersih
+- Versi: SW v194→v195, APP_VERSION/CURRENT_VERSION 2026-11-08-v192→2026-11-08-v193, entri changelog v193 "Klik Hitung Cetakan Lengkap Kini Langsung Terbuka Tanpa Menunggu" — BELUM dideploy
+
+Stage Summary:
+- Klik "Hitung Cetakan Lengkap" di halaman Potong Kertas kini langsung membuka halaman Hitung Cetakan tanpa menunggu apa pun; perhitungan otomatis, penyimpanan riwayat, dan pemeriksaan relasi berjalan di belakang layar, dan hasil potongan tetap mengisi form Hitung Cetakan otomatis sesaat kemudian (termasuk link No. PK). Anti-duplikat & guard form kosong tetap berfungsi.
+
+---
 Task ID: 13
 Agent: Main
 Task: Potong Kertas — tombol "Hitung Cetakan Lengkap" nonaktif disamakan dgn tampilan tombol Preview nonaktif
