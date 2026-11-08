@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import ExcelJS from 'exceljs'
 import { pruneOldBackups } from '@/lib/backup-retention'
+import { logAudit } from '@/lib/audit'
 
 function getUserFromRequest(req: NextRequest) {
   let userId = req.cookies.get('userId')?.value
@@ -206,6 +207,12 @@ export async function POST(req: NextRequest) {
       // Retensi maks 7 file (FIFO): setelah backup baru tersimpan,
       // buang backup tertua agar riwayat hanya berisi 7 backup terakhir.
       await pruneOldBackups()
+
+      await logAudit({
+        aktorId: user.id,
+        aksi: 'database-backup',
+        detail: { fileName: jsonFileName, rowCount: totalRows, size, tableCount },
+      })
     } catch (saveError) {
       console.warn(
         'Salinan backup ke database dilewati:',

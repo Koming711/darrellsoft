@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAuth } from '@/lib/server-auth'
+import { requireAuth, getServerUser } from '@/lib/server-auth'
 import { pruneOldBackups } from '@/lib/backup-retention'
+import { logAudit } from '@/lib/audit'
 import fs from 'fs'
 import path from 'path'
 
@@ -118,6 +119,8 @@ export async function DELETE(req: NextRequest) {
 
     const deleted = await db.backupFile.deleteMany({ where: { fileName } })
     if (deleted.count > 0) {
+      const user = getServerUser(req)
+      await logAudit({ aktorId: user?.id, aksi: 'backup-delete', detail: { fileName } })
       return NextResponse.json({ success: true, message: 'Backup berhasil dihapus' })
     }
     return NextResponse.json({ error: 'File tidak ditemukan' }, { status: 404 })

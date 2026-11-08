@@ -1,6 +1,7 @@
 'use client'
 
-import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun } from 'lucide-react'
+import { Wrench, Save, Database, Palette, Monitor, Percent, Loader2, RefreshCw, CalendarDays, Clock, UserCircle, Upload, X, ImageIcon, Download, Trash2, HardDrive, AlertTriangle, RotateCcw, FileJson, Timer, Pipette, Undo2, Camera, ArrowUpDown, Landmark, Eye, ChevronDown, ChevronUp, Building2, Phone, Mail, MapPin, CreditCard, Hash, FileText, Moon, Sun, FolderOpen, FolderPlus } from 'lucide-react'
+import { isFsAccessSupported, pickBackupFolder, getStoredBackupFolder, ensureFolderPermission, forgetBackupFolder, testBackupFolder, writeFileToBackupFolder, ensureFolderStructure, openBackupFile, makeBackupFileName, STORAGE_SUBFOLDERS, type DirHandle } from '@/lib/fs-access'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -66,6 +67,15 @@ const colorPresets = {
 
 }
 
+/** Format ukuran file di sisi klien (tab Penyimpanan DB). */
+function formatBytesClient(bytes: number): string {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1)
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
 export default function PengaturanPage() {
   const inputClass = 'w-full border border-input rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors'
   const [activeTab, setActiveTab] = useState('umum')
@@ -109,6 +119,29 @@ export default function PengaturanPage() {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
   const [nextAutoBackup, setNextAutoBackup] = useState<string | null>(null)
+
+  // ===== Penyimpanan Database (tab Penyimpanan DB) =====
+  const [storageInfo, setStorageInfo] = useState<{
+    folder: string
+    serverPath: string
+    writable: boolean
+    writeError?: string | null
+    storageType: string
+    isVercel?: boolean
+    lastBackup: { fileName: string; size: number; sizeFormatted: string; createdAt: string } | null
+    backupsCount: number
+  } | null>(null)
+  const [folderInput, setFolderInput] = useState('')
+  const [savingFolder, setSavingFolder] = useState(false)
+  const [testingFolder, setTestingFolder] = useState(false)
+  const [fsSupported, setFsSupported] = useState(false)
+  const [browserFolder, setBrowserFolder] = useState<{ handle: DirHandle | null; name: string; permission: string } | null>(null)
+  const [storageBackupLoading, setStorageBackupLoading] = useState(false)
+  const [storageBackupResult, setStorageBackupResult] = useState<{ fileName: string; sizeFormatted: string; seconds: string; destination: string; at: string } | null>(null)
+  const [structuring, setStructuring] = useState(false)
+  const [backupPage, setBackupPage] = useState(1)
+  const riwayatRef = useRef<HTMLDivElement | null>(null)
+  const backupFileInputRef = useRef<HTMLInputElement | null>(null)
 
   // Display settings
   const [fontSize, setFontSize] = useState('medium')
@@ -626,9 +659,8 @@ export default function PengaturanPage() {
     setBackupLoading(false)
   }
 
-  const handleRestoreFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  /** Restore dari file .xlsx/.json (dipakai input file & pemilih folder). Server otomatis membuat backup keamanan pra-restore. */
+  const restorePickedFile = async (file: File) => {
     setShowRestoreConfirm(null); setRestoreLoading(true)
     try {
       if (file.name.endsWith('.xlsx')) {
@@ -639,24 +671,31 @@ export default function PengaturanPage() {
           method: 'POST',
           body: formData
         })
-        if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); else toast.error(data.error || t('restore_error')) }
+        if (res.ok) { const data = await res.json(); if (data.success) { toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); if (data.safetyFileName) toast.info(`Backup keamanan kondisi sebelum restore: ${data.safetyFileName}`) } else toast.error(data.error || t('restore_error')) }
         else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
       } else {
         // JSON file (backward compatibility)
         const text = await file.text(); const backupData = JSON.parse(text)
         const res = await authFetch('/api/database/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ backupData }) })
-        if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); else toast.error(data.error || t('restore_error')) }
+        if (res.ok) { const data = await res.json(); if (data.success) { toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')} ${t('restore_from')} ${file.name}`); if (data.safetyFileName) toast.info(`Backup keamanan kondisi sebelum restore: ${data.safetyFileName}`) } else toast.error(data.error || t('restore_error')) }
         else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
       }
     } catch { toast.error(t('backup_file_invalid')) }
-    setRestoreLoading(false); e.target.value = ''
+    setRestoreLoading(false)
+  }
+
+  const handleRestoreFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await restorePickedFile(file)
+    e.target.value = ''
   }
 
   const handleRestoreFromServer = async (fileName: string) => {
     setRestoreLoading(true); setShowRestoreConfirm(null)
     try {
       const res = await authFetch('/api/database/restore', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ fileName }) })
-      if (res.ok) { const data = await res.json(); if (data.success) toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')}`); else toast.error(data.error || t('restore_error')) }
+      if (res.ok) { const data = await res.json(); if (data.success) { toast.success(`${t('restore_success')} ${data.restoredTables} ${t('restore_table_count')}`); if (data.safetyFileName) toast.info(`Backup keamanan kondisi sebelum restore: ${data.safetyFileName}`); fetchBackups() } else toast.error(data.error || t('restore_error')) }
       else { const data = await res.json(); toast.error(data.error || t('restore_error')) }
     } catch { toast.error(t('restore_error')) }
     setRestoreLoading(false)
@@ -669,6 +708,216 @@ export default function PengaturanPage() {
       if (res.ok) { toast.success(t('backup_deleted')); fetchBackups() } else toast.error(t('backup_delete_error'))
     } catch { toast.error(t('backup_delete_error')) }
   }
+
+  // ===== Penyimpanan Database (tab Penyimpanan DB) =====
+  const fetchStorageInfo = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/database/storage', { headers: getAuthHeaders() })
+      if (res.ok) { const data = await res.json(); if (data.success) { setStorageInfo(data); setFolderInput(data.folder || '') } }
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => { if (activeTab === 'penyimpanan') { fetchStorageInfo(); fetchBackups() } }, [activeTab, fetchStorageInfo, fetchBackups])
+
+  // Deteksi dukungan File System Access API + handle folder tersimpan (sekali saat mount)
+  useEffect(() => {
+    setFsSupported(isFsAccessSupported())
+    getStoredBackupFolder().then((info) => {
+      if (info.handle && info.name) setBrowserFolder({ handle: info.handle, name: info.name, permission: info.permission })
+    })
+  }, [])
+
+  const handleSaveFolder = async () => {
+    setSavingFolder(true)
+    try {
+      const res = await authFetch('/api/database/storage', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ folder: folderInput }) })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) { toast.success(`${t('storage_saved_ok')} — ${data.folder}`); fetchStorageInfo() }
+      else toast.error(data.error || t('storage_folder_invalid'))
+    } catch { toast.error(t('storage_folder_invalid')) }
+    setSavingFolder(false)
+  }
+
+  const handleTestFolder = async () => {
+    setTestingFolder(true)
+    try {
+      const res = await authFetch('/api/database/storage/test', { method: 'POST', headers: getAuthHeaders() })
+      const data = await res.json().catch(() => ({}))
+      if (data.ok) toast.success(data.message || t('storage_test_ok'))
+      else toast.warning(data.message || t('storage_test_fail'))
+      fetchStorageInfo()
+    } catch { toast.error(t('storage_test_fail')) }
+    setTestingFolder(false)
+  }
+
+  const handleResetStorageFolder = async () => {
+    if (!confirm(t('storage_reset_confirm'))) return
+    setSavingFolder(true)
+    try {
+      const res = await authFetch('/api/database/storage', { method: 'DELETE', headers: getAuthHeaders() })
+      if (res.ok) { toast.success('Konfigurasi folder direset ke default (backups)'); fetchStorageInfo() }
+    } catch { toast.error('Gagal mereset konfigurasi') }
+    setSavingFolder(false)
+  }
+
+  const handlePickFolder = async () => {
+    try {
+      const picked = await pickBackupFolder()
+      if (picked) {
+        const info = await getStoredBackupFolder()
+        if (info.handle) setBrowserFolder({ handle: info.handle, name: info.name, permission: info.permission })
+        else setBrowserFolder({ handle: null, name: picked.name, permission: 'prompt' })
+        toast.success(`${t('storage_browser_folder')}: ${picked.name}`)
+      }
+    } catch { /* user membatalkan dialog */ }
+  }
+
+  const handleGrantFolderPermission = async () => {
+    if (!browserFolder?.handle) return
+    const r = await ensureFolderPermission(browserFolder.handle)
+    if (r === 'granted') { setBrowserFolder({ ...browserFolder, permission: 'granted' }); toast.success(t('storage_permission_granted')) }
+    else toast.error(t('storage_folder_tested_fail'))
+  }
+
+  const handleTestBrowserFolder = async () => {
+    if (!browserFolder?.handle) return
+    const perm = await ensureFolderPermission(browserFolder.handle)
+    if (perm !== 'granted') { toast.error(t('storage_folder_tested_fail')); return }
+    setBrowserFolder({ ...browserFolder, permission: 'granted' })
+    const err = await testBackupFolder(browserFolder.handle)
+    if (err === null) toast.success(t('storage_folder_tested_ok'))
+    else toast.error(`${t('storage_folder_tested_fail')}: ${err}`)
+  }
+
+  const handleCreateStructure = async () => {
+    if (!browserFolder?.handle) return
+    const perm = await ensureFolderPermission(browserFolder.handle)
+    if (perm !== 'granted') { toast.error(t('storage_folder_tested_fail')); return }
+    setBrowserFolder({ ...browserFolder, permission: 'granted' })
+    setStructuring(true)
+    try {
+      const created = await ensureFolderStructure(browserFolder.handle)
+      toast.success(`${t('storage_structure_created')} (${created.length}/${STORAGE_SUBFOLDERS.length})`)
+    } catch { toast.error(t('storage_folder_tested_fail')) }
+    setStructuring(false)
+  }
+
+  const handleForgetFolder = async () => {
+    await forgetBackupFolder()
+    setBrowserFolder(null)
+  }
+
+  /** Backup Database dari tab Penyimpanan: unduh + tulis ke folder komputer (bila izin aktif). */
+  const handleStorageBackup = async () => {
+    setStorageBackupLoading(true)
+    setStorageBackupResult(null)
+    const startedAt = Date.now()
+    try {
+      const res = await authFetch('/api/database/backup', { method: 'POST', headers: getAuthHeaders() })
+      if (!res.ok) {
+        let errMsg = t('backup_error')
+        try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
+        toast.error(errMsg)
+        setStorageBackupLoading(false)
+        return
+      }
+      const blob = await res.blob()
+      if (blob.size === 0) {
+        toast.error('Backup kosong — tidak ada data')
+        setStorageBackupLoading(false)
+        return
+      }
+      const fileName = makeBackupFileName('xlsx')
+      // 1) Tulis ke folder di komputer (File System Access API) bila folder terpilih & diizinkan
+      let destination = t('storage_destination_downloads')
+      if (browserFolder?.handle) {
+        const perm = await ensureFolderPermission(browserFolder.handle)
+        if (perm === 'granted') {
+          try {
+            await writeFileToBackupFolder(browserFolder.handle, fileName, blob)
+            setBrowserFolder({ ...browserFolder, permission: 'granted' })
+            destination = `${t('storage_destination_browser')}: ${browserFolder.name}`
+          } catch { /* gagal tulis → tetap unduh ke Downloads */ }
+        }
+      }
+      // 2) Selalu sediakan unduhan browser (Downloads) — fallback & cadangan
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const seconds = ((Date.now() - startedAt) / 1000).toFixed(1)
+      setStorageBackupResult({
+        fileName,
+        sizeFormatted: formatBytesClient(blob.size),
+        seconds,
+        destination,
+        at: new Date().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      })
+      toast.success(`${t('storage_backup_done')} — ${fileName} (${formatBytesClient(blob.size)})`)
+      fetchBackups()
+      fetchStorageInfo()
+    } catch { toast.error(t('backup_error')) }
+    setStorageBackupLoading(false)
+  }
+
+  const handleOpenRiwayat = () => {
+    riwayatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  /** Unduh file backup dari Riwayat (tabel BackupFile) via endpoint download. */
+  const handleDownloadBackup = async (fileName: string) => {
+    try {
+      const res = await authFetch(`/api/database/backups/download?fileName=${encodeURIComponent(fileName)}`, { headers: getAuthHeaders() })
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        toast.success(t('riwayat_download_ok'))
+      } else {
+        let msg = t('riwayat_download_fail')
+        try { const d = await res.json(); msg = d?.error || msg } catch {}
+        toast.error(msg)
+      }
+    } catch { toast.error(t('riwayat_download_fail')) }
+  }
+
+  /** Pilih file backup lewat dialog sistem (mulai dari folder terpilih bila ada); fallback ke input file. */
+  const handlePickBackupFileFromFolder = async () => {
+    try {
+      let file: File | null = null
+      if (browserFolder?.handle) {
+        const perm = await ensureFolderPermission(browserFolder.handle)
+        if (perm === 'granted') {
+          setBrowserFolder({ ...browserFolder, permission: 'granted' })
+          file = await openBackupFile(browserFolder.handle)
+        }
+      } else {
+        file = await openBackupFile()
+      }
+      if (file) await restorePickedFile(file)
+      else backupFileInputRef.current?.click()
+    } catch { /* user membatalkan dialog → coba fallback input file */ backupFileInputRef.current?.click() }
+  }
+
+  // Pagination riwayat backup (tab Penyimpanan DB)
+  const BACKUP_PAGE_SIZE = 5
+  const backupTotalPages = Math.max(1, Math.ceil(backups.length / BACKUP_PAGE_SIZE))
+  useEffect(() => { if (backupPage > backupTotalPages) setBackupPage(backupTotalPages) }, [backupPage, backupTotalPages])
+  const pageBackups = backups.slice((backupPage - 1) * BACKUP_PAGE_SIZE, backupPage * BACKUP_PAGE_SIZE)
+  const riwayatLocationLabel = storageInfo
+    ? (storageInfo.storageType === 'server-folder' ? `DB + ${storageInfo.folder}/` : 'DB (BackupFile)')
+    : 'DB'
 
   const handleSaveAutoBackup = async () => {
     setSaving(true)
@@ -808,7 +1057,8 @@ export default function PengaturanPage() {
             { id: 'profit', label: t('persentase_profit'), icon: Percent, color: 'amber' },
             { id: 'dokumen', label: 'Data PPN', icon: FileText, color: 'rose' },
             { id: 'tampilan', label: t('pengaturan_tampilan'), icon: Palette, color: 'violet' },
-            { id: 'database', label: t('tab_database'), icon: Database, color: 'emerald' }
+            { id: 'database', label: t('tab_database'), icon: Database, color: 'emerald' },
+            { id: 'penyimpanan', label: t('tab_penyimpanan'), icon: HardDrive, color: 'cyan' }
           ].map((tab) => {
             const colorMap: Record<string, { active: string; iconBg: string; iconText: string }> = {
               blue:    { active: 'bg-blue-50 dark:bg-blue-950/30 border-blue-400 dark:border-blue-600', iconBg: 'bg-blue-100 dark:bg-blue-900/40', iconText: 'text-blue-600 dark:text-blue-400' },
@@ -816,6 +1066,7 @@ export default function PengaturanPage() {
               rose:    { active: 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 dark:border-rose-600', iconBg: 'bg-rose-100 dark:bg-rose-900/40', iconText: 'text-rose-600 dark:text-rose-400' },
               violet:  { active: 'bg-violet-50 dark:bg-violet-950/30 border-violet-400 dark:border-violet-600', iconBg: 'bg-violet-100 dark:bg-violet-900/40', iconText: 'text-violet-600 dark:text-violet-400' },
               emerald: { active: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600', iconBg: 'bg-emerald-100 dark:bg-emerald-900/40', iconText: 'text-emerald-600 dark:text-emerald-400' },
+              cyan:    { active: 'bg-cyan-50 dark:bg-cyan-950/30 border-cyan-400 dark:border-cyan-600', iconBg: 'bg-cyan-100 dark:bg-cyan-900/40', iconText: 'text-cyan-600 dark:text-cyan-400' },
             }
             const c = colorMap[tab.color]
             const isActive = activeTab === tab.id
@@ -1174,6 +1425,225 @@ export default function PengaturanPage() {
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ===== TAB: PENYIMPANAN DATABASE ===== */}
+            {activeTab === 'penyimpanan' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div>
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1">Penyimpanan Database</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">Tentukan lokasi penyimpanan file backup database, file ekspor, dan arsip data Darrellsoft.</p>
+                </div>
+                <div className="space-y-5">
+
+                  {/* ===== Info & Konfigurasi Folder Server ===== */}
+                  <div className="bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <HardDrive className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                      <h4 className="text-sm font-semibold text-foreground">{t('storage_folder_name')} (Server)</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-muted-foreground mb-1">{t('storage_folder_name')}</label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input type="text" value={folderInput} onChange={(e) => setFolderInput(e.target.value)} placeholder="backups" className={`${inputClass} font-mono text-xs sm:flex-1`} />
+                          <div className="flex flex-wrap gap-2">
+                            <Button onClick={handleSaveFolder} disabled={savingFolder} size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white h-9 px-3 text-xs">
+                              {savingFolder ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                              {t('storage_save_location')}
+                            </Button>
+                            <Button onClick={handleTestFolder} disabled={testingFolder} size="sm" variant="outline" className="h-9 px-3 text-xs border-cyan-300 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-950">
+                              {testingFolder ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Wrench className="w-3.5 h-3.5 mr-1.5" />}
+                              {t('storage_test_location')}
+                            </Button>
+                            <Button onClick={handleResetStorageFolder} disabled={savingFolder} size="sm" variant="outline" className="h-9 px-3 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950">
+                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />{t('storage_reset_default')}
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">{t('storage_folder_hint')}</p>
+                      </div>
+
+                      {/* Info grid */}
+                      {storageInfo && (
+                        <div className="bg-white/70 dark:bg-slate-900/40 border border-cyan-200 dark:border-cyan-800 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px]">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground">{t('storage_folder_location')}</p>
+                            <p className="font-mono text-cyan-700 dark:text-cyan-300 break-all">{storageInfo.serverPath}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{t('storage_type')}</p>
+                            <p className="text-muted-foreground">{storageInfo.storageType === 'server-folder' ? t('storage_type_server') : t('storage_type_db')}{storageInfo.isVercel ? ' • Vercel' : ''}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{t('last_backup')}</p>
+                            <p className="text-muted-foreground break-all">
+                              {storageInfo.lastBackup
+                                ? `${storageInfo.lastBackup.fileName} • ${storageInfo.lastBackup.sizeFormatted} • ${new Date(storageInfo.lastBackup.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                                : '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{t('storage_status')}</p>
+                            <span className={`inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${storageInfo.writable ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${storageInfo.writable ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                              {storageInfo.writable ? t('storage_status_ok') : t('storage_status_readonly')}
+                            </span>
+                            {!storageInfo.writable && storageInfo.writeError && (
+                              <p className="text-[10px] text-muted-foreground mt-1 break-all">{storageInfo.writeError}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ===== Folder di Komputer (File System Access API) ===== */}
+                  <div className="bg-muted/50 border border-border rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FolderOpen className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                      <h4 className="text-sm font-semibold text-foreground">{t('storage_browser_title')}</h4>
+                    </div>
+                    {!fsSupported ? (
+                      <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">⚠️ {t('storage_browser_unsupported')}</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-muted-foreground mb-3">{t('storage_browser_desc')}</p>
+                        {browserFolder ? (
+                          <div className="bg-white/70 dark:bg-slate-900/40 border border-border rounded-lg p-3 mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0 text-[11px]">
+                              <p className="font-semibold text-foreground">{t('storage_browser_folder')}: <span className="font-mono text-cyan-700 dark:text-cyan-300">{browserFolder.name}</span></p>
+                              <span className={`inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${browserFolder.permission === 'granted' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}>
+                                {browserFolder.permission === 'granted' ? t('storage_permission_granted') : t('storage_permission_needed')}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {browserFolder.permission !== 'granted' && (
+                                <Button onClick={handleGrantFolderPermission} size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 px-3 text-xs">{t('storage_grant_permission')}</Button>
+                              )}
+                              <Button onClick={handleTestBrowserFolder} size="sm" variant="outline" className="h-8 px-3 text-xs">{t('storage_test_browser_folder')}</Button>
+                              <Button onClick={handleCreateStructure} disabled={structuring} size="sm" variant="outline" className="h-8 px-3 text-xs">
+                                {structuring ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <FolderPlus className="w-3.5 h-3.5 mr-1.5" />}
+                                {t('storage_create_structure')}
+                              </Button>
+                              <Button onClick={handleForgetFolder} size="sm" variant="outline" className="h-8 px-3 text-xs text-red-600 dark:text-red-400 border-red-300 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950">{t('storage_forget_folder')}</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button onClick={handlePickFolder} size="sm" className="bg-cyan-600 hover:bg-cyan-700 text-white h-8 px-3 text-xs mb-3">
+                            <FolderOpen className="w-3.5 h-3.5 mr-1.5" />{t('storage_pick_folder')}
+                          </Button>
+                        )}
+                        <div className="text-[11px] text-muted-foreground">
+                          <p className="font-semibold text-foreground mb-1">{t('storage_structure_title')}:</p>
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {STORAGE_SUBFOLDERS.map((s) => (
+                              <span key={s} className="px-2 py-0.5 bg-muted rounded-md font-mono text-[10px] text-foreground/80">{s}/</span>
+                            ))}
+                          </div>
+                          <p>{t('storage_naming_note')}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* ===== Backup & Restore Database ===== */}
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Database className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <h4 className="text-sm font-semibold text-foreground">Backup & Restore Database</h4>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <Button onClick={handleStorageBackup} disabled={storageBackupLoading} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3 text-xs">
+                        {storageBackupLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
+                        {t('storage_backup_btn')}
+                      </Button>
+                      <Button onClick={handleOpenRiwayat} size="sm" variant="outline" className="h-8 px-3 text-xs border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950">
+                        <Clock className="w-3.5 h-3.5 mr-1.5" />{t('storage_open_history')}
+                      </Button>
+                      <Button onClick={handlePickBackupFileFromFolder} disabled={restoreLoading} size="sm" variant="outline" className="h-8 px-3 text-xs border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950">
+                        {restoreLoading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
+                        {t('storage_pick_from_folder')}
+                      </Button>
+                      <input ref={backupFileInputRef} type="file" accept=".json,.xlsx" onChange={handleRestoreFromFile} className="hidden" disabled={restoreLoading} />
+                    </div>
+                    {storageBackupResult && (
+                      <div className="bg-white/70 dark:bg-slate-900/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-[11px] space-y-1">
+                        <p className="font-semibold text-foreground">✅ {t('storage_result_title')}</p>
+                        <p className="text-muted-foreground break-all"><span className="font-medium text-foreground">{storageBackupResult.fileName}</span> • {storageBackupResult.sizeFormatted} • {storageBackupResult.seconds}s • {storageBackupResult.at}</p>
+                        <p className="text-muted-foreground">{t('storage_destination')}: {storageBackupResult.destination} <span className="text-[10px]">(+ {t('storage_destination_server_mirror')})</span></p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ===== Riwayat Backup (tabel + pagination) ===== */}
+                  <div ref={riwayatRef}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2"><h4 className="text-sm font-semibold text-foreground">{t('storage_riwayat_title')}</h4></div>
+                      <button onClick={fetchBackups} disabled={loadingBackups} className="text-xs text-blue-600 hover:text-blue-700 dark:hover:text-blue-400">{t('refresh')}</button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mb-3">{t('backup_retention_note')}</p>
+                    {loadingBackups ? (
+                      <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+                    ) : backups.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground"><p className="text-xs">{t('no_backup_yet')}</p></div>
+                    ) : (
+                      <>
+                        <div className="overflow-x-auto border border-border rounded-lg">
+                          <table className="w-full text-[11px] min-w-[560px]">
+                            <thead>
+                              <tr className="bg-muted/70 text-left">
+                                <th className="px-2.5 py-2 font-semibold text-foreground w-10">{t('riwayat_col_no')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground">{t('riwayat_col_file')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap">{t('riwayat_col_date')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap">{t('riwayat_col_size')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap">{t('riwayat_col_location')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap">{t('riwayat_col_status')}</th>
+                                <th className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap">{t('riwayat_col_action')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pageBackups.map((b, idx) => (
+                                <tr key={b.fileName} className="border-t border-border bg-card hover:bg-muted/30 transition-colors">
+                                  <td className="px-2.5 py-2 text-muted-foreground">{(backupPage - 1) * BACKUP_PAGE_SIZE + idx + 1}.</td>
+                                  <td className="px-2.5 py-2 font-medium text-foreground break-all max-w-[180px]">{b.fileName}</td>
+                                  <td className="px-2.5 py-2 text-muted-foreground whitespace-nowrap">{new Date(b.createdAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                                  <td className="px-2.5 py-2 text-muted-foreground whitespace-nowrap">{b.sizeFormatted}</td>
+                                  <td className="px-2.5 py-2 text-muted-foreground whitespace-nowrap">{riwayatLocationLabel}</td>
+                                  <td className="px-2.5 py-2">
+                                    <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">{t('riwayat_status_saved')}</span>
+                                  </td>
+                                  <td className="px-2.5 py-2">
+                                    {showRestoreConfirm === b.fileName ? (
+                                      <div className="flex items-center gap-1">
+                                        <button onClick={() => handleRestoreFromServer(b.fileName)} disabled={restoreLoading} className="px-2 py-1 text-[10px] font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors">{restoreLoading ? '...' : t('confirm_restore')}</button>
+                                        <button onClick={() => setShowRestoreConfirm(null)} className="px-2 py-1 text-[10px] font-medium bg-muted text-slate-600 dark:text-slate-300 rounded hover:bg-muted/80 transition-colors">{t('batal')}</button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        <button onClick={() => handleDownloadBackup(b.fileName)} className="px-1.5 py-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors">{t('riwayat_action_download')}</button>
+                                        <button onClick={() => setShowRestoreConfirm(b.fileName)} disabled={restoreLoading || backupLoading} className="px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors">{t('restore')}</button>
+                                        <button onClick={() => handleDeleteBackup(b.fileName)} className="px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 rounded transition-colors">{t('hapus')}</button>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {backupTotalPages > 1 && (
+                          <div className="flex items-center justify-center gap-3 mt-3">
+                            <button onClick={() => setBackupPage((p) => Math.max(1, p - 1))} disabled={backupPage <= 1} className="px-2.5 py-1 text-xs border border-border rounded-md hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">‹ Prev</button>
+                            <span className="text-xs text-muted-foreground">{t('riwayat_page')} {backupPage} {t('riwayat_of')} {backupTotalPages}</span>
+                            <button onClick={() => setBackupPage((p) => Math.min(backupTotalPages, p + 1))} disabled={backupPage >= backupTotalPages} className="px-2.5 py-1 text-xs border border-border rounded-md hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Next ›</button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
