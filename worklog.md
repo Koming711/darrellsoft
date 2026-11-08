@@ -1,4 +1,17 @@
 ---
+Task ID: 8
+Agent: Main
+Task: Pengaturan Database — lokasi file yang dibackup  ⟵ **DIBATALKAN oleh owner ("cancel perintah terakhir")**
+
+Work Log:
+- Owner meminta: "dihalaman pengaturan database. tambahkan lokasi file yang mau di backup." → fitur sempat dibuat & diverifikasi (API GET /api/database/db-info + info box di kartu Backup & Restore Penuh + 5 key i18n + bump SW v191/v189), commit 8cc2892, di-push — TIDAK PERNAH dideploy ke produksi
+- Owner lalu mengirim "cancel perintah terakhir" → seluruh perubahan dibatalkan via `git revert 8cc2892` (commit dc6fdc4, di-push): API db-info terhapus, info box UI hilang, versi kembali SW v190 / APP_VERSION & CURRENT_VERSION 2026-11-05-v188, entri changelog v189 & key i18n dibuang, worklog Task 8 lama ikut ter-revert lalu ditulis ulang sbg catatan ini
+- Produksi www.darrellsoft.com tidak terdampak (tetap v188 / SW v190); lokal kembali persis ke kondisi sebelum task 8 dimulai
+
+Stage Summary:
+- Perintah terakhir (lokasi file backup di Pengaturan Database) DIBATALKAN dan dibersihkan total via git revert; tidak ada jejak fitur di kode lokal maupun produksi
+
+---
 Task ID: 7
 Agent: Main
 Task: Deploy produksi ke www.darrellsoft.com (v188 / SW v190) — semua rilis tertunda terkirim
