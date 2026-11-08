@@ -516,7 +516,7 @@ const LANDING_T = {
 
     cloud4_title: 'Kenapa Bayar? Investasi Kecil, Hasil Besar!',
     cloud4_b1_pre: 'Cuma',
-    cloud4_b1_bold: 'Rp 128.000/bulan',
+    cloud4_b1_bold: '{price}/bulan',
     cloud4_b1_post: '— lebih murah dari sekali salah hitung!',
     cloud4_b2_bold: 'Tidak perlu bayar server, IT, atau maintenance',
     cloud4_b2_post: '— semua kami tangani',
@@ -626,10 +626,10 @@ const LANDING_T = {
     cta_trust1: 'Ada paket Trial untuk mencoba',
     cta_trust2: 'Tanpa kartu kredit',
     cta_trust3: 'Bisa batal kapan saja',
-    cta_card_h3: 'Cuma Rp 128.000/bulan — Lebih Murah dari Satu Piutang Lupa Tertagih!',
+    cta_card_h3: 'Cuma {price}/bulan — Lebih Murah dari Satu Piutang Lupa Tertagih!',
     cta_card_p_pre: 'Bayangkan:',
     cta_card_p_bold1: 'satu piutang lupa tertagih atau stok salah catat saja bisa rugi ratusan ribu hingga jutaan rupiah',
-    cta_card_p_mid: '. Dengan Darrell Soft, semua transaksi tercatat rapi cuma Rp 128.000/bulan. ',
+    cta_card_p_mid: '. Dengan Darrell Soft, semua transaksi tercatat rapi cuma {price}/bulan. ',
     cta_card_p_bold2: 'Investasi kecil, untung besar!',
     cta_card_check1_bold: 'Tanpa kontrak',
     cta_card_check1_post: ' — bebas berhenti kapan saja',
@@ -810,7 +810,7 @@ const LANDING_T = {
 
     cloud4_title: 'Why Pay? Small Investment, Big Results!',
     cloud4_b1_pre: 'Only',
-    cloud4_b1_bold: 'Rp 128,000/month',
+    cloud4_b1_bold: '{price}/month',
     cloud4_b1_post: '— cheaper than one wrong calculation!',
     cloud4_b2_bold: 'No need to pay for server, IT, or maintenance',
     cloud4_b2_post: '— we handle everything',
@@ -920,10 +920,10 @@ const LANDING_T = {
     cta_trust1: 'Free 3-day trial',
     cta_trust2: 'No credit card',
     cta_trust3: 'Cancel anytime',
-    cta_card_h3: 'Only Rp 128,000/month — Cheaper Than One Forgotten Receivable!',
+    cta_card_h3: 'Only {price}/month — Cheaper Than One Forgotten Receivable!',
     cta_card_p_pre: 'Imagine:',
     cta_card_p_bold1: 'one forgotten receivable or misrecorded stock can cost you hundreds of thousands to millions of rupiah',
-    cta_card_p_mid: '. With Darrell Soft, all transactions are neatly recorded for only Rp 128,000/month. ',
+    cta_card_p_mid: '. With Darrell Soft, all transactions are neatly recorded for only {price}/month. ',
     cta_card_p_bold2: 'Small investment, big profit!',
     cta_card_check1_bold: 'No contract',
     cta_card_check1_post: ' — free to stop anytime',
@@ -1016,18 +1016,41 @@ export default function Home() {
   // Paket langganan LANGSUNG dari database (diatur Admin via Panel Admin).
   // Fallback: kartu harga hardcoded di bawah bila API gagal / DB kosong.
   const [livePlans, setLivePlans] = useState<LivePlan[]>([]);
+  const [plansStatus, setPlansStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   useEffect(() => {
     let cancelled = false;
     fetch('/api/subscription/plans', { cache: 'no-store' })
       .then((r) => r.json())
       .then((json) => {
-        if (!cancelled && Array.isArray(json.plans)) setLivePlans(json.plans);
+        if (cancelled) return;
+        if (Array.isArray(json.plans)) {
+          setLivePlans(json.plans);
+          setPlansStatus('ready');
+        } else {
+          setPlansStatus('error');
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setPlansStatus('error');
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Harga termurah paket BERBAYAR aktif (tanpa Trial) dari DB — dipakai di
+  // copy "Kenapa Bayar?" & CTA agar penyebutan harga di landing SELALU SAMA
+  // dengan Panel Admin → Kelola Paket. Fallback 128rb bila DB gagal/kosong.
+  const cheapestPaidPlan =
+    livePlans
+      .filter((p) => p.slug !== 'trial' && p.monthlyPrice > 0)
+      .sort((a, b) => a.monthlyPrice - b.monthlyPrice)[0] || null;
+  const hargaMulai = cheapestPaidPlan
+    ? `Rp ${Math.round(cheapestPaidPlan.monthlyPrice).toLocaleString(language === 'en' ? 'en-US' : 'id-ID')}`
+    : language === 'en'
+      ? 'Rp 128,000'
+      : 'Rp 128.000';
+  const withHarga = (s: string) => s.replace('{price}', hargaMulai);
 
   // Hero visual panel: mock invoice akuntansi + mesin cetak dengan badge
   // mengambang. Di mobile tampil inline setelah H1; di desktop di kolom kanan.
@@ -1638,7 +1661,7 @@ export default function Home() {
                 <ul className="space-y-2">
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                     <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <span>{t.cloud4_b1_pre} <strong className="text-emerald-600 dark:text-emerald-400">{t.cloud4_b1_bold}</strong> {t.cloud4_b1_post}</span>
+                    <span>{t.cloud4_b1_pre} <strong className="text-emerald-600 dark:text-emerald-400">{withHarga(t.cloud4_b1_bold)}</strong> {t.cloud4_b1_post}</span>
                   </li>
                   <li className="flex items-start gap-2 text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                     <CircleCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
@@ -1808,7 +1831,7 @@ export default function Home() {
         </FadeIn>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
-          {livePlans.length > 0
+          {plansStatus === 'ready' && livePlans.length > 0
             ? livePlans.map((p, idx) => (
                 <PricingCard
                   key={p.id}
@@ -1829,7 +1852,7 @@ export default function Home() {
                   onSelect={() => router.push('/pilih-paket')}
                 />
               ))
-            : (
+            : plansStatus === 'error' ? (
           <>
           {/* Fallback (API gagal / DB kosong): paket default yang SAMA dengan
               seed SubscriptionPlan — Basic 119rb / Pro 199rb / Premium 299rb.
@@ -1887,6 +1910,22 @@ export default function Home() {
             onSelect={() => router.push('/pilih-paket')}
           />
             </>
+            )
+            : (
+              /* LOADING: skeleton — jangan tampilkan kartu fallback (119/199/299)
+                 selama fetch berjalan, supaya harga tak pernah tampak berbeda
+                 dari Panel Admin → Kelola Paket walau sesaat. */
+              <>
+                <p className="sr-only" role="status">Memuat daftar paket harga…</p>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    aria-hidden="true"
+                    data-testid="pricing-skeleton"
+                    className="rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#111] p-6 shadow-sm animate-pulse min-h-[420px]"
+                  />
+                ))}
+              </>
             )}
         </div>
 
@@ -1991,10 +2030,10 @@ export default function Home() {
               <FadeIn delay={0.3}>
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-10 shadow-2xl text-center max-w-3xl mx-auto border border-white/40 dark:border-white/10">
                   <h3 className="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-gray-100 mb-4 tracking-tight">
-                    {t.cta_card_h3}
+                    {withHarga(t.cta_card_h3)}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 text-base leading-relaxed mb-5">
-                    {t.cta_card_p_pre} <span className="font-bold text-gray-900 dark:text-gray-100">{t.cta_card_p_bold1}</span>{t.cta_card_p_mid}
+                    {t.cta_card_p_pre} <span className="font-bold text-gray-900 dark:text-gray-100">{t.cta_card_p_bold1}</span>{withHarga(t.cta_card_p_mid)}
                     <span className="font-bold text-emerald-600 dark:text-emerald-400">{t.cta_card_p_bold2}</span>
                   </p>
                   <div className="flex flex-col sm:flex-row gap-2.5 justify-center mb-2">

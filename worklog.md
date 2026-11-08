@@ -1,4 +1,22 @@
 ---
+Task ID: 11
+Agent: Main
+Task: Landing — daftar harga paket disamakan dengan Panel Admin → Kelola Paket (check and fix)
+
+Work Log:
+- Permintaan owner: "dihalaman landing, daftar paket harga disamain dengan harga paket yang ada di panel admin. check and fix"
+- DIAGNOSA: grid harga di landing SUDAH live dari DB (fetch /api/subscription/plans → Trial/Basic/Pro/Premium persis panel admin, dicek lokal & produksi via agent-browser — produksi: 29/88/188/268rb sesuai DB). Ketidaksesuaian ADA di 2 tempat lain: (1) copy hardcode "Rp 128.000/bulan" di bagian "Kenapa Bayar?" (cloud4) & CTA akhir (cta_card_h3 + cta_card_p_mid) — padahal harga admin produksi Basic = 88rb; (2) kartu fallback hardcode (119/199/299rb) tampil sesaat di SETIAP load sebelum fetch selesai (livePlans awal = [] → fallback dirender) — di koneksi lambat terlihat jelas dan berbeda dari panel admin
+- FIX (src/app/page.tsx):
+  - 6 string i18n diubah pakai token {price} (id: "{price}/bulan", "Cuma {price}/bulan — Lebih Murah…", ". …cuma {price}/bulan. "; en padanannya) — id & en
+  - State plansStatus (loading/ready/error); saat loading dirender SKELETON 3 kartu (animate-pulse, data-testid pricing-skeleton, sr-only "Memuat daftar paket harga…") — kartu fallback hanya tampil bila fetch benar2 gagal
+  - cheapestPaidPlan = paket aktif termurah TANPA Trial (slug!=='trial', price>0) dari livePlans → hargaMulai (format id-ID utk id, en-US utk en; fallback Rp 128.000 bila DB gagal) → withHarga() mengganti {price} saat render di cloud4 & CTA — penyebutan harga landing kini SELALU mengikuti Panel Admin → Kelola Paket secara otomatis
+- Verifikasi agent-browser (lokal): cloud4 & CTA = "Cuma Rp 119.000/bulan" (= Basic lokal; produksi nanti otomatis 88rb tanpa deploy ulang saat admin ubah harga); tidak ada teks "128.000/128,000" tersisa di halaman (cek TreeWalker); EN: "Only Rp 119,000/month" 2 tempat; grid 4 kartu Trial 39rb/Basic 119rb/Pro 199rb (HEMAT BANGET)/Premium; skeleton hilang setelah load (data-testid count=0); H1 biru "Hitung Potong Kertas…" tak berubah; bunx eslint 0 error
+- Versi: SW v191→v192, APP_VERSION/CURRENT_VERSION 2026-11-08-v189→2026-11-08-v190, entri changelog v190 "Harga di Landing Selalu Sama dengan Panel Admin" (2 item) — v189 & v190 sama-sama BELUM dideploy
+
+Stage Summary:
+- Semua angka harga di halaman landing kini bersumber dari DB yang sama dengan Panel Admin: grid harga (sudah sejak v151) + sebutan harga di "Kenapa Bayar?" & CTA akhir (baru, dinamis mengikuti paket berbayar termurah); momen loading memakai skeleton sehingga tidak pernah ada harga yang bertentangan dengan panel admin walau sepersekian detik
+
+---
 Task ID: 10
 Agent: Main
 Task: Landing page — headline diawali "Hitung Potong Kertas, Hitung Cetakan Akurat" (biru) sebelum "Buat Invoice"

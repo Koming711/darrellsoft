@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v189'
+export const CURRENT_VERSION = '2026-11-08-v190'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v190',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Harga di Landing Selalu Sama dengan Panel Admin',
+      en: 'Landing Page Prices Always Match the Admin Panel',
+    },
+    items: [
+      {
+        id: 'Sebutan harga "Cuma Rp …/bulan" di landing (bagian Kenapa Bayar? & CTA akhir) kini otomatis mengikuti paket termurah yang aktif di Panel Admin → Kelola Paket — tidak ada lagi harga lama Rp 128.000',
+        en: 'The "Only Rp …/month" price mentions on the landing (Why Pay? & final CTA) now automatically follow the cheapest active plan from the Admin Panel — no more stale Rp 128,000',
+      },
+      {
+        id: 'Saat daftar paket dimuat, tampil skeleton alih-alih kartu harga default — harga di landing tidak pernah tampak berbeda dari panel admin walau sesaat',
+        en: 'While the plan list loads, a skeleton is shown instead of default price cards — landing prices never even briefly differ from the admin panel',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v189',
     date: { id: '8 November 2026', en: '8 November 2026' },
