@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v194'
+export const CURRENT_VERSION = '2026-11-08-v195'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v195',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Kolom Nomor Kini Diberi Label Jelas: No HC & No PK',
+      en: 'Number Columns Now Clearly Labeled: HC No. & PK No.',
+    },
+    items: [
+      {
+        id: 'Di tabel Riwayat Hitung Cetakan, kolom nomor kini berlabel "No HC" (bukan "Nomor") — di sebelah kanan kolom Tanggal dd/mm/yy',
+        en: 'In the Hitung Cetakan history table, the number column is now labeled "No HC" (instead of "Nomor") — right next to the dd/mm/yy Date column',
+      },
+      {
+        id: 'Tanda "Diedit" (badge kuning ikon pensil) tampil di kolom Tanggal utk riwayat yang pernah diedit & disimpan — barisnya juga naik ke paling atas',
+        en: 'The "Edited" mark (yellow badge with pencil icon) shows in the Date column for histories that were edited & saved — their row also moves to the very top',
+      },
+      {
+        id: 'Halaman Riwayat Potong Kertas ikut konsisten: kolom nomornya berlabel "No PK"',
+        en: 'The Paper Cutting history page stays consistent: its number column is labeled "No PK"',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v194',
     date: { id: '8 November 2026', en: '8 November 2026' },

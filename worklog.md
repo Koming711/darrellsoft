@@ -1,4 +1,20 @@
 ---
+Task ID: 16
+Agent: Main
+Task: Riwayat Hitung Cetakan — verifikasi ulang fitur edit (tanggal kiri No HC + tanda "Diedit") & label kolom nomor jadi "No HC"/"No PK"
+
+Work Log:
+- Permintaan owner (pengulangan/konfirmasi): "kolom tanggal pindah ke samping sebelah kiri kolom no hc. tambahkan tanda edit, apabila di edit."
+- KONTEKS: fitur inti SUDAH diimplement & commit di Task 15 (7ee7b7b) — GET /api/riwayat-cetakan orderBy updatedAt desc (edit → naik ke atas), PUT /api/riwayat-cetakan/[id] update record sama (nomor HC tetap), tanggal efektif = updatedAt, format dd/mm/yy, badge "Diedit". Owner belum melihat/menguji, jadi sesi ini: (1) verifikasi E2E segar, (2) perjelas label kolom sesuai bahasa owner.
+- VERIFIKASI E2E agent-browser (admin/268899, desktop 1440x900, data HC/11/26/0036-0038 urutan [0038,0036,0037]): klik Edit di baris TERAKHIR (0037) → kalkulator terbuka mode "Update Riwayat" dgn nomor HC/11/26/0037 (tetap, bukan nomor baru) → klik Update → PUT /api/riwayat-cetakan/[id] 200 (dev.log) → kembali ke /riwayat-hitung-cetakan: urutan jadi [0037,0038,0036] — 0037 NAIK KE PALING ATAS ✓, nomor TETAP HC/11/26/0037 ✓, tanggal 08/11/26 (dd/mm/yy) ✓, badge amber "Diedit" (ikon pensil) di kolom Tanggal ✓, total tetap 3 record (tanpa duplikat) ✓. Kolom tanggal paling kiri tepat di sebelah kiri kolom nomor HC ✓. Mobile 390x844: kartu pertama = 0037 ✓. Screenshot: tool-results/riwayat-desktop-after.png, riwayat-final.png.
+- POLISH (satu-satunya ubah kode, src/components/riwayat-content.tsx): header kolom "Nomor" → dinamis per sumber — "No HC" (riwayat hitung cetakan) / "No PK" (riwayat potong kertas) — persis istilah owner & membedakan dr kolom "No PK" (relasi) di halaman HC. Riwayat Potong Kertas terverifikasi header-nya jadi TANGGAL | NO PK ✓.
+- Versi: SW v196→v197, APP_VERSION/CURRENT_VERSION 2026-11-08-v194→2026-11-08-v195, entri changelog v195 "Kolom Nomor Kini Diberi Label Jelas: No HC & No PK" — popup "Versi Baru! v195" terverifikasi muncul di browser. BELUM dideploy.
+- Lint: bunx eslint 3 file ubah = 0 error. dev.log bersih (satu "prisma:error duplicate column kategoriId" = pesan startup auto-seed yang sudah tertangani, bukan bug baru).
+
+Stage Summary:
+- Fitur riwayat hitung cetakan terverifikasi utuh end-to-end: mengedit lalu menyimpan memindahkan baris ke paling atas dengan nomor HC tetap, tanggal berubah jadi tanggal edit (dd/mm/yy), dan diberi tanda "Diedit". Kolom Tanggal berada di sebelah kiri kolom nomor yang kini berlabel jelas "No HC" (dan "No PK" di halaman Potong Kertas).
+
+---
 Task ID: 15
 Agent: Main
 Task: Riwayat Hitung Cetakan — edit & simpan → baris naik ke atas, nomor HC tetap, tanggal jadi tgl edit + keterangan "Diedit"; kolom Tanggal pindah kiri No HC (dd/mm/yy)

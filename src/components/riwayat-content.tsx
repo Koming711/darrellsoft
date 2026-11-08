@@ -802,7 +802,9 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                       // Kolom Tanggal pindah ke PALING KIRI (sebelah kiri Nomor HC)
                       // — permintaan owner. Format dd/mm/yy.
                       'Tanggal',
-                      'Nomor',
+                      // Header nomor jelas per sumber: "No HC" (riwayat hitung
+                      // cetakan) / "No PK" (riwayat potong kertas) — permintaan owner.
+                      isPotong ? 'No PK' : 'No HC',
                       ...(!isPotong ? ['No PK'] : []),
                       'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
                       ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr', 'Lembar Kertas'] : []),
