@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-05-v186'
+export const CURRENT_VERSION = '2026-11-05-v187'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-05-v187',
+    date: { id: '5 November 2026', en: '5 November 2026' },
+    title: {
+      id: 'Purchase Order: Posisi Subtotal, Total & Terbilang Sejajar dengan Invoice',
+      en: 'Purchase Order: Subtotal, Total & Amount-in-Words Aligned with Invoice',
+    },
+    items: [
+      {
+        id: 'Preview Purchase Order kini menurunkan blok Subtotal/PPN/Total + Terbilang 4cm dari daftar barang — posisinya persis sama (sejajar) dengan Preview Invoice, dan tetap otomatis menyesuaikan bila barang/catatan banyak agar tetap 1 halaman A5',
+        en: 'The Purchase Order preview now lowers the Subtotal/PPN/Total + amount-in-words block 4cm below the item list — positioned exactly level with the Invoice preview, while still auto-adjusting when there are many items/notes to keep it on one A5 page',
+      },
+      {
+        id: 'Hasil cetak dan JPG PO ikut berubah otomatis karena dibuat dari isi preview yang sama',
+        en: 'PO print and JPG output follow automatically because they are generated from the same preview content',
+      },
+    ],
+  },
   {
     version: '2026-11-05-v186',
     date: { id: '5 November 2026', en: '5 November 2026' },

@@ -1,4 +1,25 @@
 ---
+Task ID: 5
+Agent: Main
+Task: Purchase Order — posisi Subtotal/Total/Terbilang di preview disamakan (sejajar) dengan Invoice
+
+Work Log:
+- Permintaan owner: "dihalaman buat purchase order. buat hasil preview subtotal, total dan terbilang posisi sama sejajar dengan invoice."
+- DIAGNOSA: Preview Invoice sudah punya spacer elastis 4cm di dalam tabel barang (baris spacerRef + useLayoutEffect pengukur tinggi A5 210mm) yang menurunkan blok Subtotal/PPN/Total → Terbilang → Catatan 40mm dari daftar barang; PurchaseOrderPreview TIDAK punya — Subtotal/Total langsung menempel di bawah barang, jadi tidak sejajar dengan invoice
+- FIX (src/components/dokupro/purchase-order-preview.tsx — mekanisme PERSIS invoice-preview.tsx):
+  - Import React hooks + konstanta SPACER_BASE_PX (40mm@96dpi) & A5_H_PX (210mm@96dpi)
+  - pageRef (root .a5-page) + spacerRef (baris <tr> colSpan 4) + state spacerPx + fontTick (re-measure setelah document.fonts.ready)
+  - useLayoutEffect: ukur dari baseline 40mm → bila scrollHeight > 210mm, spacer menyusut otomatis (min 0, -1px jaring pembulatan) agar PO tetap 1 halaman A5; deps: itemCount, catatan, ppn, tanggalJatuhTempo, referensi, fontTick
+  - Spacer <tr> disisipkan setelah baris pengisi kosong (MIN_ROWS 6), sebelum baris Subtotal — urutan & style blok total lainnya tidak diubah
+  - Cetak (window.print) & JPG memakai preview DOM yang sama (OffscreenPrintPreview) → hasil cetak/JPG PO otomatis sejajar juga; generator PDF jsPDF tidak diubah (memang aproksimasi, sama seperti invoice PDF yang juga tanpa spacer)
+- Versi: SW v188→v189, APP_VERSION/CURRENT_VERSION 2026-11-05-v186→2026-11-05-v187, entri changelog baru v187 "Purchase Order: Posisi Subtotal, Total & Terbilang Sejajar dengan Invoice"
+- Verifikasi agent-browser (lokal, admin): landmark atas dokumen PO vs Invoice identik (divider 100.1px, tabel 183.4px, baris pertama 213.7px); POSISI BLOK TOTAL PERSIS SAMA di kedua preview — Subtotal 543.2px, Total 560.3px, Terbilang 584.9px (diukur relatif thd atas .a5-page, spacer PO menyesuaikan 149.07px menyerap selisih konten header 2px); screenshot kedua editor tunjukkan blok total di posisi layar sama; spacer menyusut otomatis saat overflow (terbukti 149.07 < 151.18 baseline); console, page error, dev.log bersih; bunx eslint file berubah = 0 error
+
+Stage Summary:
+- Preview Purchase Order kini sejajar persis dengan Preview Invoice: blok Subtotal/PPN/Total + Terbilang turun 4cm dari daftar barang pada posisi yang sama; spacer elastis menjaga PO tetap 1 halaman A5 saat barang/catatan banyak; hasil cetak & JPG ikut sejajar otomatis
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+
+---
 Task ID: 4
 Agent: Main
 Task: Potong Kertas — tabel "Perbandingan Ukuran Kertas" ditambahkan ke dokumen Preview (ikut tercetak & ter-JPG)
