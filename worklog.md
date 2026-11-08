@@ -1,4 +1,17 @@
 ---
+Task ID: 9
+Agent: Main
+Task: PROMPT "FOLDER PENYIMPANAN DATABASE" (tab Penyimpanan DB)  ⟵ **DIBATALKAN oleh owner ("cancel perintah terakhir")**
+
+Work Log:
+- Owner mengirim PROMPT besar "PROMPT DARRELLSOFT — FOLDER PENYIMPANAN DATABASE" (Pengaturan → Penyimpanan Database: info lokasi, Pilih Folder via File System Access API, struktur 8 subfolder, backup darrellsoft_backup_<ts>, riwayat dgn download/restore/hapus + pagination, safety backup pra-restore, audit log) → fitur sempat dibuat PENUH & di-commit sebagai be6a40c (SW v191 / APP_VERSION & CURRENT_VERSION 2026-11-08-v189): 488 baris UI di pengaturan/page.tsx, API storage+backups/download+restore (route.ts baru), lib fs-access.ts + audit.ts, 114 key i18n baru, entri changelog v189 — TIDAK PERNAH dideploy ke produksi
+- Owner lalu mengirim "cancel perintah terakhir" → seluruh perubahan dibatalkan via `git revert be6a40c` (commit d96de80): semua API route & lib fitur terhapus, UI pengaturan kembali ke kondisi semula, versi kembali SW v190 / APP_VERSION & CURRENT_VERSION 2026-11-05-v188, entri changelog v189 & key i18n dibuang, worklog Task 9 lama ikut ter-revert lalu ditulis ulang sbg catatan ini
+- Produksi www.darrellsoft.com diverifikasi TIDAK terdampak (curl /sw.js → CACHE_NAME darrell-soft-v190, / → HTTP 200); lokal kembali persis ke kondisi sebelum PROMPT dikerjakan
+
+Stage Summary:
+- Perintah terakhir (fitur Penyimpanan Database sesuai PROMPT besar) DIBATALKAN dan dibersihkan total via git revert; tidak ada jejak fitur di kode lokal maupun produksi
+
+---
 Task ID: 8
 Agent: Main
 Task: Pengaturan Database — lokasi file yang dibackup  ⟵ **DIBATALKAN oleh owner ("cancel perintah terakhir")**
