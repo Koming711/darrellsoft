@@ -1,4 +1,20 @@
 ---
+Task ID: 7
+Agent: Main
+Task: Deploy produksi ke www.darrellsoft.com (v188 / SW v190) — semua rilis tertunda terkirim
+
+Work Log:
+- Permintaan owner: "deploy ke www.darrellsoft.com" + token Vercel (token hanya dipakai di CLI, tidak ditulis ke file mana pun)
+- Pra-deploy: git working tree bersih (HEAD b9ab464; Task 5 PO-preview & Task 6 Cetak/Backup-Restore sudah tercommit), versi lokal SW v190 / APP_VERSION & CURRENT_VERSION 2026-11-05-v188
+- Alur deployment (konvensi established): node scripts/prepare-build.js (schema sqlite→postgresql) → npx vercel link --yes --project darrellsoft --scope team_QBdS4SJeRhBe19sMKMlDvqsj → npx vercel --prod --yes (build sukses 57 dtk, "Ready in 1m") → node scripts/revert-schema.js + npx prisma generate (lokal kembali sqlite) → hapus .env.local buatan link (tree tetap bersih, .vercel/project.json dipertahankan/gitignored)
+- Deployment: https://darrellsoft-12j9rllli-koming711s-projects.vercel.app → alias https://www.darrellsoft.com (project darrellsoft, scope koming711s-projects; git auto-deploy tetap nonaktif)
+- Verifikasi produksi (curl, 2026-11-08 11:22 WIB): / HTTP 200 (title "Darrell Soft - Kalkulator Hitung Cetakan"), /sw.js HTTP 200 dgn CACHE_NAME darrell-soft-v190 (build terbaru terkonfirmasi), /login 200, /barang 200, /master-customer 200, /harga-customer 200 (/daftar-barang 404 adalah benar — menu di dalam /barang, bukan rute)
+- Catatan: ini deploy pertama sejak Task 4, jadi sekaligus membawa rilis v186 (Perbandingan Ukuran Kertas di preview Potong Kertas), v187 (PO preview sejajar invoice) dan v188 (Cetak Daftar Barang & Harga Customer, Backup/Restore Master Customer, fix restore-master 500)
+
+Stage Summary:
+- www.darrellsoft.com kini live dgn versi terbaru (v188 / SW v190); semua deploy yang tertunda sejak Task 4 selesai; lokal tetap berjalan normal (schema sqlite, tree bersih)
+
+---
 Task ID: 6
 Agent: Main
 Task: Tombol Cetak (Daftar Barang & Harga Customer) + Backup/Restore (Master Customer) + FIX bug restore-master 500 (transaksi starvation)
@@ -17,7 +33,7 @@ Work Log:
 Stage Summary:
 - Halaman Daftar Barang & Harga Customer kini punya tombol Cetak (hasil cetak mengikuti pencarian/filter aktif); Master Customer punya tombol Backup (unduh .xlsx) & Restore (ganti semua pelanggan dr file, dengan konfirmasi + peringatan cascade Harga Khusus)
 - Bonus fix besar: endpoint restore-master (semua halaman master) yang selama ini rawan 500 karena query di dalam transaksi memakai pool yang salah kini benar (lewat tx) — restore 9 data dari 16,4 detik gagal menjadi 152ms sukses
-- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+- SUDAH dideploy ke www.darrellsoft.com (lihat Task ID 7)
 
 ---
 Task ID: 5
@@ -38,7 +54,7 @@ Work Log:
 
 Stage Summary:
 - Preview Purchase Order kini sejajar persis dengan Preview Invoice: blok Subtotal/PPN/Total + Terbilang turun 4cm dari daftar barang pada posisi yang sama; spacer elastis menjaga PO tetap 1 halaman A5 saat barang/catatan banyak; hasil cetak & JPG ikut sejajar otomatis
-- BELUM dideploy ke www.darrellsoft.com (menunggu perintah/token owner)
+- SUDAH dideploy ke www.darrellsoft.com (lihat Task ID 7)
 
 ---
 Task ID: 4
