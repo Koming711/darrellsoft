@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v193'
+export const CURRENT_VERSION = '2026-11-08-v194'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v194',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Riwayat Diedit Naik ke Atas, Tanggal Jadi Tanggal Edit',
+      en: 'Edited History Moves to Top, Date Becomes Edit Date',
+    },
+    items: [
+      {
+        id: 'Di halaman Riwayat Hitung Cetakan, data yang diedit lalu disimpan kini NAIK ke baris paling atas tabel — nomor HC tetap (tidak buat nomor baru), tapi tanggalnya berubah jadi tanggal edit',
+        en: 'On the Hitung Cetakan History page, data that is edited and saved now MOVES to the very top of the table — the HC number stays the same (no new number), but the date changes to the edit date',
+      },
+      {
+        id: 'Baris yang pernah diedit diberi keterangan "Diedit" (badge kuning dgn ikon pensil) di tabel & kartu — supaya kelihatan mana riwayat yang sudah diubah',
+        en: 'Edited rows get an "Diedit" (Edited) note — a yellow badge with a pencil icon in the table & cards — so changed histories are easy to spot',
+      },
+      {
+        id: 'Kolom Tanggal dipindah ke SEBELAH KIRI kolom Nomor HC dengan format singkat dd/mm/yy (mis. 08/11/26)',
+        en: 'The Date column moved to the LEFT of the HC Number column with a short dd/mm/yy format (e.g. 08/11/26)',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v193',
     date: { id: '8 November 2026', en: '8 November 2026' },

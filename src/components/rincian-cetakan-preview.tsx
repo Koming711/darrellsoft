@@ -152,6 +152,7 @@ export interface RiwayatCetakanRow {
   grandTotal?: number | null
   nomorUrut?: string | null
   createdAt?: string | null
+  updatedAt?: string | null
   profitPercent?: number | null
   photoUrl?: string | null
   simulasiCepat?: string | null
@@ -212,7 +213,9 @@ export function mapRiwayatToRincianData(r: RiwayatCetakanRow): RincianCetakanDat
     profitPercent: r.profitPercent || 0,
     paperGrammage: parseInt(String(r.paperGrammage ?? '0')) || 0,
     recordNumber: r.nomorUrut || '',
-    recordDate: r.createdAt || '',
+    // Tanggal efektif = terakhir disimpan (bila riwayat pernah diedit, tanggal
+    // ikut berubah jadi tgl edit — konsisten dgn kolom Tanggal di halaman riwayat)
+    recordDate: r.updatedAt || r.createdAt || '',
     photoUrl: r.photoUrl || '',
     simulasiCepat: parseSimulasiCepat(r.simulasiCepat),
   }

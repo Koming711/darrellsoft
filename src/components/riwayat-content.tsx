@@ -157,7 +157,33 @@ interface UnifiedRiwayat {
   /** Potong Kertas: potongan per lembar (totalPieces dari resultData / berapaMata). */
   potonganPerLembar: number | null
   createdAt: string
+  /** Tanggal terakhir disimpan (= tgl edit bila pernah diedit); fallback createdAt. */
+  updatedAt: string
+  /** true bila riwayat pernah DIEDIT (updatedAt menyimpang dari createdAt). */
+  isEdited: boolean
   raw: RiwayatCetakanRow | RiwayatPotongKertasRow
+}
+
+/** Toleransi ms: updatedAt beda dari createdAt lebih dari ini = pernah DIEDIT. */
+const EDITED_TOLERANCE_MS = 2000
+
+const isRowEdited = (createdAt: string, updatedAt: string) => {
+  const c = new Date(createdAt).getTime()
+  const u = new Date(updatedAt).getTime()
+  if (isNaN(c) || isNaN(u)) return false
+  return u - c > EDITED_TOLERANCE_MS
+}
+
+/** Tanggal efektif riwayat = tanggal terakhir disimpan (bila diedit → tgl edit). */
+const effectiveDateOf = (h: { createdAt: string; updatedAt: string }) => h.updatedAt || h.createdAt
+
+/** Format tanggal pendek dd/mm/yy (permintaan owner utk kolom Tanggal). */
+const formatDateDdMmYy = (d: string) => {
+  try {
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return d
+    return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getFullYear()).slice(-2)}`
+  } catch { return d }
 }
 
 export type RiwayatSource = 'potong-kertas' | 'hitung-cetakan'
@@ -196,6 +222,8 @@ function normalizeCetakan(r: RiwayatCetakanRow): UnifiedRiwayat {
     jualPerPcs,
     potonganPerLembar: null,
     createdAt: r.createdAt,
+    updatedAt: r.updatedAt || r.createdAt,
+    isEdited: isRowEdited(r.createdAt, r.updatedAt || r.createdAt),
     raw: r,
   }
 }
@@ -233,6 +261,8 @@ function normalizePotong(r: RiwayatPotongKertasRow): UnifiedRiwayat {
     jualPerPcs: 0,
     potonganPerLembar,
     createdAt: r.createdAt,
+    updatedAt: r.updatedAt || r.createdAt,
+    isEdited: isRowEdited(r.createdAt, r.updatedAt || r.createdAt),
     raw: r,
   }
 }
@@ -298,44 +328,16 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
   }
 
   // ===== Edit / restore ke kalkulator =====
-  const handleRestoreCetakan = (item: UnifiedRiwayat) => {
-    const r = item.raw as RiwayatCetakanRow
-    const params = new URLSearchParams()
-    if (r.printName) params.set('printName', r.printName)
-    if (r.customerName) params.set('customerName', r.customerName)
-    if (r.paperName) params.set('paperName', r.paperName)
-    if (r.paperLength) params.set('paperLength', r.paperLength)
-    if (r.paperWidth) params.set('paperWidth', r.paperWidth)
-    if (r.cutWidth) params.set('cutWidth', r.cutWidth)
-    if (r.cutHeight) params.set('cutHeight', r.cutHeight)
-    if (r.quantity) params.set('quantity', r.quantity)
-    if (r.jumlahPesanan) params.set('jumlahPesanan', r.jumlahPesanan)
-    if (r.berapaMata) params.set('berapaMata', r.berapaMata)
-    if (r.totalPaperPrice) params.set('totalPaperPrice', r.totalPaperPrice.toString())
-    if (r.profitPercent) params.set('profitPercent', r.profitPercent.toString())
-    params.set('restoredFromRiwayat', '1')
-    if (r.paperGrammage && r.paperGrammage !== '0') params.set('paperGrammage', r.paperGrammage)
-    if (r.pricePerSheet) params.set('pricePerSheet', r.pricePerSheet.toString())
-    if (r.warna && r.warna !== '-') params.set('warna', r.warna)
-    if (r.warnaKhusus && r.warnaKhusus !== '-' && parseInt(r.warnaKhusus) > 0) params.set('warnaKhusus', r.warnaKhusus)
-    if (r.hargaPlat) params.set('hargaPlat', r.hargaPlat.toString())
-    if (r.machineName && r.machineName !== '-') params.set('machineName', r.machineName)
-    if (r.machineName2 && r.machineName2 !== '-') params.set('machineName2', r.machineName2)
-    if (r.finishingNames && r.finishingNames !== '-') params.set('finishingNames', r.finishingNames)
-    if (r.packingCost) params.set('packingCost', r.packingCost.toString())
-    if (r.shippingCost) params.set('shippingCost', r.shippingCost.toString())
-    if (r.glueCost) params.set('glueCost', r.glueCost.toString())
-    if (r.glueBorongan) params.set('glueBorongan', r.glueBorongan.toString())
-    if (r.otherCost) params.set('otherCost', r.otherCost.toString())
-    window.location.href = `/hitung-cetakan?${params.toString()}`
-  }
-
+  // Edit Hitung Cetakan = lanjutkan riwayat yang SAMA (nomor HC TETAP, tidak buat
+  // nomor baru): deep-link ?loadRiwayat=<id> me-restore SEMUA field dari server
+  // lalu tombol simpan berubah jadi "Update Riwayat" (PUT) — begitu disimpan,
+  // baris naik ke atas tabel dgn tanggal berubah jadi tgl edit + tanda "Diedit".
   const handleEdit = (item: UnifiedRiwayat) => {
     if (isPotong) {
       // Kalkulator Potong Kertas mendukung deep-link restore via ?restore=<id>
       router.push(`/potong-kertas?restore=${item.id}`)
     } else {
-      handleRestoreCetakan(item)
+      router.push(`/hitung-cetakan?loadRiwayat=${item.id}`)
     }
   }
 
@@ -451,11 +453,13 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
     [period, fromDate, toDate, month, year]
   )
 
-  // 1) Filter periode (tanggal lokal yyyy-mm-dd, inklusif)
+  // 1) Filter periode (tanggal lokal yyyy-mm-dd, inklusif) — pakai TANGGAL
+  //    EFEKTIF (terakhir disimpan): riwayat yang diedit hari ini ikut muncul
+  //    di periode "Hari ini" karena tanggalnya berubah jadi tgl edit.
   const periodItems = useMemo(() => {
     if (!range.dateFrom && !range.dateTo) return items
     return items.filter((h) => {
-      const d = riwayatToInputDate(h.createdAt)
+      const d = riwayatToInputDate(effectiveDateOf(h))
       if (!d) return false
       if (range.dateFrom && d < range.dateFrom) return false
       if (range.dateTo && d > range.dateTo) return false
@@ -510,13 +514,6 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
     if (v > 0) return `Rp ${v.toLocaleString('id-ID')}`
     return '-'
   }
-  // Tanggal pendek utk kartu mobile: "10 Feb, 14.30"
-  const formatDateShort = (d: string) => {
-    try {
-      const dt = new Date(d)
-      return `${dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}, ${dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
-    } catch { return d }
-  }
 
   const jenisLabel = isPotong ? 'Potong Kertas' : 'Hitung Cetakan'
 
@@ -560,6 +557,18 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
       <Pencil className="w-3.5 h-3.5" /> Edit
     </button>
   )
+
+  // Keterangan "Diedit": riwayat pernah disimpan ulang — nomor HC tetap,
+  // tanggal mengikuti waktu terakhir disimpan (permintaan owner).
+  const editedBadge = (item: UnifiedRiwayat) => item.isEdited ? (
+    <span
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold whitespace-nowrap"
+      title="Riwayat pernah diedit — tanggal mengikuti terakhir disimpan"
+    >
+      <Pencil className="w-2.5 h-2.5" />
+      Diedit
+    </span>
+  ) : null
 
   return (
     <div className="space-y-4">
@@ -687,7 +696,8 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                   </div>
                   <span className="flex items-center gap-1 text-[11px] text-slate-400 shrink-0">
                     <CalendarDays className="w-3 h-3" />
-                    {formatDateShort(item.createdAt)}
+                    {formatDateDdMmYy(effectiveDateOf(item))}
+                    {editedBadge(item)}
                   </span>
                 </div>
 
@@ -789,13 +799,16 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     {([
+                      // Kolom Tanggal pindah ke PALING KIRI (sebelah kiri Nomor HC)
+                      // — permintaan owner. Format dd/mm/yy.
+                      'Tanggal',
                       'Nomor',
                       ...(!isPotong ? ['No PK'] : []),
                       'Nama Pelanggan', 'Nama Cetakan', 'Kertas / Bahan',
                       ...(isPotong ? ['Ukuran Potong', 'Potongan/Lbr', 'Lembar Kertas'] : []),
                       'Jumlah',
                       ...(isPotong ? ['Harga/Lembar'] : ['Modal/pcs', 'Jual/pcs']),
-                      'Total Harga', 'Tanggal', 'Aksi',
+                      'Total Harga', 'Aksi',
                     ] as string[]).map((h, i, arr) => (
                       <th key={h} className={cn(
                         'px-4 py-2.5 text-left text-xs font-semibold text-slate-600 uppercase whitespace-nowrap',
@@ -811,6 +824,14 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                       className={cn('cursor-pointer h-[10mm]', idx % 2 === 1 && 'bg-slate-100 dark:bg-zinc-800/60')}
                       onClick={() => openPreview(item)}
                     >
+                      {/* Tanggal efektif (tgl terakhir disimpan) — kini PALING KIRI,
+                          sebelah kiri Nomor HC; format dd/mm/yy + keterangan Diedit. */}
+                      <td className="px-4 py-2.5 text-xs text-slate-600 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span>{formatDateDdMmYy(effectiveDateOf(item))}</span>
+                          {editedBadge(item)}
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5">
                         {item.nomorUrut
                           ? <span className={cn('font-semibold text-xs font-mono', isPotong ? 'text-teal-700' : 'text-blue-700')}>{item.nomorUrut}</span>
@@ -878,7 +899,6 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                       <td className="px-4 py-2.5">
                         <span className="font-bold text-emerald-700 whitespace-nowrap">{formatRp(item.grandTotal)}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-xs text-slate-500 whitespace-nowrap">{formatDate(item.createdAt)}</td>
                       <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="inline-flex items-center gap-1">
                           <button
@@ -961,7 +981,8 @@ export function RiwayatContent({ title, subtitle, source }: RiwayatContentProps)
                     </div>
                     <h1 className="text-lg font-bold text-slate-900">Rincian Potong Kertas</h1>
                     <p className="text-xs text-slate-500 mt-1">
-                      {previewItem.printName || '-'} · {formatDate(previewItem.createdAt)}
+                      {previewItem.printName || '-'} · {formatDate(effectiveDateOf(previewItem))}
+                      {previewItem.isEdited ? ' · Diedit' : ''}
                     </p>
                     {previewItem.nomorUrut && (
                       <p className="text-[10px] text-slate-400 mt-0.5 font-mono tracking-wide">No. {previewItem.nomorUrut}</p>

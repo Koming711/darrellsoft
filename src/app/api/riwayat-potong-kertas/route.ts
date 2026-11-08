@@ -30,9 +30,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise fetch all records
+    // Urut per TANGGAL TERAKHIR DISIMPAN (updatedAt) — konsisten dgn halaman
+    // riwayat hitung cetakan: riwayat yang diedit & disimpan naik ke atas tabel.
     const riwayat = await db.riwayatPotongKertas.findMany({
       where: dataFilter,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     })
     return NextResponse.json(riwayat)
   } catch (error) {

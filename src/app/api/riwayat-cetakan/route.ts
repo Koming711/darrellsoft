@@ -31,9 +31,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise fetch all records
+    // Urut per TANGGAL TERAKHIR DISIMPAN (updatedAt): riwayat yang baru DIEDIT
+    // & disimpan otomatis naik ke ATAS tabel (nomor HC tetap, tanggal berubah
+    // jadi tgl edit). Data yang belum pernah diedit: updatedAt == createdAt,
+    // jadi urutannya tetap terbaru-di-atas seperti sebelumnya.
     const riwayat = await db.riwayatCetakan.findMany({
       where: dataFilter,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { updatedAt: 'desc' }
     })
     // Lampirkan nomor Potong Kertas yang terhubung (kolom "No PK" di halaman
     // riwayat hitung cetakan): pkRiwayatId → RiwayatPotongKertas.nomorUrut.

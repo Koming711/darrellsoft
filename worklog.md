@@ -1,4 +1,21 @@
 ---
+Task ID: 15
+Agent: Main
+Task: Riwayat Hitung Cetakan — edit & simpan → baris naik ke atas, nomor HC tetap, tanggal jadi tgl edit + keterangan "Diedit"; kolom Tanggal pindah kiri No HC (dd/mm/yy)
+
+Work Log:
+- Permintaan owner: "dihalaman riwayat hitung cetakan . apabila ada data yang diedit lalu disimpan, maka di tabel riwayat dipindahin ke atas, nomor hc tetap, tapi tanggalnya dirubah. tapi ada keterangan di edit. kolom tanggal dipindahin ke sebelah kiri no hc format tgl dd/mm/yy. fix"
+- DIAGNOSA: (1) tombol Edit di src/components/riwayat-content.tsx (handleRestoreCetakan) hanya menembak /hitung-cetakan?...&restoredFromRiwayat=1 TANPA id record → saat disimpan kalkulator POST record BARU (nomor HC baru) — bukan update; (2) GET /api/riwayat-cetakan orderBy createdAt desc → baris yang diupdate tidak naik; (3) tanggal menampilkan createdAt (bukan tgl edit); (4) kolom Tanggal di paling kanan (sebelum Aksi), format panjang "8 Nov 2026, 14.30"; (5) tidak ada penanda pernah diedit.
+- FIX riwayat-content.tsx: (a) handleEdit HC kini router.push `/hitung-cetakan?loadRiwayat=<id>` — flow yang SUDAH ADA di kalkulator: fetch record penuh dari server → handleRestoreRiwayat → setRestoredRiwayatId → tombol berubah "Update Riwayat" (PUT /api/riwayat-cetakan/[id]) → nomor HC TETAP (PUT tidak menyentuh nomorUrut) & semua field ter-restore utuh (glue/finishing/mesin/foto/simulasi) — handleRestoreCetakan lama (URL param lossy) dihapus; (b) UnifiedRiwayat + field updatedAt & isEdited (updatedAt−createdAt > 2 dtk = pernah diedit; @updatedAt Prisma auto-bump di PUT); (c) urut tampil & filter periode ("Hari ini" dst) memakai TANGGAL EFEKTIF effectiveDateOf = updatedAt (|| createdAt) → riwayat lama yang diedit hari ini ikut muncul di "Hari ini"; (d) kolom Tanggal dipindah PALING KIRI (sebelah kiri Nomor HC) di header & body tabel, format dd/mm/yy baru (formatDateDdMmYy); (e) badge keterangan "Diedit" (amber, ikon pensil, title tooltip) di sel Tanggal tabel & kartu mobile; (f) header preview potong-kertas + RincianCetakanPreview (mapRiwayatToRincianData.recordDate) ikut memakai tanggal efektif; formatDateShort terpakai → dihapus.
+- FIX API: GET /api/riwayat-cetakan & GET /api/riwayat-potong-kertas orderBy createdAt desc → **updatedAt desc** (baris baru tetap terbaru-di-atas karena updatedAt==createdAt saat create; baris yang diedit otomatis naik ke paling atas). Nomor HC aman: generateHitungCetakanNumber menghitung max dari string nomorUrut, tidak terpengaruh urutan list.
+- Verifikasi agent-browser (admin/268899, data HC/11/26/0036-0038): (a) tabel: header [Tanggal, Nomor, No PK, ...] ✓, tanggal 08/11/26 ✓; (b) E2E dua kali — Edit baris ke-2 → kalkulator terbuka mode "Update Riwayat" dgn nomor record tsb (HC/11/26/0036 lalu 0038) → klik Update → PUT 200 (dev.log) → kembali ke riwayat: baris tsb NAIK KE PALING ATAS, nomor TETAP, tanggal jadi 08/11/26 + badge "Diedit" ✓ (urutan berubah [0036,0038,0037]→[0038,0036,0037] persis sesuai update terakhir); (c) count record tetap 4 — TIDAK ada record baru/duplikat ✓; (d) kartu mobile 390x844: tanggal dd/mm/yy + badge Diedit rapi ✓; (e) dark mode via toggle: badge & tabel terbaca ✓; (f) dialog detail HC menampilkan tanggal efektif ✓; (g) halaman riwayat-potong-kertas ikut konsisten (Tanggal kiri, dd/mm/yy) ✓; (h) bunx eslint 4 file ubah = 0 error; console bersih.
+- Catatan: saat verifikasi pertama sempat terlihat daftar tanpa record 0038 (buatannya 13:17Z, update 13:23Z oleh sesi tes sebelumnya) — transient stale state dev-server saat hot reload; setelah reload semua normal & urutan benar. Bukan bug kode.
+- Versi: SW v195→v196, APP_VERSION/CURRENT_VERSION 2026-11-08-v193→2026-11-08-v194, entri changelog v194 "Riwayat Diedit Naik ke Atas, Tanggal Jadi Tanggal Edit" — BELUM dideploy
+
+Stage Summary:
+- Di halaman Riwayat Hitung Cetakan, mengedit lalu menyimpan kini memperbarui record yang SAMA (nomor HC tetap, tidak buat nomor baru), memindahkan barisnya ke paling atas tabel, dan mengubah tanggalnya menjadi tanggal edit — ditandai keterangan "Diedit". Kolom Tanggal kini berada di sebelah kiri kolom Nomor HC dengan format dd/mm/yy. Filter periode & tampilan detail mengikuti tanggal efektif tersebut; halaman riwayat Potong Kertas ikut konsisten.
+
+---
 Task ID: 14
 Agent: Main
 Task: Potong Kertas — klik "Hitung Cetakan Lengkap" langsung pindah halaman TANPA delay
