@@ -32,8 +32,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     },
     items: [
       {
-        id: 'Headline halaman utama kini diawali "Hitung Potong Kertas, Hitung Cetakan Akurat" sebelum "Buat Invoice" — kalkulator andalan bisnis cetak makin menonjol',
-        en: 'The homepage headline now opens with "Calculate Paper Cutting, Accurate Printing" before "Create Invoices" — the printing calculators are now front and center',
+        id: 'Headline halaman utama kini diawali "Hitung Potong Kertas, Hitung Cetakan Akurat" berwarna biru sebelum "Buat Invoice" — kalkulator andalan bisnis cetak makin menonjol',
+        en: 'The homepage headline now opens with a blue "Calculate Paper Cutting, Accurate Printing" before "Create Invoices" — the printing calculators are now front and center',
       },
     ],
   },

@@ -1,4 +1,19 @@
 ---
+Task ID: 10
+Agent: Main
+Task: Landing page — headline diawali "Hitung Potong Kertas, Hitung Cetakan Akurat" (biru) sebelum "Buat Invoice"
+
+Work Log:
+- Permintaan owner #1: "dihalaman landing. tambahkan Hitung potong kertas, Hitung cetakan akurat sebelum tulisan buat invoice" → key i18n baru hero_h1_0 (id: "Hitung Potong Kertas, Hitung Cetakan Akurat," / en: "Calculate Paper Cutting, Accurate Printing,") di src/app/page.tsx, dirender sebagai segmen PERTAMA H1 hero tepat sebelum "Buat Invoice, Surat Jalan," — styling span existing tak diubah
+- Gangguan environment: saat proses, tool eksekusi command down sementara → sistem auto-commit menyimpan perubahan sbg 2 commit berpesan UUID (14de3af: db-wal/shm runtime; 7100a51: seluruh perubahan headline + bump versi); worklog sempat tidak tertulis, kini dilengkapi di entri ini
+- Permintaan owner #2: "tulisan Hitung Potong Kertas, Hitung Cetakan Akurat, dirubah jadi biru" → span hero_h1_0 diberi class text-blue-600 dark:text-blue-400 (user eksplisit minta biru); segmen "Buat Invoice..." tetap gelap, segmen berikutnya tetap gradient emerald-teal
+- Verifikasi agent-browser: H1 utuh "Hitung Potong Kertas, Hitung Cetakan Akurat, Buat Invoice, Surat Jalan, Purchase Order & Stock Bahan, Laba Rugi — Semua Satu Aplikasi!"; computed color span pertama lab(44,29,-86) ≈ #2563eb (blue-600); desktop 1440 & 1280px rapi; mobile 390px wrap 7 baris tanpa overflow; toggle EN → "Calculate Paper Cutting, Accurate Printing, Create Invoices, ..." (biru juga); popup "Versi Baru!" v189 tampil dgn changelog baru; console & page error bersih; bunx eslint semua file berubah = 0 error
+- Versi: SW v190→v191, APP_VERSION/CURRENT_VERSION 2026-11-05-v188→2026-11-08-v189, entri changelog v189 "Headline Baru di Halaman Utama" (teks item disebut biru) — v189 BELUM dideploy, perubahan warna biru digabung ke rilis v189 yg sama
+
+Stage Summary:
+- Headline halaman landing kini memimpin dgn kalkulator andalan: "Hitung Potong Kertas, Hitung Cetakan Akurat" (berwarna biru) sebelum "Buat Invoice" — urutan cerita kerja percetakan (hitung dulu, baru invoice) tampil di judul utama; id & en konsisten
+
+---
 Task ID: 9
 Agent: Main
 Task: PROMPT "FOLDER PENYIMPANAN DATABASE" (tab Penyimpanan DB)  ⟵ **DIBATALKAN oleh owner ("cancel perintah terakhir")**

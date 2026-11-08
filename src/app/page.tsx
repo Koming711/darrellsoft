@@ -1214,7 +1214,7 @@ export default function Home() {
             <FadeIn direction="right">
               <div className="flex flex-col gap-6">
                 <h1 className="text-gray-900 dark:text-gray-100 leading-[1.1] tracking-tight text-[33.67px] md:text-[43.67px] lg:text-[55.67px]" style={{ fontWeight: 900 }}>
-                  <span style={{ fontWeight: 900 }}>{t.hero_h1_0}{' '}</span>
+                  <span className="text-blue-600 dark:text-blue-400" style={{ fontWeight: 900 }}>{t.hero_h1_0}{' '}</span>
                   <span style={{ fontWeight: 900 }}>{t.hero_h1_1}{' '}</span>
                   <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_2}</span>{' '}
                   <span className="bg-gradient-to-r from-emerald-600 to-teal-400 bg-clip-text text-transparent" style={{ fontWeight: 900 }}>{t.hero_h1_3}</span>
