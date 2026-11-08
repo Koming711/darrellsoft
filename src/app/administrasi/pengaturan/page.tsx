@@ -109,18 +109,6 @@ export default function PengaturanPage() {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState<string | null>(null)
   const [lastAutoBackup, setLastAutoBackup] = useState<string | null>(null)
   const [nextAutoBackup, setNextAutoBackup] = useState<string | null>(null)
-  // Info lokasi file database yang dibackup (sumber backup & tempat salinan disimpan)
-  const [dbInfo, setDbInfo] = useState<{
-    provider: string
-    file?: string
-    exists?: boolean
-    sizeFormatted?: string
-    modified?: string | null
-    host?: string
-    database?: string
-    backupFolder: string
-    environment?: string
-  } | null>(null)
 
   // Display settings
   const [fontSize, setFontSize] = useState('medium')
@@ -576,15 +564,7 @@ export default function PengaturanPage() {
     setLoadingBackups(false)
   }, [])
 
-  // Info file database sumber backup (Pengaturan → Database)
-  const fetchDbInfo = useCallback(async () => {
-    try {
-      const res = await authFetch('/api/database/db-info', { headers: getAuthHeaders() })
-      if (res.ok) { const data = await res.json(); if (data.success) setDbInfo(data) }
-    } catch { /* silent */ }
-  }, [])
-
-  useEffect(() => { if (activeTab === 'database') { fetchBackups(); fetchDbInfo() } }, [activeTab, fetchBackups, fetchDbInfo])
+  useEffect(() => { if (activeTab === 'database') fetchBackups() }, [activeTab, fetchBackups])
 
   const fetchAutoBackupDays = useCallback(async () => {
     try {
@@ -637,7 +617,6 @@ export default function PengaturanPage() {
 
         toast.success(`${t('backup_success')} ${fileCount} ${t('records')} — ${fileName}`)
         fetchBackups()
-        fetchDbInfo()
       } else {
         let errMsg = t('backup_error')
         try { const errData = await res.json(); errMsg = errData?.error || errMsg } catch {}
@@ -1116,36 +1095,6 @@ export default function PengaturanPage() {
                       <h4 className="text-sm font-semibold text-foreground">{t('backup_full_title')}</h4>
                     </div>
                     <p className="text-xs text-muted-foreground mb-3">{t('backup_full_desc')}</p>
-                    {/* Lokasi file yang dibackup + tempat salinan backup disimpan */}
-                    {dbInfo && (
-                      <div className="bg-white/70 dark:bg-slate-900/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3 space-y-2.5">
-                        <div className="flex items-start gap-2">
-                          <HardDrive className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0 text-[11px]">
-                            <p className="font-semibold text-foreground">{t('backup_source_location')}</p>
-                            {dbInfo.provider === 'sqlite' ? (
-                              <>
-                                <p className="font-mono text-blue-700 dark:text-blue-300 break-all">{dbInfo.file}</p>
-                                <p className="text-muted-foreground">
-                                  {dbInfo.sizeFormatted || '-'}
-                                  {dbInfo.modified ? ` • ${new Date(dbInfo.modified).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
-                                  {dbInfo.exists === false ? ` • ⚠️ ${t('backup_source_not_found')}` : ''}
-                                </p>
-                              </>
-                            ) : dbInfo.provider === 'postgresql' ? (
-                              <p className="text-muted-foreground break-all">PostgreSQL{dbInfo.host ? ` — ${dbInfo.host}` : ''}{dbInfo.database ? ` / ${dbInfo.database}` : ''}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <Database className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                          <div className="min-w-0 text-[11px]">
-                            <p className="font-semibold text-foreground">{t('backup_copy_location')}</p>
-                            <p className="text-muted-foreground break-all"><span className="font-mono">{dbInfo.backupFolder}/</span> ({t('backup_copy_in_folder')}) + {t('backup_copy_in_db')}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         onClick={handleBackupDatabase}
