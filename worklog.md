@@ -11,9 +11,13 @@ Work Log:
 - PEMULIHAN state: restore backup membuat Task 15-18 kembali utuh (sw v199/v197 + changelog + worklog). Setelah itu Task 19 di-apply di atas file v199.
 - Versi: SW v199→v200, APP_VERSION/CURRENT_VERSION 2026-11-08-v197→2026-11-08-v198, entri changelog v198 "Riwayat Invoice: Kolom Profit Dihapus".
 - Lint: bunx eslint file ubah = bersih.
+- Verifikasi lokal agent-browser (admin/268899, 1440x900): header tabel = Nomor | Tanggal | Pelanggan | Status | Jumlah Item | Total (TANPA Profit), semua baris (invoice + pelunasan) 7 sel rapi, textContent tabel TIDAK mengandung "Profit", kotak Total Profit tetap; kartu mobile tanpa baris Profit. Catatan: halaman /riwayat (Riwayat Penjualan) TIDAK diubah — bukan target permintaan owner (sebentar salah edit di situ, langsung di-revert ke HEAD).
+- DEPLOY v200 ke www.darrellsoft.com (permintaan owner + token): ⚠️ ditemukan .vercel/project.json milik backup restore menunjuk project SALAH ("my-project") — deploy pertama tak sengaja ke my-project-eight-alpha-65.vercel.app (prod URL tak terpakai, tak berdampak); sw.js prod masih v199 (cache HIT age 17j). FIX: ambil id project darrellsoft via API (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB), .vercel/project.json dialihkan ke darrellsoft (gitignored), deploy ulang → darrellsoft-f2vw3d9sf. Link .vercel kini PERMANEN menunjuk darrellsoft agar deploy berikutnya benar.
+- E2E produksi (www.darrellsoft.com): sw.js = darrell-soft-v200 ✓; popup "Versi Baru! v198" + changelog "Riwayat Invoice: Kolom Profit Dihapus" muncul ✓; login admin ✓; tab Riwayat Invoice: header tanpa Profit, 5 baris riil (INV/PEL Budi Susanto) 7 sel rapi, profitInTable=false, kartu mobile 4 kartu tanpa Profit, kotak Total Profit tetap ✓. Screenshot: tool-results/task19-prod-riwayat-invoice.png.
 
 Stage Summary:
 - Tabel Riwayat Invoice (desktop) kini tanpa kolom Profit: Nomor | Tanggal | Pelanggan | Status | Jumlah Item | Total | (chevron). Baris pelunasan & kartu mobile ikut tanpa profit. Kotak ringkasan Total Profit di atas daftar tetap tampil (hanya untuk pengguna dengan izin profit). Workspace dipulihkan penuh dari backup owner setelah insiden git rebase — riwayat git Task 15-18 kembali utuh.
+- DEPLOYED v200 ke www.darrellsoft.com dan terverifikasi E2E di produksi (tabel tanpa kolom Profit, popup v198 muncul, data riil utuh). Link .vercel diperbaiki menunjuk project darrellsoft.
 
 ---
 Task ID: 18
