@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-09-v199'
+export const CURRENT_VERSION = '2026-11-09-v200'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-09-v200',
+    date: { id: '9 November 2026', en: '9 November 2026' },
+    title: {
+      id: 'Riwayat Invoice: Rekap per Pelanggan',
+      en: 'Invoice History: Per-Customer Recap',
+    },
+    items: [
+      {
+        id: 'Di halaman Riwayat Invoice (tab Invoice) ada kartu baru "Rekap per Pelanggan" di bawah kotak Total — daftar pelanggan dengan jumlah invoice, total nilai, belum lunas, dan profit (sesuai izin)',
+        en: 'On the Invoice History page (Invoice tab) there is a new "Rekap per Pelanggan" card below the Total boxes — a per-customer list with invoice count, total value, outstanding amount, and profit (per permission)',
+      },
+      {
+        id: 'Rekap mengikuti filter aktif (periode, status, pelanggan, pencarian), diurutkan dari total terbesar, ada baris Total di bawah, bisa dilipat/buka, dan daftar panjang otomatis bisa digulir',
+        en: 'The recap follows active filters (period, status, customer, search), sorted by largest total, with a Total row at the bottom, can be collapsed/expanded, and long lists scroll automatically',
+      },
+    ],
+  },
   {
     version: '2026-11-09-v199',
     date: { id: '9 November 2026', en: '9 November 2026' },

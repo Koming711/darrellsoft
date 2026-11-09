@@ -1,4 +1,20 @@
 ---
+Task ID: 21
+Agent: Main
+Task: Halaman Invoice — rekap per pelanggan di tab Riwayat Invoice (kartu collapsible, mengikuti filter aktif)
+
+Work Log:
+- Permintaan owner: "dihalaman invoice, tambahkan rekap per pelanggan."
+- DESAIN: kartu "Rekap per Pelanggan" disisipkan di tab Invoice ANTARA kotak Total (Total Invoice/Total Profit) dan daftar tabel — sumber = dpInvoices (invoice DP terfilter), selaras kotak total: invoice batal dilewati, pelunasan tidak dihitung ganda; agregat per pelanggan = jumlah invoice, total nilai, belum lunas (Σ invoice berstatus 'belum'), profit (hanya kolom muncul bila bisaLihatProfit/hasProfitAccess); urut total terbesar → abjad.
+- FIX (src/app/invoice/page.tsx): (a) state rekapOpen (default terbuka) + useMemo rekapPelanggan { rows, totalBelum } — dedupe nama via key lowercase pihakKedua (fallback '(Tanpa nama)'), status via getInvoiceStatus (sama sumber dgn badge tabel); (b) UI Card collapsible: header button (ikon Users emerald + Badge "N pelanggan" + chevron rotate) dengan aria-expanded/aria-controls, body = tabel max-h-96 overflow-y-auto dgn thead sticky, kolom [Pelanggan | Invoice | Total | Belum Lunas | Profit?], Belum Lunas > 0 amber / else "—", Profit > 0 emerald / else "—", tfoot baris Total (jumlah = riwayatTotals.jumlahInvoice, total = riwayatTotals.totalInvoice, profit = riwayatTotals.totalProfit → angka selalu cocok dgn kotak total), caption "Rekap dari invoice terfilter (tanpa invoice batal)…"; angka formatRupiah(Math.round(...)); dark mode variant lengkap.
+- Verifikasi agent-browser lokal (admin/268899, 1440x900): popup "Versi Baru! v200" muncul (bump OK) → tutup; kartu ada; cross-check data lokal: tabel 8 baris (The Kat: INV/11/26/0007+0006 = 2 DP + 1 PEL; Budi: 4 DP + 1 PEL, semua Lunas) → rekap [The Kat 2 Rp19.153.800 — Rp7.011.400; Budi 4 Rp4.920.000 — Rp1.430.000], tfoot [Total 6 Rp24.073.800 — Rp8.441.400] PERSIS kotak total ✓, "Belum Lunas —" benar (semua lunas); filter pelanggan The Kat → rekap tinggal 1 baris The Kat (ikut filter) ✓; × clear → 2 baris lagi; toggle lipat → body hilang + aria-expanded=false, buka lagi → tampil ✓; mobile 390x844 → kartu tampil layar penuh ✓. Screenshot: tool-results/task21-rekap-pelanggan.png, task21-rekap-mobile.png.
+- Versi: SW v201→v202, APP_VERSION/CURRENT_VERSION 2026-11-09-v199→2026-11-09-v200, entri changelog v200 "Riwayat Invoice: Rekap per Pelanggan". BELUM dideploy (menunggu instruksi owner).
+- Lint: bunx eslint 3 file ubah = bersih.
+
+Stage Summary:
+- Tab Riwayat Invoice kini punya rekap per pelanggan (jumlah invoice, total, belum lunas, profit sesuai izin) yang selalu mengikuti filter aktif, diurutkan dari total terbesar, ada baris Total yang dijamin cocok dengan kotak Total Invoice/Profit, bisa dilipat, dan daftar panjang bisa digulir. Versi v202/v200 siap deploy.
+
+---
 Task ID: 20
 Agent: Main
 Task: Riwayat Invoice — kotak dropdown cari pelanggan (filter pelanggan searchable) di tab Invoice
