@@ -1,4 +1,21 @@
 ---
+Task ID: 20
+Agent: Main
+Task: Riwayat Invoice — kotak dropdown cari pelanggan (filter pelanggan searchable) di tab Invoice
+
+Work Log:
+- Permintaan owner: "dihalaman riwayat invoice. tambahkan kotak dropown cari pelanggan".
+- DIAGNOSA (src/app/invoice/page.tsx, InvoiceRiwayatView): filter eksisting = periode (RiwayatPeriodFilter) + cari nomor/pelanggan (debounce 300ms) + Select status; pola dropdown-searchable yang sudah dipakai app = Popover + PopoverAnchor + input + list filtered (surat-jalan-editor/PO editor/pelunasan-create) → diikuti agar konsisten.
+- FIX (frontend): (a) state baru customerFilter ('' = semua) + customerInput + customerDropOpen; (b) customerOptions = nama unik pihakKedua dari semuaHistory (invoice + pelunasan), dedupe case-insensitive, urut abjad localeCompare 'id'; customerChoices = options difilter live oleh teks ketikan; (c) matchesFilters + `customerFilter` (exact match pihakKedua trim), filtersActive & resetFilters ikut; (d) UI: Popover w-full sm:w-56 di baris filter (kiri Select status) — ikon Users + Input placeholder "Semua Pelanggan" (menampilkan nama terpilih bila ada), tombol × bulat utk hapus filter, PopoverContent max-h-60 overflow-y-auto + item "Semua Pelanggan" + daftar pelanggan (terpilih highlight emerald + dark:variants), empty state "Tidak ada pelanggan ditemukan"; ketik = buka dropdown + lepaskan filter terpasang (konsistensi teks↔filter), Escape menutup; (e) Export Excel kini mengirim param `customer` (mengikuti filter terpilih).
+- FIX (backend src/app/api/export/invoices/route.ts): param `customer` baru — filter exact `(row.pihakKedua||'').trim() !== customer`; doc comment diperbarui.
+- Verifikasi agent-browser lokal (admin/268899, 1440x900): popup "Versi Baru! v199" muncul dulu (bump OK) → tutup; dropdown ada (placeholder "Semua Pelanggan"); isi = [Semua Pelanggan, Budi Susanto, The Kat] urut abjad; ketik "kat" → hanya The Kat; pilih The Kat → tabel 3 baris semua The Kat, tombol Reset muncul, kotak menampilkan nama; × → kembali 8 baris (2 pelanggan); kombinasikan Budi Susanto + status Lunas → 5 baris semua Budi+Lunas; Reset → bersih 8 baris + "Semua Status"; Export Excel dgn filter The Kat → GET /api/export/invoices?customer=The+Kat 200 (dev.log); mobile 390x844 → dropdown full-width layak disentuh. Screenshot: tool-results/task20-pelanggan-dropdown.png, task20-mobile.png.
+- Versi: SW v200→v201, APP_VERSION/CURRENT_VERSION 2026-11-08-v198→2026-11-09-v199, entri changelog v199 "Riwayat Invoice: Dropdown Cari Pelanggan". BELUM dideploy (menunggu instruksi owner).
+- Lint: bunx eslint 4 file ubah = bersih.
+
+Stage Summary:
+- Tab Riwayat Invoice punya kotak dropdown "cari pelanggan": daftar pelanggan otomatis dari riwayat (urut abjad), bisa ketik utk mencari, klik utk memfilter tabel, × / item "Semua Pelanggan" / tombol Reset utk membersihkan; filter bekerja bareng status+periode+pencarian, Export Excel mengikuti pelanggan terpilih. Versi v201/v199 siap deploy.
+
+---
 Task ID: 19
 Agent: Main
 Task: Riwayat Invoice — hapus kolom Profit di tabel + PEMULIHAN workspace dari backup owner (insiden git rebase)

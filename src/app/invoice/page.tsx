@@ -38,6 +38,7 @@ import {
   Maximize2,
   Undo2,
   TrendingUp,
+  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -54,6 +55,7 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -1394,6 +1396,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all')
+  const [customerFilter, setCustomerFilter] = useState('') // '' = Semua Pelanggan
+  const [customerInput, setCustomerInput] = useState('')
+  const [customerDropOpen, setCustomerDropOpen] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('all')
@@ -1460,17 +1465,56 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
 
   const allHistory = useMemo(() => [...invoiceHistory, ...pelunasanHistory], [invoiceHistory, pelunasanHistory])
 
+  // Daftar pelanggan unik (dari seluruh riwayat invoice + pelunasan) untuk dropdown filter
+  const customerOptions = useMemo(() => {
+    const seen = new Map<string, string>() // key: nama lowercase → nama tampil
+    for (const e of allHistory) {
+      const name = (e.pihakKedua || '').trim()
+      if (!name) continue
+      const key = name.toLowerCase()
+      if (!seen.has(key)) seen.set(key, name)
+    }
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, 'id'))
+  }, [allHistory])
+
+  // Pilihan dropdown terfilter live mengikuti teks yang diketik
+  const customerChoices = useMemo(() => {
+    const q = customerInput.trim().toLowerCase()
+    if (!q) return customerOptions
+    return customerOptions.filter((c) => c.toLowerCase().includes(q))
+  }, [customerOptions, customerInput])
+
+  const applyCustomerSelection = (name: string) => {
+    setCustomerFilter(name)
+    setCustomerInput(name)
+    setCustomerDropOpen(false)
+  }
+
+  const clearCustomerFilter = () => {
+    setCustomerFilter('')
+    setCustomerInput('')
+    setCustomerDropOpen(false)
+  }
+
+  // Edit teks = ganti pencarian → filter pelanggan yang terpasang dilepas agar selalu konsisten
+  const handleCustomerInputChange = (v: string) => {
+    setCustomerInput(v)
+    setCustomerFilter('')
+    setCustomerDropOpen(true)
+  }
+
   // Periode efektif (rentang tanggal yyyy-mm-dd, inklusif) dari Dari/Sampai tanggal
   const eff = useMemo(
     () => riwayatDateRange(period, dateFrom, dateTo, month, year),
     [period, dateFrom, dateTo, month, year]
   )
 
-  // Filter pencarian + status + rentang tanggal efektif (inklusif)
+  // Filter pencarian + status + pelanggan + rentang tanggal efektif (inklusif)
   const matchesFilters = useCallback((entry: HistoryEntry) => {
     const info = parseDocInfo(entry)
     const st = getInvoiceStatus(info)
     if (statusFilter !== 'all' && st !== statusFilter) return false
+    if (customerFilter && (entry.pihakKedua || '').trim() !== customerFilter) return false
     if (eff.dateFrom && entry.tanggal && entry.tanggal < eff.dateFrom) return false
     if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
     if (searchQuery.trim()) {
@@ -1479,7 +1523,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
       if (!hay.includes(q)) return false
     }
     return true
-  }, [statusFilter, eff, searchQuery])
+  }, [statusFilter, customerFilter, eff, searchQuery])
 
   const dpInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice' && matchesFilters(e)), [allHistory, matchesFilters])
   const pelunasanInvoices = useMemo(() => allHistory.filter(e => e.docType === 'invoice-pelunasan' && matchesFilters(e)), [allHistory, matchesFilters])
@@ -1544,11 +1588,13 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
     return { count: riwayatTotals.jumlahInvoice, total: riwayatTotals.totalInvoice }
   }, [riwayatTotals])
 
-  const filtersActive = statusFilter !== 'all' || !!dateFrom || !!dateTo || !!searchQuery.trim() || period !== 'all'
+  const filtersActive = statusFilter !== 'all' || !!customerFilter || !!dateFrom || !!dateTo || !!searchQuery.trim() || period !== 'all'
 
   const resetFilters = () => {
     setPeriod('all')
     setStatusFilter('all')
+    setCustomerFilter('')
+    setCustomerInput('')
     setDateFrom('')
     setDateTo('')
     setSearchInput('')
@@ -1642,6 +1688,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
       const p = new URLSearchParams()
       if (searchQuery.trim()) p.set('q', searchQuery.trim())
       if (statusFilter !== 'all') p.set('status', statusFilter)
+      if (customerFilter) p.set('customer', customerFilter)
       if (dateFrom) p.set('from', dateFrom)
       if (dateTo) p.set('to', dateTo)
       const qs = p.toString()
@@ -1861,6 +1908,69 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                 }
               />
               <div className="flex flex-wrap gap-2 items-center">
+                {/* Dropdown cari pelanggan — ketik utk mencari, klik utk memfilter */}
+                <Popover open={customerDropOpen} onOpenChange={setCustomerDropOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative w-full sm:w-56">
+                      <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+                      <Input
+                        id="riwayat-invoice-filter-pelanggan"
+                        type="text"
+                        value={customerInput}
+                        onChange={(e) => handleCustomerInputChange(e.target.value)}
+                        onFocus={() => setCustomerDropOpen(true)}
+                        onKeyDown={(e) => { if (e.key === 'Escape') setCustomerDropOpen(false) }}
+                        placeholder={customerFilter || 'Semua Pelanggan'}
+                        aria-label="Filter pelanggan"
+                        autoComplete="off"
+                        className="pl-9 pr-8 min-h-[44px]"
+                      />
+                      {(customerFilter || customerInput) && (
+                        <button
+                          type="button"
+                          onClick={clearCustomerFilter}
+                          aria-label="Hapus filter pelanggan"
+                          title="Hapus filter pelanggan"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    align="start"
+                    className="p-0 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); clearCustomerFilter() }}
+                      className={cn(
+                        'w-full text-left px-3 py-2 text-sm transition-colors',
+                        !customerFilter ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                      )}
+                    >
+                      Semua Pelanggan
+                    </button>
+                    {customerChoices.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); applyCustomerSelection(c) }}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-sm truncate transition-colors',
+                          customerFilter === c ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium' : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                    {customerChoices.length === 0 && (
+                      <div className="px-3 py-3 text-sm text-muted-foreground text-center">Tidak ada pelanggan ditemukan</div>
+                    )}
+                  </PopoverContent>
+                </Popover>
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v || 'all') as 'all' | InvoiceStatus)}>
                   <SelectTrigger aria-label="Filter status invoice" className="w-full sm:w-40 min-h-[44px]">
                     <SelectValue placeholder="Semua Status" />

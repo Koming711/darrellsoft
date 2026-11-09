@@ -7,11 +7,12 @@ import { createPrintStyleExcel, type PrintColumn } from '@/lib/backup-excel'
 export const runtime = 'nodejs'
 
 /**
- * GET /api/export/invoices?q=&status=&from=&to= — Export DAFTAR invoice
+ * GET /api/export/invoices?q=&status=&customer=&from=&to= — Export DAFTAR invoice
  * (docType invoice + invoice-pelunasan) ke Excel, mengikuti filter yang
  * sedang aktif di halaman Riwayat Invoice:
  *   q      → cari di nomor / customer / nama barang / tanggal
  *   status → all | lunas | belum | batal
+ *   customer → nama pelanggan persis (pihakKedua), kosong = semua
  *   from   → tanggal mulai (yyyy-mm-dd, inklusif)
  *   to     → tanggal akhir (yyyy-mm-dd, inklusif)
  * Status & total dihitung dari dataJson dengan logika yang SAMA dengan
@@ -82,6 +83,7 @@ export async function GET(req: NextRequest) {
     const sp = new URL(req.url).searchParams
     const q = (sp.get('q') ?? '').trim().toLowerCase()
     const status = (sp.get('status') ?? 'all').trim()
+    const customer = (sp.get('customer') ?? '').trim()
     const from = (sp.get('from') ?? '').trim()
     const to = (sp.get('to') ?? '').trim()
 
@@ -102,6 +104,7 @@ export async function GET(req: NextRequest) {
       })
       .filter(({ row, info }) => {
         if (status !== 'all' && info.status !== status) return false
+        if (customer && (row.pihakKedua || '').trim() !== customer) return false
         if (from && row.tanggal && row.tanggal < from) return false
         if (to && row.tanggal && row.tanggal > to) return false
         if (q) {

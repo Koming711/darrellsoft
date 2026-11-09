@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v198'
+export const CURRENT_VERSION = '2026-11-09-v199'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-09-v199',
+    date: { id: '9 November 2026', en: '9 November 2026' },
+    title: {
+      id: 'Riwayat Invoice: Dropdown Cari Pelanggan',
+      en: 'Invoice History: Customer Search Dropdown',
+    },
+    items: [
+      {
+        id: 'Di halaman Riwayat Invoice (tab Invoice) ada kotak dropdown baru "Semua Pelanggan" di samping filter status — ketik nama untuk mencari, klik pelanggan untuk memfilter tabelnya',
+        en: 'On the Invoice History page (Invoice tab) there is a new "Semua Pelanggan" dropdown box next to the status filter — type a name to search, click a customer to filter the table',
+      },
+      {
+        id: 'Daftar pelanggan diisi otomatis dari seluruh riwayat invoice & pelunasan (urut abjad), bisa diketik untuk mencari, tombol × untuk hapus filter, dan Export Excel ikut mengikuti pelanggan terpilih',
+        en: 'The customer list is auto-filled from all invoice & settlement history (alphabetical), type-to-search supported, × button clears the filter, and Export Excel follows the selected customer',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v198',
     date: { id: '8 November 2026', en: '8 November 2026' },
