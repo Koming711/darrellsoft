@@ -1946,7 +1946,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center">Jumlah Item</TableHead>
                           <TableHead className="text-right">Total</TableHead>
-                          {bisaLihatProfit && <TableHead className="text-right">Profit</TableHead>}
                           <TableHead className="w-10"><span className="sr-only">Buka detail</span></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1978,11 +1977,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                 <TableCell><StatusBadge status={st} /></TableCell>
                                 <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
                                 <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
-                                {bisaLihatProfit && (
-                                <TableCell className="text-right font-semibold whitespace-nowrap tabular-nums text-emerald-700">
-                                  {info.isPelunasan ? '—' : formatRupiah(info.profit)}
-                                </TableCell>
-                                )}
                                 <TableCell>
                                   <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden="true" />
                                 </TableCell>
@@ -2016,7 +2010,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                     <TableCell className="text-right whitespace-nowrap text-muted-foreground">
                                       {formatRupiah(cInfo.totalHarga)}
                                     </TableCell>
-                                    {bisaLihatProfit && <TableCell className="text-right whitespace-nowrap text-muted-foreground">—</TableCell>}
                                     <TableCell>
                                       <ChevronRight className="h-4 w-4 text-stone-300" aria-hidden="true" />
                                     </TableCell>
@@ -2058,12 +2051,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                               </span>
                               <span className="font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</span>
                             </div>
-                            {bisaLihatProfit && (
-                            <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="text-muted-foreground">Profit</span>
-                              <span className="font-semibold whitespace-nowrap text-emerald-700">{info.isPelunasan ? '—' : formatRupiah(info.profit)}</span>
-                            </div>
-                            )}
                           </div>
                         </button>
                         {group.children.map((child) => {

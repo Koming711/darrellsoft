@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-08-v197'
+export const CURRENT_VERSION = '2026-11-08-v198'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-08-v198',
+    date: { id: '8 November 2026', en: '8 November 2026' },
+    title: {
+      id: 'Riwayat Invoice: Kolom Profit Dihapus',
+      en: 'Invoice History: Profit Column Removed',
+    },
+    items: [
+      {
+        id: 'Di halaman Riwayat Invoice (tab Invoice), kolom Profit dihapus dari tabel — kolom kini: Nomor, Tanggal, Pelanggan, Status, Jumlah Item, Total',
+        en: 'On the Invoice History page (Invoice tab), the Profit column was removed from the table — columns are now: Number, Date, Customer, Status, Item Count, Total',
+      },
+      {
+        id: 'Baris pelunasan & kartu mobile ikut rapi tanpa kolom Profit; kotak ringkasan Total Profit di atas tetap ada',
+        en: 'Settlement rows & mobile cards are tidied up without the Profit column; the Total Profit summary box above remains',
+      },
+    ],
+  },
   {
     version: '2026-11-08-v197',
     date: { id: '8 November 2026', en: '8 November 2026' },

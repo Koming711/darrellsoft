@@ -1,4 +1,21 @@
 ---
+Task ID: 19
+Agent: Main
+Task: Riwayat Invoice — hapus kolom Profit di tabel + PEMULIHAN workspace dari backup owner (insiden git rebase)
+
+Work Log:
+- Permintaan owner: "dihalaman riwayat invoice. delete kolom profit di table" (halaman Riwayat Invoice = /invoice, tab Invoice).
+- ⚠️ INSIDEN SERIUS (sebelum implementasi): saat sesi berjalan, proses luar menjalankan rebase + amend yang memindahkan main ke history lama era v185 — commit Task 15-18 (7ee7b7b, 0f79d10, 7cde3f6, 806d09d) + work v189-v194 HILANG dari main dan object-nya ter-prune (fsck: hanya 9 dangling commit lama). Produksi aman (v199 sudah terdeploy sebelum insiden). Percobaan pemulihan: (a) dangling commits — tidak ada yang relevan; (b) blob scan 5204 object — kosong; (c) API file deployment Vercel dpl_4a5YLtWaWAyUuXCbrqnrFo21sCnu (v199) — 807 file source berhasil diunduh via vercel.com/api/v8/deployments/{id}/files/{uid} (base64) sebagai jaring pengaman; (d) AKHIRNYA owner mengirim backup workspace split-tar (workspace-5289031f... (4).tar.001-003, 151MB) yang berisi tree Task 18 utuh + .git lengkap + worklog + .env — di-restore penuh via rsync (exclude: node_modules, .next, upload, dev.log). Git HEAD kembali ke 034f97f (di atas 806d09d Task 18), git status bersih, dev server restart normal. PELAJARAN: commit lokal wajib segera di-push ke origin.
+- DIAGNOSA (src/app/invoice/page.tsx): kolom Profit hanya ada di tab Invoice (tabel desktop baris 1949 header + 1981 sel invoice + 2019 sel "—" pelunasan; kartu mobile 2061-2066); tab Pembayaran & Sampah tidak punya; kotak ringkasan "Total Profit" (1883-1906) terpisah — TIDAK dihapus (bukan kolom tabel); guard izin bisaLihatProfit (hasProfitAccess) tetap dipakai kotak total.
+- FIX: hapus 4 titik — TableHead "Profit", sel profit baris invoice, sel "—" baris pelunasan, baris "Profit" di kartu mobile (konsistensi tabel↔kartu, pola Task 17/18). riwayatTotals.totalProfit & parseDocInfo().profit tetap (dipakai kotak Total Profit).
+- PEMULIHAN state: restore backup membuat Task 15-18 kembali utuh (sw v199/v197 + changelog + worklog). Setelah itu Task 19 di-apply di atas file v199.
+- Versi: SW v199→v200, APP_VERSION/CURRENT_VERSION 2026-11-08-v197→2026-11-08-v198, entri changelog v198 "Riwayat Invoice: Kolom Profit Dihapus".
+- Lint: bunx eslint file ubah = bersih.
+
+Stage Summary:
+- Tabel Riwayat Invoice (desktop) kini tanpa kolom Profit: Nomor | Tanggal | Pelanggan | Status | Jumlah Item | Total | (chevron). Baris pelunasan & kartu mobile ikut tanpa profit. Kotak ringkasan Total Profit di atas daftar tetap tampil (hanya untuk pengguna dengan izin profit). Workspace dipulihkan penuh dari backup owner setelah insiden git rebase — riwayat git Task 15-18 kembali utuh.
+
+---
 Task ID: 18
 Agent: Main
 Task: Halaman Potong Kertas → tab Riwayat Potong Kertas — kolom Tanggal (dd/mm/yy) pindah kiri No. PK + tanda "Diedit" bila diedit & disimpan (naik ke atas, nomor PK tetap)
