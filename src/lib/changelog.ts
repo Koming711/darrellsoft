@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-09-v200'
+export const CURRENT_VERSION = '2026-11-09-v201'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-09-v201',
+    date: { id: '9 November 2026', en: '9 November 2026' },
+    title: {
+      id: 'Riwayat Invoice: Kolom Nama Barang',
+      en: 'Invoice History: Item Name Column',
+    },
+    items: [
+      {
+        id: 'Tabel Riwayat Invoice (tab Invoice) kini punya kolom Nama Barang setelah Pelanggan — menampilkan nama barang pertama; invoice multi-item ditandai "+N lainnya" (arahkan kursor untuk lihat semuanya)',
+        en: 'The Invoice History table (Invoice tab) now has an Item Name column after Customer — shows the first item name; multi-item invoices get a "+N more" mark (hover to see all)',
+      },
+      {
+        id: 'Baris pelunasan (PEL) & kartu mobile juga menampilkan nama barang; kolom tabel kini: Nomor, Tanggal, Pelanggan, Nama Barang, Status, Jumlah Item, Total',
+        en: 'Settlement (PEL) rows & mobile cards also show the item name; table columns are now: Number, Date, Customer, Item Name, Status, Item Count, Total',
+      },
+    ],
+  },
   {
     version: '2026-11-09-v200',
     date: { id: '9 November 2026', en: '9 November 2026' },

@@ -2151,6 +2151,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                           <TableHead>Nomor</TableHead>
                           <TableHead>Tanggal</TableHead>
                           <TableHead>Pelanggan</TableHead>
+                          <TableHead>Nama Barang</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center">Jumlah Item</TableHead>
                           <TableHead className="text-right">Total</TableHead>
@@ -2182,6 +2183,14 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                 <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
                                 <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
                                 <TableCell className="max-w-48 truncate">{entry.pihakKedua || '-'}</TableCell>
+                                <TableCell className="max-w-48 truncate text-muted-foreground" title={info.namaBarang || undefined}>
+                                  {info.namaBarang ? (
+                                    <>
+                                      {info.namaBarang.split('\n')[0]}
+                                      {info.itemCount > 1 && <span className="text-stone-400 dark:text-zinc-500"> +{info.itemCount - 1} lainnya</span>}
+                                    </>
+                                  ) : '-'}
+                                </TableCell>
                                 <TableCell><StatusBadge status={st} /></TableCell>
                                 <TableCell className="text-center tabular-nums">{info.itemCount || '-'}</TableCell>
                                 <TableCell className="text-right font-semibold whitespace-nowrap">{formatRupiah(info.totalHarga)}</TableCell>
@@ -2213,6 +2222,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-muted-foreground">{child.tanggal ? formatTanggalShort(child.tanggal) : '-'}</TableCell>
                                     <TableCell className="max-w-48 truncate text-muted-foreground">{child.pihakKedua || '-'}</TableCell>
+                                    <TableCell className="max-w-48 truncate text-muted-foreground" title={cInfo.namaBarang || undefined}>
+                                      {cInfo.namaBarang ? cInfo.namaBarang.split('\n')[0] : '-'}
+                                    </TableCell>
                                     <TableCell><StatusBadge status={cSt} /></TableCell>
                                     <TableCell className="text-center tabular-nums text-muted-foreground">—</TableCell>
                                     <TableCell className="text-right whitespace-nowrap text-muted-foreground">
@@ -2250,6 +2262,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold truncate">{entry.nomor || '-'}</p>
                                 <p className="text-xs text-muted-foreground truncate">{entry.pihakKedua || '-'}</p>
+                                <p className="text-xs text-muted-foreground/80 truncate" title={info.namaBarang || undefined}>
+                                  {info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}
+                                </p>
                               </div>
                               <StatusBadge status={st} />
                             </div>
@@ -2279,6 +2294,9 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   </div>
                                   <StatusBadge status={cSt} />
                                 </div>
+                                <p className="text-xs text-muted-foreground/80 truncate" title={cInfo.namaBarang || undefined}>
+                                  {cInfo.namaBarang ? cInfo.namaBarang.split('\n')[0] : '-'}
+                                </p>
                                 <div className="flex items-center justify-between gap-2 text-xs">
                                   <span className="text-muted-foreground">
                                     {child.tanggal ? formatTanggalShort(child.tanggal) : '-'}

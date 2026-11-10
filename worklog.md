@@ -1,4 +1,20 @@
 ---
+Task ID: 22
+Agent: Main
+Task: Riwayat Invoice — kolom Nama Barang di tabel tab Invoice (check & fix; desktop DP+PEL baris, kartu mobile)
+
+Work Log:
+- Permintaan owner: "dihalaman riwayat invoice. tambahkan kolom nama barang. check and fix".
+- CHECK (data): query DocumentHistory (db/custom.db) — invoice DP & pelunasan KEDUANYA punya items[].deskripsi terisi (mis. INV/11/26/0006 = ["paperbowl 800ml","paperbowl 800ml","ongkir"], PEL/11/26/0007 = ["paperbowl 800ml","ongkir",…]) → kolom bisa tampil data riil untuk baris DP dan PEL; parseDocInfo().namaBarang = deskripsi item pertama; search haystack sudah mencakup namaBarang (tanpa perubahan filter).
+- FIX (src/app/invoice/page.tsx, 5 titik): (a) TableHead "Nama Barang" sisip SETELAH Pelanggan (urutan kini Nomor | Tanggal | Pelanggan | Nama Barang | Status | Jumlah Item | Total); (b) sel baris invoice DP = namaBarang.split('\n')[0] + suffix muted "+N lainnya" bila itemCount > 1, max-w-48 truncate + title tooltip (semua nama), '-' bila kosong; (c) sel baris pelunasan (PEL) = namaBarang item pertama (muted, tanpa suffix), konsisten dgn style baris PEL; (d) kartu mobile invoice: baris nama barang (text-xs muted/80 truncate + title) di bawah pelanggan; (e) sub-kartu mobile pelunasan: baris nama barang juga. Defensif split('\n') mengikuti konvensi halaman /riwayat.
+- Verifikasi agent-browser lokal (admin/268899, 1440x900): header tabel = [Nomor, Tanggal, Pelanggan, Nama Barang, Status, Jumlah Item, Total] ✓; baris: INV/11/26/0007 (1 item) = "paperbowl 800ml", INV/11/26/0006 (3 item) = "paperbowl 800ml +2 lainnya", PEL/11/26/0007 = "paperbowl 800ml", PEL/10/26/0003 = "ongkir", INV/10/26/0002 = "paperbowl +2 lainnya", INV/09/26/0001 = "paperbowl" ✓ (semua sel 8 kolom rapi); mobile 390x844: kartu utama [nomor, pelanggan, nama barang] ✓, sub-kartu PEL [nomor, nama barang] ✓. Screenshot: tool-results/task22-nama-barang.png, task22-mobile.png.
+- Versi: SW v202→v203, APP_VERSION/CURRENT_VERSION 2026-11-09-v200→2026-11-09-v201, entri changelog v201 "Riwayat Invoice: Kolom Nama Barang". BELUM dideploy (menunggu instruksi owner).
+- Lint: bunx eslint 3 file ubah = bersih.
+
+Stage Summary:
+- Tabel Riwayat Invoice kini menampilkan kolom Nama Barang (item pertama + tanda "+N lainnya" untuk multi-item, tooltip nama lengkap) di baris invoice DAN baris pelunasan, plus di kartu mobile; kolom tabel: Nomor, Tanggal, Pelanggan, Nama Barang, Status, Jumlah Item, Total. Versi v203/v201 siap deploy.
+
+---
 Task ID: 21
 Agent: Main
 Task: Halaman Invoice — rekap per pelanggan di tab Riwayat Invoice (kartu collapsible, mengikuti filter aktif)
