@@ -53,6 +53,7 @@ import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { MenuHomeScreen } from '@/components/menu-home-screen'
+import { canGoBackInApp } from '@/lib/app-history'
 
 
 // Menu items with their feature IDs for permission checking
@@ -728,11 +729,15 @@ export function MobileHeader({ username, role, title, subtitle, userProfile }: {
   const router = useRouter()
 
   // Tombol back mobile: kembali ke halaman sebelumnya (router.back).
-  // Fallback ke Beranda (/pembukaan) jika tidak ada riwayat (mis. cold-start PWA langsung ke halaman dalam).
+  // Deteksi "ada riwayat in-app" via tag dsAppIdx (lib/app-history) — Next.js
+  // 15/16 TIDAK menyimpan idx di history.state (hanya __NA &
+  // __PRIVATE_NEXTJS_INTERNALS_TREE), sehingga pengecekan lama selalu gagal
+  // dan tombol back selalu fallback ke Beranda, tidak pernah ke halaman
+  // sebelumnya. Fallback Beranda tetap dipakai saat cold-start PWA /
+  // refresh (entry pertama) agar back tidak menutup aplikasi.
   const isHome = pathname === '/pembukaan'
   const handleBack = () => {
-    const idx = typeof window !== 'undefined' && typeof window.history?.state?.idx === 'number' ? window.history.state.idx : 0
-    if (idx > 0) {
+    if (canGoBackInApp()) {
       router.back()
     } else {
       router.push('/pembukaan')

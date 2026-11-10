@@ -1,4 +1,20 @@
 ---
+Task ID: 23
+Agent: Main
+Task: Mobile — tombol back (panah header) kembali ke halaman sebelumnya, bukan selalu Beranda (check & fix)
+
+Work Log:
+- Permintaan owner: "di mobile online. apabila diklik tombol back di mobile phone maka kembali kehalaman sebelumnya. check and fix".
+- CHECK (root cause): MobileHeader.handleBack (src/components/sidebar.tsx) mendeteksi "ada riwayat" via window.history.state.idx — key `idx` TIDAK ADA di Next.js 15/16 (diverifikasi live: history.state = {__NA, __PRIVATE_NEXTJS_INTERNALS_TREE} saja) → kondisi `idx > 0` selalu false → tombol back header SELALU router.push('/pembukaan') (Beranda), tidak pernah ke halaman sebelumnya. Navigasi in-app sendiri sudah benar (Link/router.push), system back browser pun sehat — yang rusak hanya tombol back in-app di header mobile.
+- FIX (3 file): (a) src/lib/app-history.ts BARU — tag setiap entry history dengan dsAppIdx (nomor urut in-app) via history.replaceState sambil mempertahankan state Next (__NA & tree di-spread); canGoBackInApp() = dsAppIdx > 1; entry bertanda dilewati (idempoten, aman StrictMode/traversal/pasca-refresh) TAPI counter dilanjutkan dari tag entry aktif agar push berikutnya tetap naik; (b) dashboard-layout.tsx — useEffect pathname (efek saveLastRoute) kini juga memanggil tagCurrentHistoryEntry() di semua rute app (DashboardLayout = shell 48 halaman); (c) sidebar.tsx MobileHeader.handleBack — ganti cek `history.state.idx` yang mati dengan canGoBackInApp(): tag > 1 → router.back() (halaman sebelumnya), else → router.push('/pembukaan') (fallback cold-start PWA/refresh agar back tidak menutup aplikasi).
+- Verifikasi agent-browser lokal (admin/268899, 390x844): dsAppIdx ter-tag di tiap push (1→2→3→4) & state Next tetap utuh; TES PENENTU — /pembukaan → Invoice → Daftar Barang → klik back header → kembali ke /invoice (halaman sebelumnya NYATA; perilaku lama = selalu /pembukaan) ✓; back lagi → /pembukaan ✓; system back (history) tetap bekerja & tag bertahan saat traversal ✓; cold start fresh browser → entry pertama dsAppIdx=1 → back header fallback ke /pembukaan (tidak keluar app) ✓; refresh halaman dalam → tag lama dipertahankan + counter lanjut → rantai back tetap akurat (/barang→/invoice) ✓; console bersih, navigasi Next sehat pasca replaceState. 
+- Versi: SW v204→v205, APP_VERSION/CURRENT_VERSION 2026-11-09-v202→2026-11-09-v203, entri changelog v203 "Mobile: Tombol Back Kembali ke Halaman Sebelumnya". BELUM dideploy (menunggu instruksi owner; Task 20+21+22+22b+23 siap naik bersama).
+- Lint: bunx eslint 4 file ubah = bersih.
+
+Stage Summary:
+- Tombol back di header mobile kini benar-benar kembali ke halaman sebelumnya (deteksi riwayat in-app via tag dsAppIdx di history.state — pengganti key `idx` yang dihapus Next.js 15/16), dengan fallback aman ke Beranda saat entry pertama (cold start PWA/refresh) supaya aplikasi tidak tertutup. Versi v205/v203 siap deploy.
+
+---
 Task ID: 22b
 Agent: Main
 Task: Riwayat Invoice — kolom Nama Barang tampilkan SEMUA item (3 item → 3 baris), bukan hanya item pertama + "+N lainnya"

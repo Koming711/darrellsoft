@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-09-v202'
+export const CURRENT_VERSION = '2026-11-09-v203'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-09-v203',
+    date: { id: '9 November 2026', en: '9 November 2026' },
+    title: {
+      id: 'Mobile: Tombol Back Kembali ke Halaman Sebelumnya',
+      en: 'Mobile: Back Button Returns to Previous Page',
+    },
+    items: [
+      {
+        id: 'Perbaikan tombol back (panah kiri) di header mobile — sekarang kembali ke halaman sebelumnya, tidak lagi selalu melompat ke Beranda',
+        en: 'Fixed the back button (left arrow) in the mobile header — it now returns to the previous page instead of always jumping to Home',
+      },
+      {
+        id: 'Saat baru membuka aplikasi (PWA/refresh), tombol back tetap membawa ke Beranda agar aplikasi tidak tertutup',
+        en: 'When freshly opening the app (PWA/refresh), the back button still goes to Home so the app does not close',
+      },
+    ],
+  },
   {
     version: '2026-11-09-v202',
     date: { id: '9 November 2026', en: '9 November 2026' },

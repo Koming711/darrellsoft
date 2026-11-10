@@ -10,6 +10,7 @@ import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
 import { saveLastRoute } from '@/lib/last-route'
+import { tagCurrentHistoryEntry } from '@/lib/app-history'
 import { setGrupInfo } from '@/lib/permissions'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
@@ -164,14 +165,19 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
     return () => window.removeEventListener('permissions-updated', handler)
   }, [])
 
-  // === CATAT HALAMAN TERAKHIR ===
+  // === CATAT HALAMAN TERAKHIR + TAG URUTAN HISTORY ===
   // Setiap rute aplikasi yang dikunjungi dicatat per user (localStorage).
   // Dipakai root '/' (termasuk start_url PWA /?source=pwa): membuka/refresh
   // aplikasi mengembalikan pengguna ke halaman terakhir sebelum ditutup/
   // di-refresh — bukan selalu ke Beranda. Rute funnel (login/daftar/checkout)
   // & /panel-admin tidak dicatat (filter di saveLastRoute).
+  // tagCurrentHistoryEntry: tandai entry history dengan nomor urut in-app
+  // (dsAppIdx) — dipakai tombol back mobile utk membedakan "ada halaman
+  // sebelumnya di app" (router.back) vs entry pertama (fallback Beranda).
   useEffect(() => {
-    if (!user?.id || !pathname) return
+    if (!pathname) return
+    tagCurrentHistoryEntry()
+    if (!user?.id) return
     saveLastRoute(String(user.id), pathname)
   }, [user?.id, pathname])
 
