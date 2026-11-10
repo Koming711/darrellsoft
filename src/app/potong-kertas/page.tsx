@@ -510,7 +510,7 @@ function CalculatorPage() {
 
     toast.success('Data berhasil di-restore dari riwayat!')
     // Bersihkan URL params
-    window.history.replaceState({}, '', '/potong-kertas')
+    window.history.replaceState({ ...(window.history.state || {}) }, '', '/potong-kertas')
   }, [searchParams, customers])
 
   const selectedPaper = papers.find(p => p.id === selectedPaperId)
@@ -1563,7 +1563,7 @@ function CalculatorPage() {
     // Tunggu daftar riwayat & data master kertas siap agar restore akurat
     if (!riwayatList.length || (!papers.length && !papersFetchDone)) return
     restoreParamAppliedRef.current = true
-    window.history.replaceState({}, '', '/potong-kertas')
+    window.history.replaceState({ ...(window.history.state || {}) }, '', '/potong-kertas')
     const row = riwayatList.find(r => r.id === rid)
     if (!row) {
       toast.error('Data riwayat tidak ditemukan')

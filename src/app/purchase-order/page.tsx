@@ -8,6 +8,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggal, formatTanggalShort } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
+import { useBackOverlay } from '@/lib/use-back-overlay'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import {
@@ -1006,7 +1007,8 @@ export default function PurchaseOrderPage() {
   const closeDetail = () => {
     setDetailId(null)
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/purchase-order')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/purchase-order')
     }
   }
 
@@ -1020,9 +1022,20 @@ export default function PurchaseOrderPage() {
       resetDocument('purchase-order')
     }
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/purchase-order')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/purchase-order')
     }
   }
+
+  // TOMBOL BACK FISIK HP: Detail PO & layar Buat/Edit adalah overlay dalam
+  // route /purchase-order — back fisik harus menutup overlay dulu (tetap di
+  // halaman), bukan langsung meninggalkan halaman / menutup PWA.
+  const poOverlayOpen = detailId !== null || showCreate
+  const closePoOverlay = () => {
+    if (detailId) closeDetail()
+    else if (showCreate) closeCreate()
+  }
+  const requestClosePoOverlay = useBackOverlay(poOverlayOpen, closePoOverlay)
 
   return (
     <DashboardLayout title="Purchase Order" subtitle="Buat purchase order dengan pratinjau langsung dan cetak A5">
@@ -1032,7 +1045,7 @@ export default function PurchaseOrderPage() {
       {detailId ? (
         <DetailPurchaseOrderView
           id={detailId}
-          onBack={closeDetail}
+          onBack={requestClosePoOverlay}
           onEdit={(eid) => { setDetailId(null); setEditingId(eid); setShowCreate(true) }}
         />
       ) : showCreate ? (
@@ -1040,7 +1053,7 @@ export default function PurchaseOrderPage() {
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={closeCreate}
+              onClick={requestClosePoOverlay}
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 text-xs"

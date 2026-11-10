@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-09-v203'
+export const CURRENT_VERSION = '2026-11-10-v204'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,28 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-10-v204',
+    date: { id: '10 November 2026', en: '10 November 2026' },
+    title: {
+      id: 'Tombol Back HP Menutup Layar Dulu (Detail/Buat Invoice, Menu)',
+      en: 'Phone Back Button Closes Screens First (Detail/Create Invoice, Menu)',
+    },
+    items: [
+      {
+        id: 'Saat layar Detail Invoice, Buat Invoice, Detail Surat Jalan/PO, atau menu Lainnya terbuka — tombol back fisik di HP kini MENUTUP layar itu dulu (tetap di halaman), tidak lagi langsung meninggalkan halaman',
+        en: 'When the Invoice Detail, Create Invoice, Surat Jalan/PO Detail screen, or the More menu is open — the phone back button now CLOSES that screen first (stays on the page) instead of leaving the page right away',
+      },
+      {
+        id: 'Setelah layar tertutup, back berikutnya kembali ke halaman sebelumnya seperti biasa',
+        en: 'After the screen is closed, the next back press returns to the previous page as usual',
+      },
+      {
+        id: 'Perbaikan internal: pembersihan URL tidak lagi merusak riwayat navigasi (tombol back header tetap akurat setelah buka dokumen via tautan)',
+        en: 'Internal fix: URL cleanup no longer breaks navigation history (header back button stays accurate after opening documents via links)',
+      },
+    ],
+  },
   {
     version: '2026-11-09-v203',
     date: { id: '9 November 2026', en: '9 November 2026' },

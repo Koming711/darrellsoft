@@ -18,6 +18,7 @@ import { getAuthHeaders } from '@/lib/auth'
 import { fetcher } from '@/lib/fetcher'
 import { formatTanggalFull, formatTanggalShort } from '@/lib/format'
 import { notifyDataChange } from '@/lib/data-sync'
+import { useBackOverlay } from '@/lib/use-back-overlay'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { useDokuproStore } from '@/lib/store'
@@ -939,7 +940,8 @@ export default function SuratJalanPage() {
   const closeDetail = () => {
     setDetailId(null)
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/surat-jalan')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/surat-jalan')
     }
   }
 
@@ -953,9 +955,20 @@ export default function SuratJalanPage() {
       resetDocument('surat-jalan')
     }
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/surat-jalan')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/surat-jalan')
     }
   }
+
+  // TOMBOL BACK FISIK HP: Detail Surat Jalan & layar Buat/Edit adalah overlay
+  // dalam route /surat-jalan — back fisik harus menutup overlay dulu (tetap
+  // di halaman), bukan langsung meninggalkan halaman / menutup PWA.
+  const sjOverlayOpen = detailId !== null || showCreate
+  const closeSjOverlay = () => {
+    if (detailId) closeDetail()
+    else if (showCreate) closeCreate()
+  }
+  const requestCloseSjOverlay = useBackOverlay(sjOverlayOpen, closeSjOverlay)
 
   return (
     <DashboardLayout title="Surat Jalan" subtitle="Buat surat jalan dengan pratinjau langsung dan cetak A5">
@@ -965,7 +978,7 @@ export default function SuratJalanPage() {
       {detailId ? (
         <DetailSuratJalanView
           id={detailId}
-          onBack={closeDetail}
+          onBack={requestCloseSjOverlay}
           onEdit={(eid) => { setDetailId(null); setEditingId(eid); setShowCreate(true) }}
         />
       ) : showCreate ? (
@@ -973,7 +986,7 @@ export default function SuratJalanPage() {
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={closeCreate}
+              onClick={requestCloseSjOverlay}
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 text-xs"

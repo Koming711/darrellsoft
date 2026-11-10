@@ -1,4 +1,19 @@
 ---
+Task ID: 23b
+Agent: Main
+Task: Mobile — tombol back FISIK HP menutup overlay dulu (Detail/Buat Invoice, Surat Jalan, PO, menu Lainnya), bukan langsung meninggalkan halaman (fix lanjutan Task 23)
+
+Work Log:
+- Keluhan owner (setelah v203 terdeploy): "tombol back di mobile belum berfungsi untuk balik kehalaman sebelumnya. fix".
+- CHECK (agent-browser produksi www.darrellsoft.com + lokal, mobile 390x844): navigasi antar HALAMAN via back fisik/browser SUDAH benar (/surat-jalan→back→/hitung-cetakan→back→/pembukaan, dsAppIdx bertahan) — v203 bekerja. ROOT CAUSE sesungguhnya: Detail Invoice / layar Buat Invoice / Detail Surat Jalan / Detail PO / menu "Lainnya" hanyalah STATE REACT di dalam satu route — tidak punya entry history sendiri. Saat layar itu terbuka dan user menekan back fisik HP, browser langsung POP ke halaman sebelumnya (atau menutup PWA) — user merasa "back tidak kembali ke halaman sebelumnya".
+- FIX: (a) src/lib/use-back-overlay.ts BARU — hook useBackOverlay(active, onClose): saat overlay aktif push entry history bertanda dsOverlay (spread state Next.js + dsAppIdx), popstate menutup overlay (satu jalur penutupan), requestClose() utk tutup via UI (✕/Kembali) = history.back() bila masih di entry overlay, fallback langsung onClose; aman StrictMode (tanpa back di cleanup). (b) invoice/page.tsx — overlay gabungan detailId||showCreate (transisi detail→pelunasan→simpan→detail tidak push ganda), DetailInvoiceView.onBack & tombol Kembali pakai requestClose; (c) surat-jalan/page.tsx & purchase-order/page.tsx — pola sama (detail+create); (d) sidebar.tsx MobileBottomNav — popup menu "Lainnya" back-fisik menutup menu dulu; (e) 7 file — replaceState(null/{},...) yang MENGHAPUS state history (Next internals + dsAppIdx) diganti spread {...state} agar tag & restore Next tetap utuh: invoice ×3, surat-jalan ×2, purchase-order ×2, potong-kertas ×2, hitung-cetakan ×2, hitung-finishing ×1, payment-dialog ×1.
+- Verifikasi agent-browser lokal (admin/268899, 390x844): (1) buka Detail INV/11/26/0006 → dsOverlay=true → back fisik → detail TERTUTUP, tetap /invoice, daftar tampil ✓ (2) back lagi → /pembukaan (halaman sebelumnya) ✓ (3) tutup detail via tombol Kembali UI → back berikutnya LANGSUNG ke /pembukaan — TIDAK ada entry ghost ✓ (4) deep-link /invoice?buat=1 → layar Buat terbuka+overlay → back → tutup + query URL bersih (location.search="") ✓ (5) menu Lainnya → dsOverlay=true → back → menu tertutup, tetap /pembukaan ✓ (6) klik item menu → navigasi normal ke /surat-jalan ✓ (7) Detail SJ/11/26/0002 → back → tertutup ✓ (8) desktop 1440x900 — Detail Invoice tetap terbuka normal (regresi nihil) ✓; console bersih. Lint: 11 file ubah = bersih (1 error react-hooks/immutability di hitung-finishing = pre-existing, bukan dari perubahan).
+- Versi: SW v205→v206, APP_VERSION/CURRENT_VERSION 2026-11-09-v203→2026-11-10-v204, entri changelog v204 "Tombol Back HP Menutup Layar Dulu (Detail/Buat Invoice, Menu)".
+
+Stage Summary:
+- Tombol back fisik HP kini berperilaku benar di SELURUH aplikasi: back menutup overlay/layar-dalam-halaman dulu (Detail & Buat Invoice, Detail & Buat Surat Jalan/PO, menu Lainnya), lalu back berikutnya kembali ke halaman sebelumnya; pembersihan URL tidak lagi merusak state riwayat (tag dsAppIdx & state Next dipertahankan). Versi v206/v204.
+
+---
 Task ID: 23
 Agent: Main
 Task: Mobile — tombol back (panah header) kembali ke halaman sebelumnya, bukan selalu Beranda (check & fix)

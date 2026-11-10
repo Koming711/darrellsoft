@@ -54,6 +54,7 @@ import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { MenuHomeScreen } from '@/components/menu-home-screen'
 import { canGoBackInApp } from '@/lib/app-history'
+import { useBackOverlay } from '@/lib/use-back-overlay'
 
 
 // Menu items with their feature IDs for permission checking
@@ -580,6 +581,11 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // Check if current page is one of the bottom nav items
   const isOnBottomNavPage = visibleItems.some(item => isActive(item.href))
 
+  // TOMBOL BACK FISIK HP: menu "Lainnya" adalah layar penuh (bukan modal kecil)
+  // — back fisik harus MENUTUP menu dulu (tetap di halaman), bukan langsung
+  // kembali ke halaman sebelumnya / menutup PWA.
+  const requestCloseMenuPopup = useBackOverlay(showPopup, () => setShowPopup(false))
+
   return (
     <>
       {/* Full-page menu popup — compact, fit 1 layar mobile */}
@@ -598,7 +604,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
               <span className="text-white font-extrabold text-[15px] tracking-tight">darrellsoft.com</span>
             </div>
             <button
-              onClick={() => setShowPopup(false)}
+              onClick={requestCloseMenuPopup}
               aria-label="Tutup menu"
               className="p-[8px] -mr-[4px] rounded-[8px] text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >

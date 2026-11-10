@@ -230,7 +230,7 @@ export default function HitungFinishingPage() {
 
       toast.success('Data berhasil di-restore dari riwayat!')
       // Clean URL params
-      window.history.replaceState({}, '', '/hitung-finishing')
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/hitung-finishing')
     }
   }, [])
 

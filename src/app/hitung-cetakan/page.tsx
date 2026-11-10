@@ -959,7 +959,7 @@ function HitungCetakanPage() {
     }
 
     // Bersihkan URL params setelah dibaca
-    window.history.replaceState({}, '', '/hitung-cetakan')
+    window.history.replaceState({ ...(window.history.state || {}) }, '', '/hitung-cetakan')
     if (pkRiwayatId) {
       toast('Form Hitung Cetakan direset otomatis — hanya data Potong Kertas yang terisi.')
     } else if (fromPotong === '1') {
@@ -1823,7 +1823,7 @@ function HitungCetakanPage() {
     const loadId = searchParams.get('loadRiwayat')
     if (!loadId) return
     const fromPk = searchParams.get('fromPotongKertas') === '1'
-    window.history.replaceState({}, '', '/hitung-cetakan')
+    window.history.replaceState({ ...(window.history.state || {}) }, '', '/hitung-cetakan')
     ;(async () => {
       try {
         const res = await fetcher(`/api/riwayat-cetakan?id=${encodeURIComponent(loadId)}`, { headers: getAuthHeaders() })

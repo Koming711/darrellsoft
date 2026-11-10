@@ -125,7 +125,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
         setStep('result'); setResult('error');
         setResultMessage('Pembayaran dibatalkan atau gagal. Silakan coba lagi.');
       }
-      window.history.replaceState({}, '', window.location.pathname);
+      window.history.replaceState({ ...(window.history.state || {}) }, '', window.location.pathname);
       sessionStorage.removeItem('lastPaymentOrderId');
     }
   }, [open]);

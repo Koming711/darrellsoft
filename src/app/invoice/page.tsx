@@ -11,6 +11,7 @@ import { fetcher } from '@/lib/fetcher'
 import { formatRupiah, formatTanggalShort } from '@/lib/format'
 import { hasProfitAccess } from '@/lib/permissions'
 import { notifyDataChange } from '@/lib/data-sync'
+import { useBackOverlay } from '@/lib/use-back-overlay'
 import { cn } from '@/lib/utils'
 import {
   History,
@@ -2763,7 +2764,8 @@ export default function InvoicePage() {
     setCreateMode('pelunasan')
     setShowCreate(true)
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/invoice')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/invoice')
     }
   }
 
@@ -2771,7 +2773,8 @@ export default function InvoicePage() {
   const closeDetail = () => {
     setDetailId(null)
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/invoice')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/invoice')
     }
   }
 
@@ -2780,20 +2783,31 @@ export default function InvoicePage() {
     setShowCreate(false)
     setPelunasanInvoiceId(null)
     if (typeof window !== 'undefined' && window.location.search) {
-      window.history.replaceState(null, '', '/invoice')
+      // Pertahankan state history (Next.js + dsAppIdx) — hanya bersihkan query.
+      window.history.replaceState({ ...(window.history.state || {}) }, '', '/invoice')
     }
   }
+
+  // TOMBOL BACK FISIK HP: Detail Invoice & layar Buat Invoice adalah overlay
+  // dalam route /invoice — back fisik harus menutup overlay dulu (tetap di
+  // halaman), bukan langsung meninggalkan halaman / menutup PWA.
+  const invoiceOverlayOpen = detailId !== null || showCreate
+  const closeInvoiceOverlay = () => {
+    if (detailId) closeDetail()
+    else if (showCreate) closeCreate()
+  }
+  const requestCloseInvoiceOverlay = useBackOverlay(invoiceOverlayOpen, closeInvoiceOverlay)
 
   return (
     <DashboardLayout title="Invoice" subtitle="Buat invoice dengan pratinjau langsung dan cetak A5">
       {detailId ? (
-        <DetailInvoiceView id={detailId} onBack={closeDetail} onCreatePelunasan={openPelunasan} />
+        <DetailInvoiceView id={detailId} onBack={requestCloseInvoiceOverlay} onCreatePelunasan={openPelunasan} />
       ) : showCreate ? (
         <div className="print:hidden">
           {/* Header: kembali + judul halaman */}
           <div className="flex items-center gap-2 mb-3">
             <Button
-              onClick={closeCreate}
+              onClick={requestCloseInvoiceOverlay}
               variant="outline"
               size="sm"
               className="h-9 gap-1.5 text-xs"
