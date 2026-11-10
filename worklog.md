@@ -1,4 +1,20 @@
 ---
+Task ID: 22b
+Agent: Main
+Task: Riwayat Invoice — kolom Nama Barang tampilkan SEMUA item (3 item → 3 baris), bukan hanya item pertama + "+N lainnya"
+
+Work Log:
+- Permintaan owner: "di halaman riwayat invoice. i kolom nama barang, apabila ada 3 item maka dimunculkan juga 3 item. check and fix".
+- CHECK: implementasi sebelumnya (Task 22, commit 688c353) hanya menampilkan deskripsi item PERTAMA + suffix "+N lainnya" (tooltip) — item ke-2 dst tidak terlihat di tabel. Data OK: parseDocInfo sudah parse items[] penuh; DB punya invoice multi-item riil (INV/11/26/0006 = 3 item, PEL/10/26/0003 = 4 item).
+- FIX (src/app/invoice/page.tsx, 6 titik): (a) parseDocInfo tambah field namaBarangList = items[].deskripsi (trim, buang kosong) di kedua branch try/catch; (b) sel kolom Nama Barang baris invoice DP = daftar SEMUA item satu baris per item (div.space-y-0.5, tiap baris truncate max-w-48 + title per-baris), suffix "+N lainnya" DIHAPUS; (c) sel baris pelunasan (PEL) sama — semua item item pelunasan (bisa beda dgn invoice induk); (d) kartu mobile invoice = semua item (p.space-y-0.5 text-xs muted/80 truncate); (e) sub-kartu mobile PEL sama; (f) BONUS search: haystack filter pencarian riwayat kini pakai namaBarangList.join(' ') — cari "tutup" kini menemukan INV/10/26/0002 & 0003 yang "paperbowl + tutup" ada di item ke-3 (sebelumnya tak terindeks).
+- Verifikasi agent-browser lokal (admin/268899): popup "Versi Baru! v202" muncul ✓; desktop 1440x900 — INV/11/26/0007 (1 item) = 1 baris, PEL/11/26/0007 = 3 baris [paperbowl 800ml, ongkir, paperbowl 800ml], INV/11/26/0006 = 3 baris, INV/10/26/0004 = 3 baris [ongkir, ongkos packing, paperbowl], PEL/10/26/0003 = 4 baris ✓ tanpa "+N lainnya"; rekap per pelanggan & kotak total tak berubah (The Kat 2 / Budi 4, Total 6 Rp24.073.800 profit Rp8.441.400) ✓; search "tutup" → INV/10/26/0003 + PEL + INV/10/26/0002 (fix search terbukti) ✓; mobile 390x844 — kartu INV/11/26/0006 & PEL/11/26/0007 & INV/10/26/0004 & INV/10/26/0003 semua item tampil bertumpuk rapi ✓; console bersih, log dev 200 semua. Screenshot: tool-results/task22b-table.png, task22b-mobile-cards.png.
+- Versi: SW v203→v204, APP_VERSION/CURRENT_VERSION 2026-11-09-v201→2026-11-09-v202, entri changelog v202 "Riwayat Invoice: Semua Item di Kolom Nama Barang". BELUM dideploy (menunggu instruksi owner; Task 20+21+22+22b dapat naik bersama).
+- Lint: bunx eslint 3 file ubah = bersih.
+
+Stage Summary:
+- Kolom Nama Barang di tabel Riwayat Invoice kini menampilkan SELURUH nama item (satu baris per item) di baris invoice, baris pelunasan, dan kartu mobile — 3 item = 3 baris; pencarian riwayat kini mengindeks semua nama item. Versi v204/v202 siap deploy.
+
+---
 Task ID: 22
 Agent: Main
 Task: Riwayat Invoice — kolom Nama Barang di tabel tab Invoice (check & fix; desktop DP+PEL baris, kartu mobile)

@@ -119,6 +119,11 @@ function parseDocInfo(entry: HistoryEntry) {
     const itemCount = items.length
     const firstItem = items[0]
     const namaBarang = firstItem?.deskripsi || ''
+    // Semua nama barang (satu entri per item) — utk kolom Nama Barang yang
+    // menampilkan seluruh item (mis. 3 item → 3 baris), bukan hanya item pertama.
+    const namaBarangList = (items as { deskripsi?: string }[])
+      .map((it) => String(it?.deskripsi || '').trim())
+      .filter(Boolean)
     const hargaSatuan = firstItem?.harga || 0
     const totalQty = items.reduce((sum: number, it: { qty: number }) => sum + (it.qty || 0), 0)
     const subtotal = items.reduce((sum: number, it: { qty: number; harga: number }) => sum + it.qty * it.harga, 0)
@@ -151,9 +156,9 @@ function parseDocInfo(entry: HistoryEntry) {
       0
     )
     const profit = isPelunasan || batal ? 0 : adaModal ? Math.max(0, totalHarga - hpp) : uangCapek
-    return { namaBarang, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, batal, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek, itemCount, profit }
+    return { namaBarang, namaBarangList, hargaSatuan, totalQty, totalHarga, dpPercent, dp: dpAmount, sisa, lunas, batal, tanggalJatuhTempo, tanggalPelunasan, referensi, referensiInvoiceNomor, isPelunasan, originalTotal, uangCapek, itemCount, profit }
   } catch {
-    return { namaBarang: '', hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, batal: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0, itemCount: 0, profit: 0 }
+    return { namaBarang: '', namaBarangList: [] as string[], hargaSatuan: 0, totalQty: 0, totalHarga: 0, dpPercent: 0, dp: 0, sisa: 0, lunas: false, batal: false, tanggalJatuhTempo: '', tanggalPelunasan: '', referensi: '', referensiInvoiceNomor: '', isPelunasan: false, originalTotal: 0, uangCapek: 0, itemCount: 0, profit: 0 }
   }
 }
 
@@ -1520,7 +1525,7 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
     if (eff.dateTo && entry.tanggal && entry.tanggal > eff.dateTo) return false
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim()
-      const hay = `${entry.nomor || ''} ${entry.pihakKedua || ''} ${info.namaBarang || ''} ${entry.tanggal || ''}`.toLowerCase()
+      const hay = `${entry.nomor || ''} ${entry.pihakKedua || ''} ${info.namaBarangList.join(' ')} ${entry.tanggal || ''}`.toLowerCase()
       if (!hay.includes(q)) return false
     }
     return true
@@ -2183,12 +2188,13 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                 <TableCell className="font-medium whitespace-nowrap">{entry.nomor || '-'}</TableCell>
                                 <TableCell className="whitespace-nowrap text-muted-foreground">{entry.tanggal ? formatTanggalShort(entry.tanggal) : '-'}</TableCell>
                                 <TableCell className="max-w-48 truncate">{entry.pihakKedua || '-'}</TableCell>
-                                <TableCell className="max-w-48 truncate text-muted-foreground" title={info.namaBarang || undefined}>
-                                  {info.namaBarang ? (
-                                    <>
-                                      {info.namaBarang.split('\n')[0]}
-                                      {info.itemCount > 1 && <span className="text-stone-400 dark:text-zinc-500"> +{info.itemCount - 1} lainnya</span>}
-                                    </>
+                                <TableCell className="max-w-48 text-muted-foreground">
+                                  {info.namaBarangList.length > 0 ? (
+                                    <div className="space-y-0.5">
+                                      {info.namaBarangList.map((nm, i) => (
+                                        <div key={i} className="truncate" title={nm}>{nm}</div>
+                                      ))}
+                                    </div>
                                   ) : '-'}
                                 </TableCell>
                                 <TableCell><StatusBadge status={st} /></TableCell>
@@ -2222,8 +2228,14 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap text-muted-foreground">{child.tanggal ? formatTanggalShort(child.tanggal) : '-'}</TableCell>
                                     <TableCell className="max-w-48 truncate text-muted-foreground">{child.pihakKedua || '-'}</TableCell>
-                                    <TableCell className="max-w-48 truncate text-muted-foreground" title={cInfo.namaBarang || undefined}>
-                                      {cInfo.namaBarang ? cInfo.namaBarang.split('\n')[0] : '-'}
+                                    <TableCell className="max-w-48 text-muted-foreground">
+                                      {cInfo.namaBarangList.length > 0 ? (
+                                        <div className="space-y-0.5">
+                                          {cInfo.namaBarangList.map((nm, i) => (
+                                            <div key={i} className="truncate" title={nm}>{nm}</div>
+                                          ))}
+                                        </div>
+                                      ) : '-'}
                                     </TableCell>
                                     <TableCell><StatusBadge status={cSt} /></TableCell>
                                     <TableCell className="text-center tabular-nums text-muted-foreground">—</TableCell>
@@ -2262,9 +2274,15 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold truncate">{entry.nomor || '-'}</p>
                                 <p className="text-xs text-muted-foreground truncate">{entry.pihakKedua || '-'}</p>
-                                <p className="text-xs text-muted-foreground/80 truncate" title={info.namaBarang || undefined}>
-                                  {info.namaBarang ? info.namaBarang.split('\n')[0] : '-'}
-                                </p>
+                                {info.namaBarangList.length > 0 ? (
+                                  <div className="space-y-0.5">
+                                    {info.namaBarangList.map((nm, i) => (
+                                      <p key={i} className="text-xs text-muted-foreground/80 truncate">{nm}</p>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground/80">-</p>
+                                )}
                               </div>
                               <StatusBadge status={st} />
                             </div>
@@ -2294,9 +2312,15 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                                   </div>
                                   <StatusBadge status={cSt} />
                                 </div>
-                                <p className="text-xs text-muted-foreground/80 truncate" title={cInfo.namaBarang || undefined}>
-                                  {cInfo.namaBarang ? cInfo.namaBarang.split('\n')[0] : '-'}
-                                </p>
+                                {cInfo.namaBarangList.length > 0 ? (
+                                  <div className="space-y-0.5">
+                                    {cInfo.namaBarangList.map((nm, i) => (
+                                      <p key={i} className="text-xs text-muted-foreground/80 truncate">{nm}</p>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground/80">-</p>
+                                )}
                                 <div className="flex items-center justify-between gap-2 text-xs">
                                   <span className="text-muted-foreground">
                                     {child.tanggal ? formatTanggalShort(child.tanggal) : '-'}
