@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-11-v205'
+export const CURRENT_VERSION = '2026-11-11-v206'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-11-v206',
+    date: { id: '11 November 2026', en: '11 November 2026' },
+    title: {
+      id: 'Menu Lainnya: Rekap Tagihan per Customer',
+      en: 'More Menu: Receivables Recap per Customer',
+    },
+    items: [
+      {
+        id: 'Di menu Lainnya ada kartu baru "Rekap Tagihan per Customer" di bawah daftar menu — total tagihan + daftar customer yang masih punya invoice belum lunas (jumlah invoice & nominal), angka sama dengan halaman Piutang Dagang',
+        en: 'The More menu now has a new "Receivables Recap per Customer" card below the menu list — total outstanding + a list of customers with unpaid invoices (count & amount), figures match the Trade Receivables page',
+      },
+      {
+        id: 'Tap baris customer atau "Lihat semua" langsung membuka halaman Piutang Dagang; kartu hanya tampil bagi user yang berhak melihat Piutang Dagang',
+        en: 'Tap a customer row or "View all" to open the Trade Receivables page; the card only appears for users allowed to see Trade Receivables',
+      },
+    ],
+  },
   {
     version: '2026-11-11-v205',
     date: { id: '11 November 2026', en: '11 November 2026' },

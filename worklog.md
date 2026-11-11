@@ -1,4 +1,20 @@
 ---
+Task ID: 25
+Agent: Main
+Task: Menu Lainnya — tambahkan kartu Rekap Tagihan per Customer
+
+Work Log:
+- Permintaan owner: "disidebar menu, tambahkan rekap tagihan per customer".
+- NEW (src/components/menu-tagihan-rekap.tsx): kartu "Rekap Tagihan per Customer" di popup menu Lainnya (mobile) — di bawah grid menu, sebelum tombol Keluar. Isi: total tagihan + N invoice belum lunas + daftar customer (nama, jumlah invoice, nominal sisa), urut nominal terbesar. Sumber data = /api/history docType=invoice (rentang 2000–2099), sisa = total − DP, lunas = p.lunas===true, skip batal — PERSIS rumus halaman Piutang Dagang supaya angka konsisten. Hapus fetch invoice-pelunasan (tak dipakai; status lunas diambil dari field invoice). Maks 10 baris, sisanya "+ N customer lain"; GET lewat smart-fetch (cache 60s) jadi buka ulang menu tidak boros jaringan; gagal memuat → kartu disembunyikan diam-diam; tap baris/"Lihat semua" → /piutang-dagang (popup ditutup, startNavigation).
+- WIRE (src/components/sidebar.tsx): MobileBottomNav — render MenuTagihanRekap hanya bila allMenuItems memuat 'piutang-dagang' non-PRO (otomatis menghormati izin role/grup); callback openPiutangDagang menutup popup + navigasi. Sidebar desktop (rail ikon) TIDAK berubah — popup Lainnya memang lg:hidden.
+- I18N (src/lib/i18n.ts): 5 key baru id/en — rekap_tagihan, rekap_tagihan_total, rekap_tagihan_semua, rekap_tagihan_lunas, rekap_tagihan_belum.
+- Verifikasi agent-browser lokal (admin/268899, mobile 390x844): kartu tampil; dgn 2 invoice uji (insert DB langsung: createdAt epoch-millis INTEGER + userId 'user-admin' — format Prisma SQLite, bukan CURRENT_TIMESTAMP/teks) kartu = Rp700.000 / 2 invoice / Customer A Rp500.000 / Customer B Rp200.000, urut desc; ANGKA SAMA dgn halaman Piutang Dagang (Total Rp700.000, 2 invoice belum lunas, rekap sama); "Lihat semua" → popup tutup + landing /piutang-dagang; back fisik HP: popup terbuka → dsOverlay=true → back → popup tutup, tetap /pembukaan (Task 23b utuh); desktop 1440x900 tanpa kartu (regresi nihil); invoice uji DIHAPUS, empty state "Semua invoice sudah lunas" kembali benar; console bersih. Lint 5 file = bersih.
+- Versi: SW v207→v208, APP_VERSION/CURRENT_VERSION 2026-11-11-v205→2026-11-11-v206, entri changelog v206 "Menu Lainnya: Rekap Tagihan per Customer".
+
+Stage Summary:
+- Menu Lainnya (mobile) kini menampilkan kartu Rekap Tagihan per Customer — total tagihan & daftar customer belum lunas tanpa buka halaman, angka konsisten dgn Piutang Dagang, tap langsung menuju halaman itu. Versi v208/v206.
+
+---
 Task ID: 24
 Agent: Main
 Task: Riwayat Invoice — hapus kotak Rekap per Pelanggan

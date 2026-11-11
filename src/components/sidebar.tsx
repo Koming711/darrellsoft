@@ -53,6 +53,7 @@ import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { MenuHomeScreen } from '@/components/menu-home-screen'
+import { MenuTagihanRekap } from '@/components/menu-tagihan-rekap'
 import { canGoBackInApp } from '@/lib/app-history'
 import { useBackOverlay } from '@/lib/use-back-overlay'
 
@@ -586,6 +587,16 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // kembali ke halaman sebelumnya / menutup PWA.
   const requestCloseMenuPopup = useBackOverlay(showPopup, () => setShowPopup(false))
 
+  // Kartu "Rekap Tagihan per Customer" hanya tampil bila user berhak melihat
+  // Piutang Dagang (menu item-nya ada & tidak terkunci PRO / disembunyikan grup).
+  const showTagihanRekap = allMenuItems.some(i => i.featureId === 'piutang-dagang' && !i.isPro)
+  const openPiutangDagang = () => {
+    startNavigation()
+    window.dispatchEvent(new CustomEvent('navigation-start'))
+    setShowPopup(false)
+    router.push('/piutang-dagang')
+  }
+
   return (
     <>
       {/* Full-page menu popup — compact, fit 1 layar mobile */}
@@ -638,6 +649,9 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                 router.push(item.href)
               }}
             />
+
+            {/* Rekap Tagihan per Customer — ringkasan piutang dari menu (Task 25) */}
+            {showTagihanRekap && <MenuTagihanRekap onOpenAll={openPiutangDagang} />}
 
             {/* Logout — compact */}
             {username && onLogout && (
