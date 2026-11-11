@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-10-v204'
+export const CURRENT_VERSION = '2026-11-11-v205'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-11-v205',
+    date: { id: '11 November 2026', en: '11 November 2026' },
+    title: {
+      id: 'Riwayat Invoice: Kotak Rekap per Pelanggan Dihapus',
+      en: 'Invoice History: Per-Customer Recap Box Removed',
+    },
+    items: [
+      {
+        id: 'Kotak "Rekap per Pelanggan" di tab Riwayat Invoice dihapus sesuai permintaan — halaman kini lebih ringkas (kotak Total & daftar invoice tidak berubah)',
+        en: 'The "Rekap per Pelanggan" box on the Invoice History tab has been removed as requested — the page is now more compact (Total boxes & invoice list unchanged)',
+      },
+    ],
+  },
   {
     version: '2026-11-10-v204',
     date: { id: '10 November 2026', en: '10 November 2026' },

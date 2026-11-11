@@ -1405,7 +1405,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const [customerFilter, setCustomerFilter] = useState('') // '' = Semua Pelanggan
   const [customerInput, setCustomerInput] = useState('')
   const [customerDropOpen, setCustomerDropOpen] = useState(false)
-  const [rekapOpen, setRekapOpen] = useState(true)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [period, setPeriod] = useState<RiwayatPeriod>('all')
@@ -1594,27 +1593,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
   const listSummary = useMemo(() => {
     return { count: riwayatTotals.jumlahInvoice, total: riwayatTotals.totalInvoice }
   }, [riwayatTotals])
-
-  // ===== Rekap per pelanggan (dari invoice terfilter, tanpa invoice batal) =====
-  // Selaras kotak total: sumber = dpInvoices (hasil filter aktif), batal dilewati.
-  const rekapPelanggan = useMemo(() => {
-    const map = new Map<string, { nama: string; jumlah: number; total: number; belum: number; profit: number }>()
-    for (const e of dpInvoices) {
-      const info = parseDocInfo(e)
-      if (info.batal) continue
-      const nama = (e.pihakKedua || '').trim() || '(Tanpa nama)'
-      const key = nama.toLowerCase()
-      const cur = map.get(key) ?? { nama, jumlah: 0, total: 0, belum: 0, profit: 0 }
-      cur.jumlah += 1
-      cur.total += info.totalHarga
-      if (getInvoiceStatus(info) === 'belum') cur.belum += info.totalHarga
-      cur.profit += info.profit
-      map.set(key, cur)
-    }
-    const rows = Array.from(map.values()).sort((a, b) => b.total - a.total || a.nama.localeCompare(b.nama, 'id'))
-    const totalBelum = rows.reduce((acc, r) => acc + r.belum, 0)
-    return { rows, totalBelum }
-  }, [dpInvoices])
 
   const filtersActive = statusFilter !== 'all' || !!customerFilter || !!dateFrom || !!dateTo || !!searchQuery.trim() || period !== 'all'
 
@@ -2048,82 +2026,6 @@ function InvoiceRiwayatView({ onOpenDetail, onCreate }: { onOpenDetail: (id: str
                 </Card>
                 )}
               </div>
-            )}
-
-            {/* ===== Rekap per pelanggan (mengikuti filter aktif, tanpa invoice batal) ===== */}
-            {!loading && hasResults && rekapPelanggan.rows.length > 0 && (
-              <Card className="p-0 gap-0 dark:border-zinc-800" data-testid="rekap-per-pelanggan">
-                <button
-                  type="button"
-                  onClick={() => setRekapOpen((v) => !v)}
-                  aria-expanded={rekapOpen}
-                  aria-controls="rekap-per-pelanggan-body"
-                  className="w-full flex items-center justify-between gap-2 px-4 md:px-5 py-3.5 text-left"
-                >
-                  <span className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm font-semibold">Rekap per Pelanggan</span>
-                    <Badge variant="secondary" className="text-[10px]">{rekapPelanggan.rows.length} pelanggan</Badge>
-                  </span>
-                  <ChevronRight className={cn('h-4 w-4 text-muted-foreground transition-transform', rekapOpen && 'rotate-90')} />
-                </button>
-                {rekapOpen && (
-                  <div id="rekap-per-pelanggan-body" className="px-4 md:px-5 pb-4 md:pb-5">
-                    <div className="rounded-lg border border-stone-200 dark:border-zinc-800 max-h-96 overflow-y-auto">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-10">
-                          <tr className="bg-stone-50 dark:bg-zinc-900 border-b border-stone-200 dark:border-zinc-800">
-                            <th scope="col" className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Pelanggan</th>
-                            <th scope="col" className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Invoice</th>
-                            <th scope="col" className="text-right py-2.5 px-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Total</th>
-                            <th scope="col" className="text-right py-2.5 px-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Belum Lunas</th>
-                            {bisaLihatProfit && (
-                              <th scope="col" className="text-right py-2.5 px-3 text-xs font-semibold text-muted-foreground whitespace-nowrap">Profit</th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rekapPelanggan.rows.map((r) => (
-                            <tr key={r.nama} className="border-b border-stone-100 dark:border-zinc-800/60 last:border-0">
-                              <td className="py-2.5 px-3 font-medium text-stone-800 dark:text-zinc-100 max-w-[200px] truncate" title={r.nama}>{r.nama}</td>
-                              <td className="py-2.5 px-3 text-center tabular-nums text-muted-foreground">{r.jumlah}</td>
-                              <td className="py-2.5 px-3 text-right font-semibold tabular-nums text-stone-900 dark:text-zinc-100 whitespace-nowrap">{formatRupiah(Math.round(r.total))}</td>
-                              <td className="py-2.5 px-3 text-right tabular-nums whitespace-nowrap">
-                                {r.belum > 0 ? (
-                                  <span className="text-amber-700 dark:text-amber-400 font-medium">{formatRupiah(Math.round(r.belum))}</span>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                              {bisaLihatProfit && (
-                                <td className="py-2.5 px-3 text-right tabular-nums text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                                  {r.profit > 0 ? formatRupiah(Math.round(r.profit)) : '—'}
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t border-stone-200 dark:border-zinc-800 bg-stone-50 dark:bg-zinc-900">
-                            <td className="py-2.5 px-3 text-xs font-semibold text-muted-foreground">Total</td>
-                            <td className="py-2.5 px-3 text-center text-xs font-semibold tabular-nums">{riwayatTotals.jumlahInvoice}</td>
-                            <td className="py-2.5 px-3 text-right text-xs font-bold tabular-nums whitespace-nowrap">{formatRupiah(Math.round(riwayatTotals.totalInvoice))}</td>
-                            <td className="py-2.5 px-3 text-right text-xs font-semibold tabular-nums whitespace-nowrap">
-                              {rekapPelanggan.totalBelum > 0 ? formatRupiah(Math.round(rekapPelanggan.totalBelum)) : '—'}
-                            </td>
-                            {bisaLihatProfit && (
-                              <td className="py-2.5 px-3 text-right text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                                {riwayatTotals.totalProfit > 0 ? formatRupiah(Math.round(riwayatTotals.totalProfit)) : '—'}
-                              </td>
-                            )}
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-2">Rekap dari invoice terfilter (tanpa invoice batal), diurutkan dari total terbesar.</p>
-                  </div>
-                )}
-              </Card>
             )}
 
             {/* Daftar — tabel bergrup (invoice DP + pelunasannya), klik baris → Detail */}

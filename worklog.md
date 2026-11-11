@@ -1,4 +1,18 @@
 ---
+Task ID: 24
+Agent: Main
+Task: Riwayat Invoice — hapus kotak Rekap per Pelanggan
+
+Work Log:
+- Permintaan owner: "dihalaman riwayat invoice. delete kotak rekap per pelanggan".
+- FIX (src/app/invoice/page.tsx, 3 titik): (a) hapus blok Card UI "Rekap per Pelanggan" (badge jumlah pelanggan, tabel Pelanggan/Invoice/Total/Belum Lunas/Profit + tfoot Total, catatan kaki) di antara kotak Total dan daftar invoice; (b) hapus useMemo rekapPelanggan (agregasi per pelanggan dari dpInvoices); (c) hapus state rekapOpen. Import Users & ChevronRight DIPERTAHANKAN (masih dipakai filter pelanggan & chevron baris tabel). Referensi lain yang tersisa aman: changelog historis v201 (catatan rilis lama) & halaman Piutang Dagang (rekap milik halaman itu, bukan yang diminta).
+- Verifikasi agent-browser lokal (admin/268899): login → /invoice tab Riwayat — teks "Rekap per Pelanggan" TIDAK ADA lagi; halaman kini: filter → kotak Total Invoice Rp24.073.800 (6 invoice terfilter) + Total Profit Rp8.441.400 → tabel invoice langsung (tanpa celah layout); daftar invoice + kolom Nama Barang multi-item (Task 22b) tetap utuh; mobile 390x844 & desktop 1440x900 keduanya rapi. Lint bersih.
+- Versi: SW v206→v207, APP_VERSION/CURRENT_VERSION 2026-11-10-v204→2026-11-11-v205 (tanggal rilis 11 November 2026), entri changelog v205 "Riwayat Invoice: Kotak Rekap per Pelanggan Dihapus".
+
+Stage Summary:
+- Kotak Rekap per Pelanggan di tab Riwayat Invoice dihapus — halaman lebih ringkas; kotak Total, filter, dan daftar invoice tidak berubah. Versi v207/v205.
+
+---
 Task ID: 23b
 Agent: Main
 Task: Mobile — tombol back FISIK HP menutup overlay dulu (Detail/Buat Invoice, Surat Jalan, PO, menu Lainnya), bukan langsung meninggalkan halaman (fix lanjutan Task 23)
