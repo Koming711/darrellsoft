@@ -46,7 +46,6 @@ import {
   Coins,
   BadgePercent,
   PiggyBank,
-  ReceiptText,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
@@ -191,14 +190,6 @@ const menuItems = [
     titleKey: 'piutang_dagang' as TranslationKey,
     href: '/piutang-dagang',
     icon: Coins,
-    featureId: 'piutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'rekap_tagihan' as TranslationKey,
-    href: '/laporan/rekap-tagihan',
-    icon: ReceiptText,
-    // Ikut izin Piutang Dagang — datanya sama, hanya tampilan rekap per customer
     featureId: 'piutang-dagang',
     section: 'laporan',
   },
@@ -599,13 +590,11 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // Kartu "Rekap Tagihan per Customer" hanya tampil bila user berhak melihat
   // Piutang Dagang (menu item-nya ada & tidak terkunci PRO / disembunyikan grup).
   const showTagihanRekap = allMenuItems.some(i => i.featureId === 'piutang-dagang' && !i.isPro)
-  // Buka halaman khusus Rekap Tagihan per Customer (Task 26) — kartu ini adalah
-  // versi ringkasnya; halaman memuat daftar lengkap per customer.
-  const openRekapTagihan = () => {
+  const openPiutangDagang = () => {
     startNavigation()
     window.dispatchEvent(new CustomEvent('navigation-start'))
     setShowPopup(false)
-    router.push('/laporan/rekap-tagihan')
+    router.push('/piutang-dagang')
   }
 
   return (
@@ -662,7 +651,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
             />
 
             {/* Rekap Tagihan per Customer — ringkasan piutang dari menu (Task 25) */}
-            {showTagihanRekap && <MenuTagihanRekap onOpenAll={openRekapTagihan} />}
+            {showTagihanRekap && <MenuTagihanRekap onOpenAll={openPiutangDagang} />}
 
             {/* Logout — compact */}
             {username && onLogout && (

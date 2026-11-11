@@ -9,8 +9,7 @@
  * - Hanya invoice BELUM lunas yang dihitung (invoice batal & lunas di-skip,
  *   selaras /api/beranda & laporan penjualan).
  * - Ringkas: total tagihan + daftar per customer (jumlah invoice & nominal sisa),
- *   tap baris / "Lihat semua" → buka halaman Laporan → Rekap Tagihan per
- *   Customer (/laporan/rekap-tagihan, Task 26) — versi lengkap kartu ini.
+ *   tap baris / "Lihat semua" → buka halaman Piutang Dagang.
  * - Dimount hanya saat popup menu terbuka; GET dilayani smart-fetch (cache) jadi
  *   buka ulang menu tidak selalu memakan jaringan.
  * - Gagal memuat → kartu disembunyikan diam-diam (menu utama tetap fokus).

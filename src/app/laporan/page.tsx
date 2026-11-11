@@ -17,7 +17,6 @@ import {
   AlertCircle,
   ChevronRight,
   PieChart,
-  Coins,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -150,13 +149,6 @@ export default function LaporanPage() {
       descKey: 'subtitle_piutang_dagang' as const,
       icon: Wallet,
       color: 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400',
-    },
-    {
-      href: '/laporan/rekap-tagihan',
-      titleKey: 'rekap_tagihan' as const,
-      descKey: 'rekap_tagihan_subtitle' as const,
-      icon: Coins,
-      color: 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
     },
   ]
 

@@ -48,7 +48,6 @@ export const ALL_APP_ROUTES: readonly string[] = [
   '/hutang-dagang',
   '/invoice',
   '/laporan',
-  '/laporan/rekap-tagihan',
   '/master-barang-customer',
   '/master-customer',
   '/master-finishing',

@@ -35,7 +35,6 @@ import {
   Coins,
   BadgePercent,
   PiggyBank,
-  ReceiptText,
 } from 'lucide-react'
 import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
@@ -207,14 +206,6 @@ const menuItems = [
     titleKey: 'piutang_dagang' as TranslationKey,
     href: '/piutang-dagang',
     icon: Coins,
-    featureId: 'piutang-dagang',
-    section: 'laporan',
-  },
-  {
-    titleKey: 'rekap_tagihan' as TranslationKey,
-    href: '/laporan/rekap-tagihan',
-    icon: ReceiptText,
-    // Ikut izin Piutang Dagang — datanya sama, hanya tampilan rekap per customer
     featureId: 'piutang-dagang',
     section: 'laporan',
   },

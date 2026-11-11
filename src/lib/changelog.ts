@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-11-v207'
+export const CURRENT_VERSION = '2026-11-11-v208'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-11-v208',
+    date: { id: '11 November 2026', en: '11 November 2026' },
+    title: {
+      id: 'Permintaan Dibatalkan: Halaman Rekap Tagihan per Customer Dihapus',
+      en: 'Request Cancelled: Receivables Recap per Customer Page Removed',
+    },
+    items: [
+      {
+        id: 'Halaman "Rekap Tagihan per Customer" di menu Laporan dihapus kembali sesuai permintaan (perintah dibatalkan) — menu Laporan kembali seperti semula',
+        en: 'The "Receivables Recap per Customer" page in the Reports menu has been removed as requested (order cancelled) — the Reports menu is back as before',
+      },
+      {
+        id: 'Kartu "Rekap Tagihan per Customer" di menu Lainnya TETAP ADA dan kembali membuka halaman Piutang Dagang saat "Lihat semua"',
+        en: 'The "Receivables Recap per Customer" card in the More menu REMAINS and opens the Trade Receivables page again on "View all"',
+      },
+    ],
+  },
   {
     version: '2026-11-11-v207',
     date: { id: '11 November 2026', en: '11 November 2026' },

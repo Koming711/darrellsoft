@@ -1,4 +1,19 @@
 ---
+Task ID: 27
+Agent: Main
+Task: CANCEL perintah terakhir — batalkan Task 26 (halaman Rekap Tagihan per Customer di Laporan)
+
+Work Log:
+- Permintaan owner: "cancel perintah terakhir" → batalkan seluruh Task 26.
+- REVERT fitur Task 26: (a) hapus src/app/laporan/rekap-tagihan/ (halaman 404); (b) hapus item menu 'rekap_tagihan' dari section laporan di sidebar.tsx (popup Lainnya) & sidebar-desktop.tsx (rail desktop) + import ReceiptText; (c) hapus gradient tile di menu-home-screen.tsx; (d) hapus rute dari offline-warmup.ts; (e) hapus tautan "Rekap Tagihan per Customer" dari index /laporan + import Coins; (f) hapus i18n key rekap_tagihan_subtitle (subtitle_piutang_dagang DIPERTAHANKAN — dipakai kartu Piutang di index Laporan).
+- DIPERTAHANKAN (bukan bagian perintah yang dibatalkan): kartu "Rekap Tagihan per Customer" di popup Lainnya (Task 25) tetap ada, dan kembali membuka /piutang-dagang saat "Lihat semua"/tap baris (perilaku pra-Task 26); fix link Piutang Dagang di index /laporan; fix key duplikat React (key=r.href).
+- Versi: SW v209→v210, APP_VERSION/CURRENT_VERSION 2026-11-11-v207→2026-11-11-v208 (SELALU NAIK — v209/v207 sudah terdeploy, versi tidak boleh turun), entri changelog v208 "Permintaan Dibatalkan: Halaman Rekap Tagihan per Customer Dihapus".
+- Verifikasi lokal (agent-browser, admin/268899, 390x844 + 1440x900): /laporan/rekap-tagihan = 404 ✓; tile hilang dari popup Lainnya ✓; kartu tetap tampil & "Lihat semua" → /piutang-dagang ✓; index /laporan tanpa kartu rekap, kartu Piutang Dagang ada ✓; rail desktop tanpa ikon baru ✓; console tanpa key duplikat ✓; lint bersih ✓.
+
+Stage Summary:
+- Task 26 dibatalkan: halaman & menu "Rekap Tagihan per Customer" di Laporan dihapus kembali; kartu rekap di menu Lainnya tetap ada (buka Piutang Dagang). Aplikasi kembali ke kondisi pra-Task 26 + perbaikan kecil yang aman. Versi v210/v208.
+
+---
 Task ID: 26
 Agent: Main
 Task: Menu Laporan — halaman baru Rekap Tagihan per Customer

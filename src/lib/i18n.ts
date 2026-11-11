@@ -666,9 +666,8 @@ export const translations = {
     contact_picker_success: 'Data kontak berhasil dimuat',
     contact_picker_cancelled: 'Pemilihan kontak dibatalkan',
 
-    // Rekap Tagihan per Customer (kartu di popup menu Lainnya + halaman Laporan)
+    // Rekap Tagihan per Customer (kartu di popup menu Lainnya)
     rekap_tagihan: 'Rekap Tagihan per Customer',
-    rekap_tagihan_subtitle: 'Sisa pembayaran invoice yang belum diterima, dikelompokkan per customer',
     rekap_tagihan_total: 'Total Tagihan',
     rekap_tagihan_semua: 'Lihat semua',
     rekap_tagihan_lunas: 'Semua invoice sudah lunas',
@@ -1344,9 +1343,8 @@ export const translations = {
     contact_picker_success: 'Contact data loaded successfully',
     contact_picker_cancelled: 'Contact picking cancelled',
 
-    // Rekap Tagihan per Customer (card in the More menu popup + Reports page)
+    // Rekap Tagihan per Customer (card in the More menu popup)
     rekap_tagihan: 'Receivables Recap per Customer',
-    rekap_tagihan_subtitle: 'Unpaid invoice balances grouped per customer',
     rekap_tagihan_total: 'Total Outstanding',
     rekap_tagihan_semua: 'View all',
     rekap_tagihan_lunas: 'All invoices are paid',
