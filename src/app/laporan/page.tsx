@@ -17,6 +17,7 @@ import {
   AlertCircle,
   ChevronRight,
   PieChart,
+  Coins,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -144,11 +145,18 @@ export default function LaporanPage() {
       color: 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
     },
     {
-      href: '/rekap-penjualan',
-      titleKey: 'laporan_piutang' as const,
-      descKey: 'subtitle_rekap_penjualan' as const,
+      href: '/piutang-dagang',
+      titleKey: 'piutang_dagang' as const,
+      descKey: 'subtitle_piutang_dagang' as const,
       icon: Wallet,
       color: 'bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400',
+    },
+    {
+      href: '/laporan/rekap-tagihan',
+      titleKey: 'rekap_tagihan' as const,
+      descKey: 'rekap_tagihan_subtitle' as const,
+      icon: Coins,
+      color: 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
     },
   ]
 
@@ -225,7 +233,7 @@ export default function LaporanPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {reportLinks.map((r) => (
               <Link
-                key={r.titleKey}
+                key={r.href}
                 href={r.href}
                 className="group flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-primary/40 hover:shadow-sm transition-all"
               >

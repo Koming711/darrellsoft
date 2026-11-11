@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-11-v206'
+export const CURRENT_VERSION = '2026-11-11-v207'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-11-v207',
+    date: { id: '11 November 2026', en: '11 November 2026' },
+    title: {
+      id: 'Laporan: Halaman Baru "Rekap Tagihan per Customer"',
+      en: 'Reports: New "Receivables Recap per Customer" Page',
+    },
+    items: [
+      {
+        id: 'Menu Laporan kini punya halaman baru "Rekap Tagihan per Customer" — total tagihan, daftar customer dengan jumlah invoice & nominal, kartu bisa dibuka untuk melihat invoice di dalamnya (nomor, tanggal, jatuh tempo, badge terlambat)',
+        en: 'The Reports menu now has a new "Receivables Recap per Customer" page — total outstanding, a list of customers with invoice count & amount, expandable cards showing each invoice (number, date, due date, overdue badge)',
+      },
+      {
+        id: 'Angka dihitung sama dengan halaman Piutang Dagang (sisa = total − DP, invoice lunas/batal tidak dihitung) — menu baru ada di bawah Piutang Dagang dan ikut izin aksesnya; halaman Laporan juga diberi tautan langsung',
+        en: 'Figures are computed the same way as the Trade Receivables page (balance = total − DP, paid/cancelled invoices excluded) — the new menu sits below Trade Receivables and follows its access permission; the Reports page also got a direct link',
+      },
+    ],
+  },
   {
     version: '2026-11-11-v206',
     date: { id: '11 November 2026', en: '11 November 2026' },

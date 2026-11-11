@@ -1,4 +1,22 @@
 ---
+Task ID: 26
+Agent: Main
+Task: Menu Laporan — halaman baru Rekap Tagihan per Customer
+
+Work Log:
+- Permintaan owner: "disidebar menu, di judul laporan, tambahkan rekap tagihan per customer".
+- NEW (src/app/laporan/rekap-tagihan/page.tsx): halaman laporan /laporan/rekap-tagihan — strip Total Tagihan (+badge N invoice belum lunas & N customer), pencarian customer, kartu per customer (inisial, nama, jumlah invoice, total tagihan amber, badge "terlambat") dgn ACCORDION: buka kartu → daftar invoice (nomor, tanggal, jatuh tempo, sisa, badge "Terlambat X hari"). Rumus PERSIS Piutang Dagang: /api/history docType=invoice, sisa = total − DP, lunas = p.lunas===true, skip batal & sisa 0; customer urut tagihan terbesar, invoice urut terbaru. READ-ONLY (penandaan lunas tetap di Invoice/Piutang).
+- MENU: sidebar.tsx (Lainnya popup) & sidebar-desktop.tsx (rail desktop) — item baru setelah Piutang Dagang di section laporan: titleKey 'rekap_tagihan' (reuse), href /laporan/rekap-tagihan, icon ReceiptText, featureId 'piutang-dagang' (ikut izin Piutang Dagang — tanpa perubahan tabel izin). menu-home-screen.tsx: gradient teal→emerald utk tile baru. offline-warmup.ts: tambah rute.
+- LAPORAN INDEX (src/app/laporan/page.tsx): tautan baru "Rekap Tagihan per Customer" (Coins, amber); sekalian BENARKAN entri Piutang Dagang yang tadinya salah tunjuk (href '/rekap-penjualan' dgn titleKey laporan_piutang & desc rekap-penjualan → kini /piutang-dagang + subtitle_piutang_dagang); FIX key duplikat React (key={r.titleKey} → r.href; 'laporan_penjualan' dobel — error console pre-existing).
+- I18N (src/lib/i18n.ts): key baru rekap_tagihan_subtitle & subtitle_piutang_dagang (id/en).
+- KOHERENSI Task 25: kartu "Rekap Tagihan per Customer" di popup Lainnya kini "Lihat semua"/tap baris → /laporan/rekap-tagihan (sebelumnya /piutang-dagang) — kartu = versi ringkas halaman itu.
+- Verifikasi agent-browser lokal (admin/268899, 390x844 + 1440x900) dgn 2 invoice uji (dpAmount & tanggalJatuhTempo beda): halaman = Rp700.000 / 2 invoice / 2 customer; accordion A buka → INV/99/26/9999, "jatuh tempo 2026-11-05", badge "Terlambat 6 hari"; collapse; cari "B" → hanya Customer B; tile di Lainnya → halaman; kartu Lainnya "Lihat semua" → halaman; desktop rail punya ikon baru; /laporan tampil 2 tautan & klik jalan; back mobile /laporan/rekap-tagihan → /laporan; invoice uji dihapus → empty state "Semua invoice sudah lunas"; console bersih (key duplikat /laporan HILANG); lint bersih.
+- Versi: SW v208→v209, APP_VERSION/CURRENT_VERSION 2026-11-11-v206→2026-11-11-v207, entri changelog v207 "Laporan: Halaman Baru Rekap Tagihan per Customer".
+
+Stage Summary:
+- Menu Laporan punya halaman baru "Rekap Tagihan per Customer": total tagihan + kartu per customer yang bisa dibuka utk lihat invoice-nya (jatuh tempo & keterlambatan), angka konsisten dgn Piutang Dagang. Kartu rekap di menu Lainnya kini membuka halaman ini. Versi v209/v207.
+
+---
 Task ID: 25
 Agent: Main
 Task: Menu Lainnya — tambahkan kartu Rekap Tagihan per Customer
