@@ -38,6 +38,7 @@ import {
   ShieldAlert,
   Landmark,
   QrCode,
+  Trash2,
   User,
   XCircle,
 } from 'lucide-react'
@@ -86,6 +87,8 @@ export function VerifikasiPembayaranContent() {
   const [rejectBusy, setRejectBusy] = useState(false)
   const [proofView, setProofView] = useState<{ url: string; name: string; meta: PaymentRow } | null>(null)
   const [approveTarget, setApproveTarget] = useState<PaymentRow | null>(null)
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false)
+  const [deleteAllBusy, setDeleteAllBusy] = useState(false)
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
@@ -182,6 +185,25 @@ export function VerifikasiPembayaranContent() {
     }
   }
 
+  const deleteAllApproved = async () => {
+    setDeleteAllBusy(true)
+    try {
+      const res = await authFetch('/api/panel-admin/payments?status=disetujui', { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal menghapus pembayaran')
+        return
+      }
+      toast.success(json.message || 'Pembayaran disetujui dipindahkan ke Sampah')
+      setDeleteAllOpen(false)
+      await load()
+    } catch {
+      toast.error('Gagal terhubung ke server')
+    } finally {
+      setDeleteAllBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -191,10 +213,18 @@ export function VerifikasiPembayaranContent() {
             Bukti transfer/QRIS tidak otomatis membuktikan uang masuk — periksa sebelum menyetujui.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
-          <RefreshCcw className="h-3.5 w-3.5" /> Muat Ulang
-        </Button>
-        <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
+        <div className="flex items-center gap-2">
+          {/* Hapus Semua — hanya di tab Disetujui (permintaan user) */}
+          {tab === 'disetujui' && rows !== null && rows.length > 0 && (
+            <Button variant="destructive" size="sm" className="gap-1.5" onClick={() => setDeleteAllOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" /> Hapus Semua ({rows.length})
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
+            <RefreshCcw className="h-3.5 w-3.5" /> Muat Ulang
+          </Button>
+          <LiveIndicator lastUpdated={lastUpdated} className="self-center" />
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
@@ -552,6 +582,34 @@ export function VerifikasiPembayaranContent() {
             <Button variant="destructive" onClick={reject} disabled={rejectBusy} className="gap-1.5">
               {rejectBusy && <Loader2 className="h-4 w-4 animate-spin" />}
               <XCircle className="h-4 w-4" /> Tolak Pembayaran
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog konfirmasi HAPUS SEMUA (tab Disetujui) */}
+      <Dialog open={deleteAllOpen} onOpenChange={(v) => !v && setDeleteAllOpen(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-red-500" /> Hapus Semua Pembayaran Disetujui?
+            </DialogTitle>
+            <DialogDescription>
+              Sebanyak <b>{rows?.length ?? 0}</b> pembayaran berstatus Disetujui akan dihapus dari daftar sekaligus.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+            <ul className="list-disc space-y-1 pl-4">
+              <li>Semua item dipindahkan ke <b>Sampah</b> (Riwayat Transaksi) — masih bisa dipulihkan satu per satu.</li>
+              <li>Langganan pelanggan yang sudah aktif <b>tidak terpengaruh</b> — hanya daftar riwayat verifikasi yang dibersihkan.</li>
+              <li>Data tidak langsung hilang permanen dari database.</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllOpen(false)} disabled={deleteAllBusy}>Batal</Button>
+            <Button variant="destructive" onClick={deleteAllApproved} disabled={deleteAllBusy} className="gap-1.5">
+              {deleteAllBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Trash2 className="h-4 w-4" /> Ya, Hapus Semua
             </Button>
           </DialogFooter>
         </DialogContent>

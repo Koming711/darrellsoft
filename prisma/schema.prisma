@@ -825,15 +825,53 @@ model SubscriptionAuditLog {
 
 // Notifikasi in-app (pelanggan & admin). Admin melihat semua (where {}).
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String   @default("") // penerima; "" = broadcast admin
+  id        String    @id @default(cuid())
+  userId    String    @default("") // penerima; "" = broadcast admin
   title     String
-  body      String   @default("")
-  type      String   @default("info") // payment | subscription | system | info
-  link      String   @default("") // href tujuan saat diklik
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  body      String    @default("")
+  type      String    @default("info") // registration | subscription | payment | system | info
+  link      String    @default("") // href tujuan saat diklik
+  isRead    Boolean   @default(false)
+  readAt    DateTime? // tanggal & jam notifikasi dibaca
+  createdAt DateTime  @default(now())
 
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// Perangkat push notification (Web Push subscription) milik satu user.
+// endpoint = URL push service unik per perangkat+browser (unique key).
+model PushDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  deviceType String    @default("browser") // browser | android | desktop | ios
+  userAgent  String    @default("")
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// Riwayat pengiriman push per (notifikasi, penerima, kanal) — anti duplikat
+// & audit kegagalan (endpoint kedaluwarsa 404/410 → status failed).
+model NotificationDelivery {
+  id             String   @id @default(cuid())
+  notificationId String
+  userId         String
+  channel        String   @default("push") // push
+  status         String   @default("sent") // sent | failed
+  error          String   @default("")
+  sentAt         DateTime @default(now())
+
+  @@unique([notificationId, userId, channel])
+  @@index([notificationId])
   @@index([userId])
 }
 // ====================================================================

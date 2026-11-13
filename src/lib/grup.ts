@@ -66,6 +66,77 @@ export async function resolveGrupForUser(memberId: string) {
 }
 
 /**
+ * HAPUS PERMANEN grup perusahaan (aksi Super Admin — tombol Delete di
+ * Panel Admin → Manajemen Grup). TIDAK BISA dibatalkan:
+ * - Seluruh akun login anggota grup (owner + staf) DIHAPUS: Pengguna,
+ *   Pembeli terkait, dan CustomerSubscription milik akun tsb.
+ *   Admin/superadmin tidak pernah ikut terhapus (guard role).
+ * - Keanggotaan (GrupAnggota) terhapus bersama grup (onDelete: Cascade).
+ * - AuditLog grup dipertahankan (grupId → null via onDelete: SetNull)
+ *   lalu entri baru 'grup_dihapus' ditulis (grupId null — riwayat tetap
+ *   terbaca di Laporan Audit Panel Admin).
+ * - Data dokumen perusahaan (invoice, riwayat hitungan, dst — kolom
+ *   userId string biasa tanpa FK) TIDAK dihapus: menjadi arsip mati yang
+ *   tidak bisa diakses siapa pun setelah akun dihapus.
+ * - Riwayat tagihan & pembayaran langganan (SubscriptionInvoice/Payment)
+ *   DIPERTAHANKAN sebagai arsip keuangan admin.
+ */
+export async function hapusGrupPermanen(
+  grupId: string,
+  aktor: { id: string; nama: string },
+  catatan?: string,
+): Promise<{ deletedAccounts: number; deletedMembers: number; kode: string; nama: string }> {
+  const grup = await db.grup.findUnique({
+    where: { id: grupId },
+    include: { anggota: { select: { memberId: true, namaLengkap: true, peran: true, status: true } } },
+  })
+  if (!grup) throw new Error('Grup tidak ditemukan.')
+
+  // Akun login yang melekat pada grup ini (semua status keanggotaan)
+  const akunGrup = await db.pengguna.findMany({
+    where: { grupId, role: { notIn: ['admin', 'superadmin'] } },
+    select: { id: true },
+  })
+  const akunIds = akunGrup.map((a) => a.id)
+  const anggotaTerdaftar = grup.anggota.length
+
+  await db.$transaction(async (tx) => {
+    if (akunIds.length > 0) {
+      await tx.pembeli.deleteMany({ where: { penggunaId: { in: akunIds } } })
+      // Langganan ikut akunnya — arsip keuangan (invoice & payment) dipertahankan
+      await tx.customerSubscription.deleteMany({ where: { userId: { in: akunIds } } })
+      await tx.pengguna.deleteMany({ where: { id: { in: akunIds } } })
+    }
+    // Hapus grup → GrupAnggota ikut terhapus (cascade), AuditLog.grupId → null
+    await tx.grup.delete({ where: { id: grupId } })
+  })
+
+  // Audit DITULIS SETELAH grup terhapus (grupId null — entri lepas yang tetap terbaca)
+  await logGroupAudit(db, {
+    grupId: null,
+    aktorId: aktor.id,
+    aktorNama: aktor.nama,
+    aksi: 'grup_dihapus',
+    detail: {
+      kode: grup.kode,
+      nama: grup.nama,
+      anggotaTerdaftar,
+      akunDihapus: akunIds.length,
+      ...(catatan?.trim() ? { catatan: catatan.trim() } : {}),
+    },
+  })
+
+  invalidateGroupCache()
+
+  return {
+    deletedAccounts: akunIds.length,
+    deletedMembers: anggotaTerdaftar,
+    kode: grup.kode,
+    nama: grup.nama,
+  }
+}
+
+/**
  * Hitung kuota & pemakaian grup.
  * Kuota: plan milik grup → fallback plan langganan owner → 1.
  */

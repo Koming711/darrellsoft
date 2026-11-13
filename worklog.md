@@ -1,4 +1,221 @@
 ---
+Task ID: 48
+Agent: Main
+Task: Panel Admin → Verifikasi Pembayaran — tombol "Hapus Semua" di tab Disetujui
+
+Work Log:
+- LAPORAN USER: "dihalaman verifikasi pembayaran, di tab disetujui, delete semua. fix" — perlu aksi hapus seluruh daftar sekaligus di tab Disetujui.
+- KONTEKS ARSITEKTUR: SubscriptionPayment sudah punya soft delete (deletedAt) dengan alur Sampah di Riwayat Transaksi (per-item via /api/panel-admin/transactions/[id]: DELETE = ke Sampah, POST = pulihkan, DELETE ?permanent=1 = permanen). Hapus-semua diimplementasikan KONSISTEN dgn pola ini (soft delete, bukan hard delete) supaya bisa dipulihkan.
+- BACKEND: handler DELETE baru di /api/panel-admin/payments/route.ts (?status=disetujui, requireAdmin) — updateMany where {status 'disetujui', deletedAt null} → {ok, moved, message}. HANYA status 'disetujui' yang diizinkan (400 bila lain) — antrean menunggu_verifikasi sengaja tidak bisa dibulk-delete; endpoint berada di bawah /api/panel-admin yang sudah masuk NEVER_QUEUE_PREFIXES (wajib online).
+- FRONTEND (verifikasi-pembayaran/content.tsx): (1) import ikon Trash2; (2) state deleteAllOpen/deleteAllBusy + fungsi deleteAllApproved() → DELETE ?status=disetujui → toast sukses menyebut jumlah → tutup dialog → reload; (3) tombol merah "Hapus Semua (N)" di header — HANYA muncul saat tab=disetujui && rows.length>0 (sebelah Muat Ulang, header flex-wrap jadi aman di mobile); (4) Dialog konfirmasi: judul merah "Hapus Semua Pembayaran Disetujui?", jumlah item disebut, 3 bullet konsekuensi (pindah ke Sampah Riwayat Transaksi & bisa dipulihkan, langganan aktif TIDAK terpengaruh, tidak langsung hilang permanen), tombol "Ya, Hapus Semua" destructive dgn spinner.
+- VERSI: SW v231→v232, APP_VERSION/CURRENT '2026-11-12-v229'→'2026-11-12-v230'; changelog v230 "Panel Admin: Hapus Semua di Tab Disetujui" (2 item id/en).
+- Lint file terubah (payments route, verifikasi content, changelog, sw-registration) → 0 error.
+- VERIFIKASI browser (agent-browser, akun superadmin sementara zztestdesk + 2 invoice/payment uji SUB-261112-ZZ48 dibuat via Prisma): popup "Versi Baru! v230" tampil ✓. Desktop: tab Disetujui menampilkan tombol "Hapus Semua (2)" ✓; klik → dialog konfirmasi lengkap (screenshot) ✓; "Ya, Hapus Semua" → toast "2 pembayaran disetujui dipindahkan ke Sampah" + daftar kosong + tombol hilang ✓. VERIFIKASI DB: kedua payment deletedAt terisi ✓. Riwayat Transaksi → tab Sampah: kedua item tampil dgn tombol Pulihkan/Hapus permanen ✓. Mobile 390x844: tombol "Hapus Semua (1)" tampil (seed ulang 1 item) ✓. CLEANUP: kedua invoice uji dihapus (cascade payment), akun admin uji dihapus, sisa payment test 0. dev.log bersih (prisma:error hanya seed startup pra-eksisting).
+
+Stage Summary:
+- Tab Disetujui di halaman Verifikasi Pembayaran kini punya tombol "Hapus Semua (N)" dgn dialog konfirmasi eksplisit: seluruh pembayaran berstatus disetujui di-soft-delete sekaligus → pindah ke Sampah (Riwayat Transaksi) dan masih bisa dipulihkan; langganan pelanggan yang sudah aktif tidak terpengaruh. Endpoint DELETE /api/panel-admin/payments?status=disetujui (hanya status itu yang diizinkan). Versi v232/v230.
+
+---
+Task ID: 47
+Agent: Main
+Task: Panel Admin — hapus badge angka di menu Pengguna pada sidebar (angka 3 tidak lagi tampil)
+
+Work Log:
+- LAPORAN USER: "dihalaman panel admin. disidebar menu pengguna hapus angka 3 disapingnya" — sidebar panel admin menampilkan badge hitungan di menu Pengguna (tab 'pelanggan'): angka akun "belum aktif" (pelangganBelumAktif, saat itu 3).
+- File src/app/panel-admin/admin-sidebar.tsx (satu-satunya sidebar panel admin, dipakai desktop & mobile drawer): (1) hook useAdminCounts dihapus field belumAktif-nya — state kini hanya { pembayaran }, tetap fetch /api/panel-admin/subscription-stats polling 30s utk badge Pendaftar Baru; (2) renderItem: logika count disederhanakan — hanya item.tab === 'pembayaran' yang dapat badge (antrean verifikasi), 'pelanggan' TIDAK lagi diberi hitungan.
+- Badge menu Pendaftar Baru DIPERTAHANKAN sesuai desain (penanda antrean verifikasi); anggota grup & akses menu lain tidak berubah. Statistik "Belum Aktif" di dashboard beranda panel admin tetap ada (hanya badge sidebar yang dihapus).
+- VERSI: SW v230→v231, APP_VERSION/CURRENT '2026-11-12-v228'→'2026-11-12-v229'; changelog v229 "Panel Admin: Angka di Menu Pengguna Dihapus" (2 item id/en).
+- Lint file terubah (admin-sidebar, changelog, service-worker-registration) → 0 error (error/warning lint codebase lain pra-eksisting).
+- VERIFIKASI browser (agent-browser, akun superadmin sementara zztestdesk dibuat via Prisma lalu DIHAPUS): popup "Versi Baru! v229" tampil ✓. Desktop 1440x900: snapshot sidebar — button "Pengguna" TANPA angka, button "Pendaftar Baru 1" (badge antrean tetap ada), screenshot visual ✓. Mobile 390x844 (drawer): button "Pengguna" tanpa angka, "Pendaftar Baru 1" ✓. dev.log bersih (satu baris prisma:error "duplicate column name: kategoriId" berasal dari seed script startup, pra-eksisting & tidak terkait). Data test dihapus.
+
+Stage Summary:
+- Sidebar panel admin tidak lagi menampilkan angka hitungan di menu Pengguna (desktop & mobile) — tampilan lebih bersih; badge antrean Pendaftar Baru dipertahankan sebagai penanda ada pembayaran menunggu verifikasi. Versi v231/v229.
+
+---
+Task ID: 46
+Agent: Main
+Task: Panel Admin → Manajemen Grup — tombol DELETE (hapus permanen grup) + perbaikan halaman yang datanya gagal 404
+
+Work Log:
+- PENEMUAN: halaman Manajemen Grup yang AKTIF (dirender admin-panel.tsx tab 'grup') adalah src/app/panel-admin/grup/content.tsx (import './grup/content'), memakai API riil /api/panel-admin/grup (GET list) + /grup/[id] (PATCH aktif/nonaktif) + /grup/[id]/audit. File src/app/panel-admin/manajemen-grup/content.tsx (versi rich: 4 kartu ringkasan, dialog detail dgn tab Anggota/Pembayaran/Aktivitas, polling 12s) adalah kode yatim — memanggil /api/panel-admin/groups yang TIDAK ADA (curl 404) sehingga bila dirender pasti gagal muat.
+- HELPER BARU lib/grup.ts hapusGrupPermanen(grupId, aktor{id,nama}, catatan?) — semantik hapus permanen: (1) akun login seluruh anggota grup DIHAPUS: Pengguna (guard role notIn admin/superadmin) + Pembeli terkait (penggunaId) + CustomerSubscription milik akun; (2) GrupAnggota ikut terhapus via onDelete: Cascade saat grup.delete; (3) AuditLog.grupId → null (onDelete: SetNull) sehingga riwayat audit TETAP ADA + entri baru aksi 'grup_dihapus' (grupId null, detail snapshot kode/nama/anggotaTerdaftar/akunDihapus/catatan); (4) data dokumen perusahaan (invoice, riwayat hitungan, dst — userId string tanpa FK) TIDAK dihapus = arsip mati tak terakses; (5) SubscriptionInvoice/Payment DIPERTAHANKAN sebagai arsip keuangan; (6) invalidateGroupCache().
+- BACKEND: DELETE /api/panel-admin/grup/[id] (route halaman aktif) — requireAdmin + baca admin username → hapusGrupPermanen → { success, deletedAccounts, deletedMembers }; 404 bila grup tidak ada. DELETE /api/panel-admin/groups juga dibuat memakai helper yang sama (awalnya inline — diganti helper anti-duplikasi).
+- BACKEND TAMBAHAN (perbaikan halaman yatim): route BARU /api/panel-admin/groups (GET list {groups,summary} / GET ?grupId= detail {grup,members,payments,audit} / PATCH aktifkan-nonaktifkan paritas /grup/[id] + notifikasi owner) — kontrak ManajemenGrupContent kini terpenuhi bila suatu saat halaman rich dipakai; manajemen-grup/content.tsx juga dirapikan (label audit id-ID riil: anggota_ditambahkan/diedit/dikeluarkan/sandi_anggota_direset/grup_data_perusahaan_diubah/grup_owner_dikonversi/grup_diaktifkan/grup_dinonaktifkan/grup_dihapus + tombol Hapus dgn dialog).
+- FRONTEND (grup/content.tsx — halaman aktif): import Trash2; state hapusTarget/catatanHapus/hapusBusy; hapusGrup() → DELETE /grup/[id] + toast sukses menyebut jumlah akun terhapus + tutup dialog detail bila grup tsb + reload silent; tombol "Hapus" (outline merah, hover solid merah, icon Trash2) ditambahkan DI TABEL DESKTOP & DI KARTU MOBILE (setelah Detail + Nonaktifkan/Aktifkan); AlertDialog konfirmasi baru: judul merah "Hapus grup {nama}?", penjelasan DIHAPUS PERMANEN/TIDAK BISA dibatalkan, 4 bullet konsekuensi (akun login dihapus, keanggotaan berakhir, dokumen jadi arsip tak terakses, tagihan/pembayaran tersimpan), sarankan Nonaktifkan utk suspend sementara, catatan opsional (audit), tombol "Ya, Hapus Permanen".
+- OFFLINE-QUEUE: '/api/panel-admin' ditambahkan ke NEVER_QUEUE_PREFIXES — aksi admin destruktif (hapus/nonaktif/verifikasi) wajib online, jangan diantre lalu direplay belakangan.
+- VERSI: SW v229→v230, APP_VERSION/CURRENT '2026-11-12-v227'→'2026-11-12-v228'; changelog v228 "Panel Admin: Tombol Hapus Grup di Manajemen Grup" (3 item id/en).
+- Lint semua file terubah (lib/grup, grup/[id]/route, groups/route, grup/content, manajemen-grup/content, offline-queue, changelog, sw-registration) → 0 error.
+- VERIFIKASI browser (agent-browser, akun superadmin test zztestdesk dibuat via Prisma lalu DIHAPUS): grup uji "ZZ Grup Uji Hapus" (GRP-ZZTEST) dibuat dgn owner+staf+Pembeli+langganan+1 audit. Desktop: tabel menampilkan tombol Hapus di tiap baris ✓; klik Hapus → dialog konfirmasi merah tampil lengkap ✓; isi catatan "uji hapus otomatis" → "Ya, Hapus Permanen" → toast "Grup ZZ Grup Uji Hapus (GRP-ZZTEST) dihapus permanen — 2 akun login anggota ikut dihapus" + baris hilang dr daftar ✓. VERIFIKASI DB: grup=null, GrupAnggota=0, Pengguna owner/staf=null, Pembeli=null, CustomerSubscription=null, AuditLog 'grup_dihapus' tercatat (grupId null, detail snapshot ✓). Mobile 390x844: kartu grup punya tombol Hapus ✓. Console & dev.log bersih; data test dihapus.
+
+Stage Summary:
+- Panel Admin → Manajemen Grup kini punya tombol DELETE di desktop & mobile: hapus permanen grup dgn konfirmasi eksplisit — seluruh akun login anggota (owner+staf) ikut dihapus, riwayat audit & arsip keuangan dipertahankan, dokumen perusahaan menjadi arsip tak terakses. Halaman (grup/content) tetap memakai API riilnya; endpoint DELETE baru /api/panel-admin/grup/[id]; versi rich manajemen-grup/content kini punya API /api/panel-admin/groups lengkap (siap dipakai bila nanti diaktifkan). Versi v230/v228.
+
+---
+Task ID: 45
+Agent: Main
+Task: Menu "Pengaturan Notifikasi" hanya ada di mobile, hilang di desktop — tambahkan ke sidebar desktop
+
+Work Log:
+- LAPORAN USER: "di tampilan mobile. menu pengaturan notifikasi ada, tapi tidak ada di tampilan desktop" — Task 43 menambahkan menu BellRing 'pengaturan-notifikasi' HANYA di src/components/sidebar.tsx (mobile: sidebar slide-in + popup Lainnya); desktop memakai FILE BERBEDA src/components/sidebar-desktop.tsx (rail icon-only + hover-expand) yang tidak diubah saat Task 43.
+- sidebar-desktop.tsx: (1) import ikon BellRing dari lucide-react; (2) item menu baru setelah 'pengaturan' — titleKey 'settings_notif_title' (ID "Pengaturan Notifikasi"/EN "Notification Settings", key i18n sudah ada), href '/administrasi/pengaturan/notifikasi', featureId 'pengaturan-notifikasi', section 'setting' — persis sama dgn mobile; (3) bypass anggota grup di filter menu ditambah 'pengaturan-notifikasi' (['grup-saya','pilih-paket','pengaturan','pengaturan-notifikasi']) agar anggota grup tetap bisa membuka halaman pengaturan notifikasi perangkatnya (sama dgn sidebar.tsx line 429).
+- Tidak perlu ubah permissions: 'pengaturan-notifikasi' sudah punya baris matriks (Task 44), sudah di ALWAYS_ALLOWED_FEATURE_IDS, dan sudah ada di hasFeatureAccess + getFeatureIdForPath + getPathForFeatureId.
+- VERSI: SW v228→v229, APP_VERSION/CURRENT '2026-11-12-v226'→'2026-11-12-v227'; changelog v227 "Menu Pengaturan Notifikasi Kini Tampil di Desktop" (2 item id/en).
+- Lint file terubah (sidebar-desktop, changelog, service-worker-registration) → 0 error.
+- VERIFIKASI browser (agent-browser): akun test superadmin sementara (zztestdesk, dibuat via Prisma lalu DIHAPUS). Desktop 1440x900: sidebar rail menampilkan ikon BellRing di seksi Pengaturan (link "Pengaturan Notifikasi" ada di snapshot) ✓; klik link → halaman terbuka (redirect pertama ke /pilih-paket hanya krn akun test belum punya langganan aktif — gate langganan, bukan bug menu; navigasi langsung URL /administrasi/pengaturan/notifikasi TETAP di halaman) ✓; halaman Pengaturan Notifikasi render penuh: Preferensi popup/suara, tes nada, Push Notification, Perangkat Terhubung + popup AKTIFKAN NOTIFIKASI muncul ✓; popup "Versi Baru! v227" dgn changelog baru muncul ✓. Mobile 390x844: menu Lainnya → item "Pengaturan Notifikasi" masih ada ✓. Tanpa error console/dev.log.
+
+Stage Summary:
+- Menu "Pengaturan Notifikasi" kini tampil di SIDEBAR DESKTOP (ikon lonceng, seksi Pengaturan, setelah menu Pengaturan) — sebelumnya hanya di mobile karena Task 43 hanya mengubah sidebar.tsx; sidebar-desktop.tsx (file desktop terpisah) kini sinkron: item menu sama + bypass izin anggota grup sama. Perilaku mobile tidak berubah. Versi v229/v227.
+
+---
+Task ID: 44
+Agent: Main
+Task: Halaman Hak Akses — cek & tambahkan hak akses yang belum ada (6 menu tanpa baris matriks + path guard halaman yang bolong)
+
+Work Log:
+- AUDIT: bandingkan 32 item menu sidebar (sidebar.tsx & sidebar-desktop.tsx) vs matriks di /administrasi/hak-akses (SIMPLE_FEATURES+GROUP_FEATURES). Ditemukan 6 menu TANPA baris hak akses: Harga Customer (harga-customer), Kategori (daftar-kategori), Paket Saya (langganan-saya), Grup Saya (grup-saya), Pilih Paket (pilih-paket), Pengaturan Notifikasi (pengaturan-notifikasi) — semuanya sebelumnya hardcode selalu-buka / tanpa pengecekan di permissions.ts.
+- permission-defaults.ts: 6 id ditambahkan ke SIMPLE_FEATURES (nama sesuai label sidebar); konstanta baru ALWAYS_ALLOWED_FEATURE_IDS — default DIIZINKAN utk SEMUA role (termasuk role kustom) agar perilaku lama tidak berubah; Owner cukup matikan via matriks bila perlu. Halaman hak-akses otomatis menampilkan baris baru (memakai SHARED_SIMPLE_FEATURES).
+- permissions.ts: hasFeatureAccess disederhanakan — anggota grup (admin/staf) tetap mengikuti izin Owner (grup-saya/pilih-paket/pengaturan-notifikasi bypass; panel-admin tidak pernah; lainnya izin.includes), Owner & akun non-grup kini mengikuti MATRIKS (6 id punya baris). Kategori utk anggota grup kini konsisten izin-based (dulu bypass return true = toggle Owner tidak berefek; sidebar memang sudah izin-based sejak awal).
+- PATH GUARD BARU di getFeatureIdForPath (halaman yang sebelumnya bisa dibuka lewat URL walau menunya terkunci): /barang→barang, /rekap-tagihan→piutang-dagang, /riwayat-hitung-cetakan→hitung-cetakan, /riwayat-potong-kertas→potong-kertas, /administrasi/pengaturan/notifikasi→pengaturan-notifikasi. getPathForFeatureId + barang & pengaturan-notifikasi. getFirstAccessiblePath: fitur akun-level (ALWAYS_ALLOWED) dikecualikan dr fallback agar tidak jadi halaman landing aneh utk role terkunci.
+- VERSI: SW v227→v228, APP_VERSION/CURRENT '2026-11-12-v225'→'2026-11-12-v226'; changelog v226 "Hak Akses: Seluruh Menu Kini Bisa Diatur per Role" (3 item id/en).
+- Lint file terubah → 0 error. Uji logika engine via bun (22 cek): 6 fitur true utk semua role (user/demo/manager/admin/roleKustom), PRO & grup CRUD tidak berubah, mapping path benar, getFirstAccessiblePath(roleKustom)=null.
+- VERIFIKASI browser (agent-browser): matriks menampilkan 6 baris baru × 5 role semua "diizinkan"; toggle sel + Batalkan bekerja; login zztesthak (role user, temp) → /harga-customer /daftar-kategori /langganan-saya /pilih-paket /grup /administrasi/pengaturan/notifikasi & /rekap-tagihan SEMUA BISA (perilaku lama), /barang DIBLOKIR "Fitur Belum Tersedia" (guard baru; dulu bolong via URL); E2E penuh: admin mematikan "Kategori — User" + Simpan → user /daftar-kategori DIBLOKIR; diaktifkan kembali + Simpan → BISA lagi; popup "Versi Baru! v226" muncul. DB role_permissions terverifikasi (6 id = true utk user). Data tes dihapus; matriks dikembalikan ke semula. Tanpa error console.
+
+Stage Summary:
+- Halaman Hak Akses kini lengkap: seluruh menu aplikasi (termasuk Harga Customer, Kategori, Paket Saya, Grup Saya, Pilih Paket, Pengaturan Notifikasi) punya baris di matriks dan dapat diatur per role. Default semua diizinkan → perilaku existing tidak berubah; bolongnya guard halaman (/barang, /rekap-tagihan, riwayat hitungan, notifikasi) ditutup; RBAC anggota grup tetap mengikuti izin Owner. Versi v228/v226.
+
+---
+Task ID: 43
+Agent: Main
+Task: Sistem notifikasi otomatis Darrellsoft — pendaftaran akun baru (Admin/Super Admin) + pengingat langganan (Owner & anggota grup): popup in-app, suara, Web Push PWA, pusat notifikasi, pengaturan, cron harian
+
+Work Log:
+- EKSPLORASI (sesuai permintaan bagian #8): sudah ada model Notification + API /api/notifications (GET/POST/DELETE) + bell pendaftaran (admin, polling 20s) + subscription-reminders h7/h3/berakhir (idempoten [ref:]) + notif-sound Web Audio + realtime socket mini-services/notif-service (port 3003, room admins/user:<id>) + notif-ws legacy (3004, poll DB) + UserSetting.
+- DB (schema.prisma): Notification +readAt +index (userId,isRead/type/createdAt); TABEL BARU PushDevice (endpoint unique, p256dh, auth, deviceType, isActive, lastUsedAt) & NotificationDelivery (@@unique notificationId+userId+channel — riwayat & anti-duplikat push); bun run db:push.
+- BACKEND: lib/push-server.ts (VAPID env → Setting DB fallback → generate&persist; sendWebPushToUser: 404/410 → device isActive=false; delivery upsert; error tak pernah melempar); lib/notify-fanout.ts (create per penerima + dedupe refKey + emitRealtime + push sekali per user); web-push@4 di-install.
+- PENDAFTARAN AKUN BARU: /api/register (setelah calon sukses disimpan) → fanout "PENDAFTARAN AKUN BARU" (isi template sesuai permintaan: Nama/Email/Perusahaan/Tgl/Paket Trial/Status Menunggu Verifikasi) ke SEMUA role admin+superadmin SAJA (owner/anggota TIDAK); refKey [ref:reg:<calonId>] — 1 notif per penerima; gagal daftar → tidak kirim.
+- LANGGANAN: subscription-reminders.ts refactor — jadwal LENGKAP h7/h3/h1/h0(hari terakhir)/habis dengan judul+isi template permintaan (MASA BERLANGGANAN SEGERA HABIS dst); selisih hari kalender Asia/Jakarta; PENERIMA = pemilik langganan + SELURUH anggota grup (GrupAnggota status!=keluar) — isolasi per grup; kumulatif tahan cron gagal; endDate berubah → ref periode baru (perpanjangan membatalkan pengingat lama).
+- CRON: /api/cron/subscription-reminders (proteksi CRON_SECRET Bearer/query) + vercel.json crons schedule "0 1 * * *" (=08:00 WIB, harian) — tidak bergantung browser; fallback sweep per-user & admin tetap ada.
+- API BARU: /api/notifications/devices (GET list masked/POST upsert by endpoint/PATCH aktif/DELETE), /api/notifications/vapid-public (public key saja), /api/notifications route diperbaiki (admin scope = broadcast "" + milik sendiri — bukan semua user; pagination page/take; ?since=; readAt; otorisasi id).
+- REALTIME FIX: konflik port — emitRealtime default 3004 dibajak notif-ws (legacy) → notif-service internal dipindah ke 3005 (INTERNAL_PORT) + NOTIF_WS_URL default 3005; emit terverifikasi delivered:admins.
+- SW v227: push handler (app FOKUS → postMessage NOTIF_NEW ke client, TANPA showNotification = tidak dobel; background → showNotification icon/badge/tag/renotify + data.link) + notificationclick (focus existing window + postMessage NOTIF_NAVIGATE, atau openWindow(link)).
+- FRONTEND: notification-popup-host.tsx (dipasang di DashboardLayout, semua role) — popup card modern tidak menghalangi (kanan bawah desktop / bawah mobile): judul, isi pre-line, tanggal+jam, tombol Lihat Detail & Tutup; SUARA beda per jenis (registration: dua nada naik; subscription: tiga nada turun) via notif-sound upgrade (kompatibel signature lama); dedupe 3 kanal (realtime socket + SW postMessage + polling 60s ?since) via signature/id Map 90s + BroadcastChannel antar tab; autoplay: unlockAudioOnInteraction; preferensi localStorage (notif-popup-off, notif-sound-muted sinkron event ds-notif-settings-changed).
+- notification-bell.tsx refactor = PUSAT NOTIFIKASI semua role: badge (pendaftaran baru utk admin + unreadCount DB), kategori Semua/Pendaftaran/Langganan/Sistem, tanggal & waktu, status dibaca (dot merah), Tandai Semua Dibaca (POST markAll + readAt), pagination "Muat lebih banyak", klik item → mark read + navigasi link; toast/suara realtime DIHAPUS dari bell (popup host satu-satunya sumber = anti dobel).
+- enable-notification-prompt.tsx: popup AKTIFKAN NOTIFIKASI DARRELLSOFT sekali setelah login (flag localStorage, hanya permission=default & push supported; penjelasan dulu → izin via tombol user gesture; granted → subscribePush + toast sukses; denied → panduan ikon gembok; Nanti Saja → in-app tetap jalan + tombol di Pengaturan).
+- HALAMAN /administrasi/pengaturan/notifikasi (sidebar menu BellRing 'Pengaturan Notifikasi' + bypass izin anggota): switch popup & suara, tes suara (nada pendaftaran/langganan), tes notifikasi popup, push aktifkan/nonaktifkan (subscribe/unsubscribe + daftar device server), status izin perangkat, daftar perangkat terhubung (jenis/endpoint masked/terakhir dipakai/aktif-nonaktif/hapus) + panduan blokir & unsupported.
+- push-client.ts: urlBase64ToUint8Array, requestNotificationPermission, subscribePush (SW + PushManager + POST devices), unsubscribePush, isPushSubscribed, detectDeviceType.
+- VERSI: SW v226→v227, APP_VERSION/CURRENT '2026-11-12-v224'→'2026-11-12-v225'; changelog v225 "Sistem Notifikasi Otomatis: Popup, Suara & Push" (4 item id/en).
+- Lint semua file terubah → 0 error (fix: const reassign perusahaan di reminders; useMemo sebelum early return bell; static-components popup host).
+- BUG FIX dev: pushDevice undefined (Prisma client lama) → restart dev server.
+- VERIFIKASI LOKAL (agent-browser, admin/268899): popup "Versi Baru! v225" ✓; Pusat Notifikasi (kategori/tandai dibaca/badge) ✓; halaman Pengaturan Notifikasi lengkap ✓; prompt izin pertama kali muncul ✓; cron dgn secret → success / tanpa → 403 ✓; TES JADWAL penuh dgn manipulasi endDate (h7→MASA..HABIS, h3→PENGINGAT PERPANJANGAN, h1→PERINGATAN! BESOK, h0→HARI TERAKHIR, -1→TELAH HABIS) — owner rgdjyo + anggota aktif menerima, anggota 'keluar' & grup lain TIDAK ✓; idempotensi: cron 2x → created=0 ✓; pendaftaran nyata via OTP (3 akun tes) → 1 notif per admin (superadmin+admin), owner/anggota tidak dapat ✓; POPUP REALTIME "PENDAFTARAN AKUN BARU" muncul di browser admin via gateway :81 + tombol Lihat Detail → /administrasi/pengguna ✓; API devices register/list ✓; push ke endpoint fake → NotificationDelivery 'failed' tercatat ✓; mobile 390x844 popup subscription tampil rapi ✓; badge lonceng naik ✓. Data tes dibersihkan.
+- .vercel/project.json darrellsoft dipertahankan; .env lokal: VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY/VAPID_SUBJECT/CRON_SECRET; env produksi diset via vercel env add.
+
+Stage Summary:
+- Sistem notifikasi otomatis lengkap: pendaftaran akun baru → Admin & Super Admin (popup+suara+push, 1 notif per penerima); pengingat langganan 7/3/1/hari terakhir/habis → Owner + anggota grupnya (cron harian Vercel 08:00 WIB, idempoten, isolasi per grup); Pusat Notifikasi semua role dgn kategori & riwayat; Pengaturan → Notifikasi (popup/suara/push/tes/perangkat); prompt izin pertama kali; Web Push PWA tanpa dobel (app fokus → popup in-app saja; background → notifikasi sistem; klik → buka halaman terkait). Versi v227/v225.
+
+---
+Task ID: 42
+Agent: Main
+Task: Halaman Rekap Tagihan Cust — restyle tanda tangan "Yang Membuat" mengikuti gaya preview invoice (label tebal + ruang ttd + garis bawah, tanpa kotak)
+
+Work Log:
+- Permintaan owner: "buat preview rekap tagihan ukuran A5 dan dibawah tambahkan kotak tanda tangan yang membuat. seperti di preview invoice. fix" → A5 & ttd sudah ada (Task 41); GAYA ttd disamakan dengan preview invoice (src/components/dokupro/invoice-preview.tsx: label fontWeight 600 + marginBottom 12mm + garis borderBottom 1px #000 width 60%).
+- PREVIEW (src/app/rekap-tagihan/page.tsx): kotak border-stone-500 h-20 + garis nama titik-titik DIGANTI → label "Yang Membuat" font-semibold + spacer h-[12mm] + garis mx-auto w-[60%] border-b border-black; kolom diperlebar 180→200px; tetap rata kanan (justify-end) & ikut tercetak (print:mt-4).
+- EXPORT PDF jsPDF: pdf.rect 40x22mm + baris titik-titik DIGANTI → label bold 7.5pt + garis pdf.line 60% lebar kolom (24mm) pada y+3+12mm; auto addPage bila melewati BREAK (guard y + sigGap + 15 > BREAK).
+- i18n (id+en): value rekap_tag_ttd_yang_membuat diubah 'Yang Membuat,'→'Yang Membuat' & 'Prepared by,'→'Prepared by' (tanpa koma, konsisten dengan label invoice "Diterima Oleh"/"Hormat Kami").
+- Komentar header page.tsx diperbarui (gaya invoice, bukan kotak).
+- Versi: SW v225→v226, APP_VERSION/CURRENT_VERSION '2026-11-12-v223'→'2026-11-12-v224'; changelog entri baru v224 "Rekap Tagihan Cust: Tanda Tangan Gaya Invoice" (2 item id/en).
+- Lint (hanya file berubah): page.tsx, i18n.ts, changelog.ts, service-worker-registration.tsx → 0 error 0 warning.
+- Verifikasi lokal (agent-browser desktop 1440x900, admin/268899): popup "Versi Baru! v224" ✓; Semua Customer + September 2026 (1 invoice lunas) → sheet 560px, ttd wrap 200px rata kanan, label font-weight 600, gap label→garis 45px (=12mm), garis 120px (=60%), kotak lama & titik-titik hilang ✓; simulasi cetak (pdf): A5 content width, ttd label+garis tercetak setelah footnote ✓; Export PDF diklik tanpa console error ✓; mobile 390x844: sheet 358px, ttd tetap tampil ✓.
+- .vercel/project.json koordinat darrellsoft (dipertahankan).
+
+Stage Summary:
+- Tanda tangan "Yang Membuat" di Rekap Tagihan Cust kini bergaya persis preview invoice (label tebal + ruang ttd ±12 mm + garis bawah hitam 60%) — di preview, cetak & Export PDF; format A5 portrait dipertahankan. Versi v226/v224.
+
+---
+Task ID: 41
+Agent: Main
+Task: Halaman Rekap Tagihan Cust — tambahkan kembali kotak tanda tangan "Yang Membuat" di bawah laporan (format A5 portrait dipertahankan)
+
+Work Log:
+- Permintaan owner: "buat preview rekap tagihan menjadi A5 potrait dan dibawah tambahkan kotak tanda tangan yang membuat. fix" → A5 (Task 39) sudah ada; kotak tanda tangan dikembalikan (dihapus di Task 40).
+- PREVIEW (src/app/rekap-tagihan/page.tsx): blok tanda tangan kembali setelah footnote — label "Yang Membuat," (i18n rekap_tag_ttd_yang_membuat) + kotak kosong border w-[180px] h-20 + garis nama "(..........)" rata kanan bawah; ikut tercetak (print:mt-4).
+- EXPORT PDF jsPDF: blok ttd kembali di akhir dokumen — auto addPage bila melewati BREAK, label centered 7.5pt, kotak 40x22mm rata kanan, baris nama titik-titik; catatan kaki splitTextToSize lalu y += lines*3.
+- Komentar header file diperbarui (penyebutan kotak tanda tangan dikembalikan).
+- i18n (id+en): key rekap_tag_ttd_yang_membuat dikembalikan = 'Yang Membuat,' / 'Prepared by,'.
+- Versi: SW v224→v225, APP_VERSION/CURRENT_VERSION '2026-11-12-v222'→'2026-11-12-v223'; changelog entri baru v223 "Rekap Tagihan Cust: Kotak Tanda Tangan Kembali" (2 item id/en).
+- Lint (hanya file berubah): page.tsx, i18n.ts, changelog.ts, service-worker-registration.tsx → 0 error 0 warning.
+- Verifikasi lokal (agent-browser desktop 1440x900, admin/268899): popup "Versi Baru! v223" muncul ✓; Semua Customer → sheet 560px (A5), kotak ttd 180x80 tampil + label + garis nama ✓; simulasi cetak (pdf): A5 content width, kotak ttd tercetak setelah footnote ✓; Export PDF diklik tanpa console error ✓.
+- .vercel/project.json koordinat darrellsoft (dipertahankan).
+
+Stage Summary:
+- Kotak tanda tangan "Yang Membuat" (kotak + garis nama) kembali tampil di kanan bawah laporan Rekap Tagihan Cust — di preview, cetak & Export PDF; format A5 portrait dipertahankan. Versi v225/v223.
+
+---
+Task ID: 40
+Agent: Main
+Task: Halaman Rekap Tagihan Cust — hapus kotak tanda tangan "Yang Membuat" di bawah laporan (format A5 portrait dipertahankan)
+
+Work Log:
+- Permintaan owner: "buat preview rekap tagihan menjadi A5 (potrait) dan dibawah kotak tanda tangan dihapus" → A5 (Task 39) tetap; blok tanda tangan dihapus.
+- PREVIEW (src/app/rekap-tagihan/page.tsx): hapus blok JSX tanda tangan (label "Yang Membuat," + kotak border-stone-500 180x80 + garis nama titik-titik) setelah footnote; preview kini berakhir di tabel TOTAL + catatan kaki.
+- EXPORT PDF jsPDF: hapus blok ttd (label centered, rect 40x22mm, baris nama) di akhir dokumen; catatan kaki jadi elemen terakhir; const BREAK tetap (dipakai page-break baris data).
+- Komentar header file diperbarui (hapus penyebutan kotak tanda tangan).
+- i18n (id+en): key rekap_tag_ttd_yang_membuat DIHAPUS dari kedua kamus (tidak ada referensi tersisa).
+- Versi: SW v223→v224, APP_VERSION/CURRENT_VERSION '2026-11-12-v221'→'2026-11-12-v222'; changelog entri baru v222 "Rekap Tagihan Cust: Kotak Tanda Tangan Dihapus" (2 item id/en).
+- Lint (hanya file berubah): page.tsx, i18n.ts, changelog.ts, service-worker-registration.tsx → 0 error 0 warning.
+- Verifikasi lokal (agent-browser desktop 1440x900, admin/268899): popup "Versi Baru! v222" muncul ✓; Semua Customer → sheet 560px (A5), ttdBox=false, label "Yang Membuat," tidak ada, footnote catatan total masih tampil ✓; simulasi cetak (pdf): A5 content width, berakhir di footnote, tanpa kotak ttd ✓; Export PDF diklik tanpa console error ✓.
+- .vercel/project.json koordinat darrellsoft (dipertahankan).
+
+Stage Summary:
+- Kotak tanda tangan "Yang Membuat" dihapus dari preview, cetak & Export PDF halaman Rekap Tagihan Cust; format A5 portrait (preview 560px, @page 148x210mm, jsPDF a5) dipertahankan. Versi v224/v222.
+
+---
+Task ID: 39
+Agent: Main
+Task: Halaman Rekap Tagihan Cust — ubah format preview & cetak menjadi A5 portrait + tambahkan kotak tanda tangan "Yang Membuat" di bawah laporan
+
+Work Log:
+- Permintaan owner: "buat preview rekap tagihan menjadi A5 dan dibawah tambahkan kotak tanda tangan yang membuat".
+- PRINT CSS A5 (src/app/rekap-tagihan/page.tsx): @page size 210x297mm→148x210mm (A5 portrait), margin 12mm→8mm; tambahan rule print: table min-width:0 + font 8.5px + padding sel 2px 3px agar muat lebar konten A5 (132mm).
+- PREVIEW A5: sheet #rekap-tagihan-sheet max-w 820px→560px (proporsi A5 ≈ 148mm @96dpi), padding p-5 md:p-8→p-4 md:p-5; kop dipadatkan (logo 40px, nama 13px, alamat/telp 11px); judul text-sm md:text-base; skeleton max-w 560px.
+- TABEL: min-w-[560px]→min-w-0, text-[13px]→text-[11px], px-2 py-1.5→px-1.5 py-1; lebar kolom disesuaikan (Tgl 11%, No.Inv 17%, Customer 15%, Harga 18%, Status 14%); footnote text-[10px]; tetap whitespace-nowrap nominal (Task 38).
+- KOTAK TANDA TANGAN "YANG MEMBUAT": blok kanan-bawah setelah footnote (hanya saat ada baris data) — label i18n rekap_tag_ttd_yang_membuat ("Yang Membuat," / "Prepared by,"), kotak kosong border w-[180px] h-20 (≈21mm) untuk ttd, garis nama "(..........)" di bawah kotak; ikut tercetak (di dalam #rekap-tagihan-sheet) dengan print:mt-4.
+- EXPORT PDF jsPDF A4→A5 portrait: format 'a5', margin M=8, W=132mm, BREAK=176mm; font skala turun (kop 9.5/7.5, judul 10.5, sel 7.5, footnote 6.5 italic dgn splitTextToSize agar tidak overflow); kolom colTgl 14/colInv 25/colCust 22/colHarga 26/colStatus 18, colNama sisanya; blok ttd ditambahkan di akhir PDF — auto addPage bila kotak ttd melewati BREAK, label centered, kotak 40x22mm rata kanan, baris nama titik-titik.
+- i18n (id+en): key baru rekap_tag_ttd_yang_membuat = 'Yang Membuat,' / 'Prepared by,'.
+- Versi: SW v222→v223, APP_VERSION/CURRENT_VERSION '2026-11-12-v220'→'2026-11-12-v221'; changelog entri baru v221 "Rekap Tagihan Cust: Format A5 & Kotak Tanda Tangan" (3 item id/en).
+- Lint (hanya file berubah): page.tsx, i18n.ts, changelog.ts, service-worker-registration.tsx → 0 error 0 warning.
+- Verifikasi lokal (agent-browser desktop 1440x900, admin/268899): popup "Versi Baru! v221" muncul dgn judul A5 & Tanda Tangan ✓; pilih Semua Customer → preview sheet 560px, tabel 518px muat semua kolom (incl. Customer), TOTAL Rp 0,00 (semua lunas, sesuai rumus), kotak ttd 180x80px + garis nama tampil kanan-bawah ✓; simulasi cetak (pdf): konten tercetak ±133mm = lebar konten A5 (@page size diterapkan), hanya sheet tanpa chrome, kotak ttd tercetak ✓; mobile 390x844: sheet 358px, tabel scroll horizontal sesuai desain ✓; Export PDF diklik tanpa console error ✓; console & dev.log bersih.
+- .vercel/project.json sudah koordinat darrellsoft (dipertahankan, tanpa switch).
+
+Stage Summary:
+- Rekap Tagihan Cust kini berformat A5 portrait (preview 560px, cetak @page 148x210mm margin 8mm, Export PDF a5) dengan kotak tanda tangan "Yang Membuat" (kotak kosong + garis nama) di kanan bawah laporan — tampil di preview, cetak & Export PDF. Versi v223/v221.
+
+---
+Task ID: 38
+Agent: Main
+Task: PULIHKAN halaman Rekap Tagihan Cust (/rekap-tagihan) — environment lokal ter-reset ke state Task 26, semua kode Tasks 27-37 hilang secara lokal; rebuild penuh agar identik dengan produksi v219
+
+Work Log:
+- User lapor "conten tidak muncul" → dev.log: GET /rekap-tagihan 404. Diagnosis: sandbox ter-reset ke snapshot lama (git HEAD = Task 26/SW v210), direktori src/app/rekap-tagihan + src/app/api/rekap-tagihan HILANG; produksi (Vercel) tetap v219 dengan seluruh fitur Tasks 27-37.
+- Blueprint diambil dari produksi via agent-browser --session prod (login admin/268899): layout filter (PILIH CUSTOMER/BULAN/TAHUN + Tampilkan), tombol Cetak/Export PDF/Export Excel, badge ringkasan, preview kop+judul+tabel+TOTAL+footnote, mode "Semua Customer" (kolom Customer ekstra), print PDF A4 portrait, API (?list=1 → customers; ?customer=__all__|nama&month&year → rows dd/mm/yy + totalTagihan/jumlahInvoice/jumlahBelumLunas; 400 "Parameter customer, month (1-12), dan year wajib diisi").
+- REBUILD API src/app/api/rekap-tagihan/route.ts: requireAuth + getDataFilter (isolasi grup); ?list=1 distinct nama customer; mode rekap: filter tanggal startsWith YYYY-MM, skip batal, rumus Piutang Dagang (total=round(sub+sub×ppn%), dpAmount=stored||round(total×dp%), sisa=max(0,total−dp), lunas=p.lunas===true); tanggalLabel dd/mm/yy (regex ^\d{4}-\d{2}-\d{2}$, fallback mentah); totalTagihan = Σ sisa hanya !lunas (Task 36); urut tanggal+nomor asc.
+- REBUILD halaman src/app/rekap-tagihan/page.tsx: DashboardLayout + header h1/subtitle/tombol refresh 44px; filter card grid (select customer dgn opsi "Pilih Customer" kosong + "Semua Customer" (__all__) + master customers (union /api/customers?q= & /api/rekap-tagihan?list=1, sort locale id) + bulan (bulan_1..12 baru) + tahun (thn+1..thn-5)); auto-load saat filter berubah (seq ref anti race) + tombol Tampilkan; badge "{n} invoice" & "{n} invoice belum lunas"; preview #rekap-tagihan-sheet: kop (company_logo img / avatar huruf + company_name/address/phone dari /api/settings) + judul "Rekapan Tagihan {X} (Bulan {M} {Y})" + tabel (Tgl|No. Inv|[Customer]|Nama Cetakan|Total Harga|Status; lunas→total penuh, belum→sisa) + TOTAL (Σ sisa belum lunas) + footnote italic; empty states (belum pilih customer → ikon FileText; data kosong → "Tidak ada invoice pada bulan yang dipilih"); tombol Cetak (window.print) / Export PDF (jsPDF A4 portrait manual draw: kop, judul, tabel w/ splitTextToSize, TOTAL, footnote italic; addImage utk logo data-URL, fallback avatar huruf) / Export Excel (CSV ';' + quote + BOM \ufeff); print CSS @page A4 210x297mm margin 12mm + visibility pattern hanya #rekap-tagihan-sheet; semua teks via i18n rekap_tag_* / rekap_* / bulan_*.
+- i18n (id+en): rekap_tagihan_cust, subtitle_rekap_tagihan_cust, rekap_tag_pilih_customer/bulan/tahun, rekap_tag_semua_customer, rekap_tag_tampilkan, rekap_tag_muat_ulang, rekap_tag_pilih_dulu, rekap_tag_kosong, rekap_tag_judul, rekap_tag_bulan, rekap_tag_jml_invoice, rekap_tag_invoice_belum, rekap_tag_kolom_tgl/no_inv/customer/nama/harga/status, rekap_tag_total, rekap_tag_sudah_lunas, rekap_tag_catatan_total (teks Task 36), rekap_tag_gagal_muat, rekap_tag_export_pdf, bulan_1..bulan_12. Reuse: rekap_belum_lunas, rekap_cetak, rekap_export_excel.
+- Sidebar desktop+mobile: item {rekap_tagihan_cust, /rekap-tagihan, icon ReceiptText, featureId 'piutang-dagang' (ikut izin Piutang Dagang), section laporan} setelah Piutang Dagang; label i18n "Rekap Tagihan Cust". Mobile (Task 33): hapus import/render MenuTagihanRekap + state showTagihanRekap/openPiutangDagang; FILE src/components/menu-tagihan-rekap.tsx DIHAPUS. offline-warmup.ts + '/rekap-tagihan'.
+- Versi: SW v210→v220 (HARUS > prod v219), APP_VERSION/CURRENT_VERSION → '2026-11-12-v218'; changelog: entri baru v218 "Rekap Tagihan Cust: Halaman Dipulihkan & Stabil" + RESTORE entri hilang v217 (Opsi Semua Customer), v216 (Harga Penuh saat Lunas), v215 (Kolom Total Harga & Tanggal dd/mm/yy) di atas v208.
+- Lint (hanya file berubah): 0 error 0 warning (2 unused eslint-disable dihapus).
+- Verifikasi lokal (agent-browser desktop 1440x900 + mobile 390x844, admin/268899): /rekap-tagihan 200 (bukan 404); sidebar "Rekap Tagihan Cust" tampil; popup v218 muncul; combobox: Pilih Customer / Semua Customer / master list; pilih "Semua Customer" → auto-load, badge + kolom Customer + judul "Rekapan Tagihan Semua Customer (Bulan ...)" ✓; single customer → tanpa kolom Customer ✓; TEST jalur Belum Lunas dgn ubah sementara dataJson lunas=false (INV/10/26/0004 milik admin): baris "Belum Lunas" tampil sisa Rp 655.000,00, TOTAL Rp 655.000,00 hanya sisa itu, invoice lunas tetap harga penuh → PULIHKAN lunas=true; (insiden kecil: edit pertama kena doc duplikat INV/09/26/0001 milik user-superadmin — field lunas DIHAPUS kembali, kondisi awal tanpa key lunas); print PDF A4 portrait identik produksi (kop, judul, tabel, TOTAL, footnote, tanpa chrome) ✓; Export PDF/Excel klik tanpa error console ✓; mobile: filter stack, tile "Rekap Tagihan Cust" di menu Lainnya, kartu "Rekap Tagihan per Customer" TIDAK ada (testid menu-tagihan-rekap hilang) ✓; dev.log bersih.
+- DB: data uji dipulihkan 100% (doc superadmin kembali tanpa lunas; doc admin INV/10/26/0004 lunas=true).
+- DEPLOY 1 (v220/v218): sukses, produksi tampil. Temuan verify produksi: kolom Nama Cetakan "-" — field item invoice adalah `deskripsi` (bukan `nama`); FIX API (it.deskripsi ?? it.nama), verifikasi lokal OK ("paperbowl, ongkir, paperbowl + tutup").
+- Versi fix: SW v220→v221, APP/CURRENT → '2026-11-12-v219', changelog entri v219 "Rekap Tagihan Cust: Perbaikan Nama Cetakan". .vercel/project.json (hilang saat reset) dibuat ulang dgn koordinat darrellsoft & dipertahankan.
+- DEPLOY 2 (v221/v219): sukses, Nama Cetakan tampil benar di produksi. Temuan verify print produksi: nominal TOTAL wrap 2 baris (produksi pra-reset 1 baris) → fix whitespace-nowrap di sel Total Harga & TOTAL.
+- Versi final: SW v222, APP/CURRENT '2026-11-12-v220', entri changelog v219 dirombak jadi v220 "Perbaikan Nama Cetakan & Cetak" (+ item nowrap).
+- DEPLOY 3 (v222/v220): final.
+
+Stage Summary:
+- Halaman /rekap-tagihan (Rekap Tagihan Cust) + API pulih penuh secara lokal, paritas dengan produksi v219 + semua Tasks 27-37 (menu sidebar, kop, Status, Total Harga dd/mm/yy, lunas harga penuh tak masuk TOTAL, Semua Customer, tanpa kartu mobile). Versi v220/v218. Siap deploy.
+
+---
 Task ID: 27
 Agent: Main
 Task: CANCEL perintah terakhir — batalkan Task 26 (halaman Rekap Tagihan per Customer di Laporan)

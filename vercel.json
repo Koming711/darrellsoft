@@ -4,6 +4,12 @@
   "buildCommand": "node scripts/prepare-build.js && npx prisma generate && npx next build",
   "installCommand": "bun install",
   "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/subscription-reminders",
+      "schedule": "0 1 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

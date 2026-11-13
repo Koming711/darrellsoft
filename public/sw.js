@@ -1,4 +1,4 @@
-const CACHE_NAME = 'darrell-soft-v210';
+const CACHE_NAME = 'darrell-soft-v232';
 // Cache data API TIDAK ikut versi deploy → data yang pernah dibuka
 // tetap tersedia offline meskipun aplikasi baru di-deploy.
 // v2: kunci cache kini PER-USER (lihat apiCacheKeyRequest) — cache lama
@@ -312,6 +312,71 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => cached);
       return cached || fetchPromise;
+    })
+  );
+});
+
+// ============================================================
+// WEB PUSH NOTIFICATION — notifikasi sistem saat app di background
+// ============================================================
+// - App FOKUS (terbuka & terlihat)  → JANGAN tampilkan notifikasi sistem
+//   (hindari dobel dengan popup in-app); teruskan payload ke halaman via
+//   postMessage → popup in-app yang menampilkan.
+// - App di background / ditutup → tampilkan notifikasi sistem (push OS).
+self.addEventListener('push', (event) => {
+  var payload = { id: '', title: 'Darrellsoft', body: '', link: '/', type: 'info' };
+  try {
+    if (event.data) {
+      var parsed = event.data.json();
+      payload = Object.assign(payload, parsed);
+    }
+  } catch (e) {
+    try { payload.body = event.data ? event.data.text() : ''; } catch (_) {}
+  }
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+      var focused = clientList.filter(function (c) {
+        return c.visibilityState === 'visible' || c.focused;
+      });
+      if (focused.length > 0) {
+        // App aktif → popup in-app saja (tanpa notifikasi sistem = tidak dobel)
+        focused.forEach(function (c) {
+          c.postMessage({ type: 'NOTIF_NEW', payload: payload });
+        });
+        return;
+      }
+      return self.registration.showNotification(payload.title || 'Darrellsoft', {
+        body: payload.body || '',
+        icon: '/icon-192x192.png',
+        badge: '/icon-192x192.png',
+        tag: payload.id || payload.type || 'darrell-soft',
+        renotify: !!payload.id,
+        data: { link: payload.link || '/', id: payload.id, type: payload.type },
+        vibrate: [100, 50, 100]
+      });
+    })
+  );
+});
+
+// Klik notifikasi sistem → buka / fokus halaman terkait lalu navigasi.
+self.addEventListener('notificationclick', (event) => {
+  var link = (event.notification.data && event.notification.data.link) || '/';
+  event.notification.close();
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+      for (var i = 0; i < clientList.length; i++) {
+        var client = clientList[i];
+        try {
+          if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+            return client.focus().then(function (c) {
+              c.postMessage({ type: 'NOTIF_NAVIGATE', payload: { link: link } });
+            });
+          }
+        } catch (e) { /* url aneh — lanjut ke client berikutnya */ }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(link);
     })
   );
 });

@@ -57,6 +57,7 @@ export const ALL_APP_ROUTES: readonly string[] = [
   '/master-toko-pemasok',
   '/pembelian',
   '/piutang-dagang',
+  '/rekap-tagihan',
   '/potong-kertas',
   '/purchase-order',
   '/rekap-penjualan',

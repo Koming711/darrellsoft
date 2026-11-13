@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Volume2, VolumeX } from 'lucide-react'
-import { toast } from 'sonner'
+import { Bell, CalendarClock, CheckCheck, ChevronDown, Info, UserPlus, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
@@ -27,16 +26,37 @@ interface Registration {
   createdAt: string
 }
 
+interface DbNotification {
+  id: string
+  title: string
+  body: string
+  type: string // registration | subscription | payment | system | info
+  link: string
+  isRead: boolean
+  readAt: string | null
+  createdAt: string
+}
+
 interface NotifResponse {
   count: number
   newCount: number
   registrations: Registration[]
 }
 
+interface ListResponse {
+  notifications: DbNotification[]
+  unreadCount: number
+  hasMore: boolean
+  total: number
+}
+
+type Category = 'all' | 'registration' | 'subscription' | 'system'
+
 const STORAGE_KEY = 'notif-reg-last-seen'
 const COUNT_KEY = 'notif-last-known-count'
 const MUTE_KEY = 'notif-sound-muted'
 const POLL_INTERVAL = 20_000 // 20 seconds — faster detection for timely sound
+const PAGE_SIZE = 15
 
 function timeAgo(dateStr: string, lang: 'id' | 'en'): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -50,51 +70,73 @@ function timeAgo(dateStr: string, lang: 'id' | 'en'): string {
   return `${day} ${lang === 'en' ? 'days ago' : 'hari lalu'}`
 }
 
+function formatDateTime(dateStr: string, lang: 'id' | 'en'): string {
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString(lang === 'en' ? 'en-GB' : 'id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function categoryOf(type: string): Exclude<Category, 'all'> {
+  if (type === 'registration') return 'registration'
+  if (type === 'subscription') return 'subscription'
+  return 'system'
+}
+
 interface NotificationBellProps {
   role?: string
   className?: string
 }
 
 /**
- * NotificationBell — shows a bell icon with a red badge counting new account
- * registrations (CalonPembeli with status="baru") that the admin hasn't seen yet.
+ * NotificationBell — PUSAT NOTIFIKASI (ikon lonceng di header, semua role):
  *
- * - Visible ONLY for admin & superadmin roles.
- * - "Read" state is tracked via localStorage timestamp (last time the popover was opened).
- * - Polls the API every 20s for fresh data + plays a chime when newCount increases.
- * - Sound can be toggled via mute button in the popover header (persisted).
- * - Clicking a registration item navigates to /administrasi/pengguna.
+ * - Badge merah = pendaftaran baru belum dilihat (admin) + notifikasi DB
+ *   belum dibaca (semua role).
+ * - Daftar notifikasi DB dengan kategori: Semua / Pendaftaran Akun /
+ *   Masa Berlangganan / Informasi Sistem; tanggal & waktu; status dibaca.
+ * - Tombol "Tandai Semua Dibaca" + pagination riwayat ("Muat lebih banyak").
+ * - Admin/superadmin tetap melihat daftar pendaftaran akun (CalonPembeli
+ *   status "baru") di bagian atas — read state via localStorage timestamp.
+ * - Popup & suara realtime ditangani NotificationPopupHost (tidak dobel di sini).
  */
 export function NotificationBell({ role, className }: NotificationBellProps) {
   const router = useRouter()
   const { t, language } = useLanguage()
   const [data, setData] = useState<NotifResponse | null>(null)
+  const [list, setList] = useState<ListResponse | null>(null)
+  const [listPage, setListPage] = useState(1)
+  const [category, setCategory] = useState<Category>('all')
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<string | null | undefined>(undefined) // undefined = not loaded yet
   const [muted, setMuted] = useState<boolean | undefined>(undefined) // undefined = not loaded
   const prevCountRef = useRef<number | null>(null) // baseline count for sound detection
 
-  // Only render for admin / superadmin
   const isAdmin = role === 'admin' || role === 'superadmin'
   const isAdminChecked = !!role
 
   // Load lastSeen + muted + baseline count from localStorage (client-only)
   useEffect(() => {
-    if (!isAdmin) return
+    if (!isAdminChecked) return
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
-      setLastSeen(stored)
+      setLastSeen(isAdmin ? stored : null)
       const mutedStored = localStorage.getItem(MUTE_KEY) === '1'
       setMuted(mutedStored)
       const countStored = localStorage.getItem(COUNT_KEY)
-      prevCountRef.current = countStored !== null ? parseInt(countStored, 10) : null
+      prevCountRef.current = isAdmin && countStored !== null ? parseInt(countStored, 10) : null
     } catch {
       setLastSeen(null)
       setMuted(false)
     }
     // Unlock audio on first user interaction (browser autoplay policy)
     unlockAudioOnInteraction()
-  }, [isAdmin])
+  }, [isAdmin, isAdminChecked])
 
   const fetchData = useCallback(async () => {
     if (!isAdmin || lastSeen === undefined || muted === undefined) return
@@ -104,19 +146,10 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
       const json: NotifResponse = await res.json()
       setData(json)
 
-      // Sound detection: play chime when TOTAL registration count increases
-      // vs. persisted baseline. We use `count` (total "baru" registrations)
-      // instead of `newCount` (which is affected by the `since`/lastSeen param
-      // and would drop to 0 after opening the popover).
-      // - First load (no baseline): establish baseline silently (no sound on login/refresh).
-      // - Subsequent polls: if count > baseline → new registration arrived → play sound.
-      // - Baseline persists in localStorage so reopening the browser after a new
-      //   registration still sounds (because baseline < count).
       const prev = prevCountRef.current
       if (prev !== null && json.count > prev && !muted) {
-        playNotifSound()
+        playNotifSound('registration')
       }
-      // Update baseline for next comparison
       if (prev === null || json.count !== prev) {
         prevCountRef.current = json.count
         try {
@@ -130,47 +163,59 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     }
   }, [isAdmin, lastSeen, muted])
 
+  const fetchList = useCallback(async (page: number, append: boolean) => {
+    try {
+      const res = await authFetch(`/api/notifications?page=${page}&take=${PAGE_SIZE}`)
+      if (!res.ok) return
+      const json: ListResponse = await res.json()
+      setList((prev) =>
+        append && prev
+          ? {
+              notifications: [...prev.notifications, ...json.notifications],
+              unreadCount: json.unreadCount,
+              hasMore: json.hasMore,
+              total: json.total,
+            }
+          : json
+      )
+    } catch {
+      // silent fail
+    }
+  }, [])
+
   // Initial fetch + polling — only after lastSeen is loaded.
   // Re-fetches immediately whenever lastSeen changes (e.g. after marking as read).
   useEffect(() => {
-    if (!isAdmin || lastSeen === undefined) return
+    if (!isAdminChecked || lastSeen === undefined) return
     fetchData()
+    fetchList(1, false)
+    setListPage(1)
     const timer = setInterval(fetchData, POLL_INTERVAL)
     return () => clearInterval(timer)
-  }, [isAdmin, lastSeen, fetchData])
+  }, [isAdminChecked, lastSeen, fetchData, fetchList])
 
   // REALTIME — socket.io push (mini-services/notif-service).
-  // Event baru (pendaftaran/pembayaran) → langsung muat ulang + toast + suara.
-  // Polling 20s tetap jalan sebagai fallback kalau socket terputus.
+  // Popup in-app + suara ditangani NotificationPopupHost; di sini cukup
+  // muat ulang badge & daftar agar angka selalu segar.
   useEffect(() => {
-    if (!isAdmin || lastSeen === undefined || muted === undefined) return
+    if (!isAdminChecked || lastSeen === undefined || muted === undefined) return
     const user = getAuthUser()
     const unsubscribe = subscribeRealtime(
-      (notif: RealtimeNotification) => {
-        // Muat ulang data segera (badge + daftar)
+      () => {
         fetchData()
-        // Suara: tipe selain registration langsung berbunyi (registrasi sudah
-        // ditangani deteksi baseline di fetchData agar tidak dobel)
-        if (!muted && notif.type !== 'registration') {
-          playNotifSound()
-        }
-        toast(notif.title, {
-          id: notif.id, // dedupe — bell desktop & mobile sama-sama subscribe
-          description: notif.body || undefined,
-          duration: 6000,
-        })
+        fetchList(1, false)
+        setListPage(1)
       },
       { userId: user?.id || '', role: role || user?.role || '' },
     )
     return unsubscribe
-  }, [isAdmin, lastSeen, muted, role, fetchData])
+  }, [isAdminChecked, lastSeen, muted, role, fetchData, fetchList])
 
-  // Mark all as read when popover CLOSES — this lets the admin actually see the
-  // items first, then once they close the popover (or click an item / "View All"),
-  // those items are considered "viewed" and disappear from the list on next poll.
+  // Mark all as read when popover CLOSES — registration items yang sudah
+  // dilihat hilang dari daftar pada poll berikutnya (behavior existing).
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
-    if (!next) {
+    if (!next && isAdmin) {
       const now = new Date().toISOString()
       try {
         localStorage.setItem(STORAGE_KEY, now)
@@ -179,6 +224,11 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
         // ignore
       }
     }
+    if (next) {
+      // Segarkan riwayat setiap kali dibuka
+      fetchList(1, false)
+      setListPage(1)
+    }
   }
 
   const handleItemClick = (reg: Registration) => {
@@ -186,15 +236,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     startNavigation()
     window.dispatchEvent(new CustomEvent('navigation-start'))
     router.push('/administrasi/pengguna')
-    // Suppress unused var lint
     void reg
-  }
-
-  const handleViewAll = () => {
-    setOpen(false)
-    startNavigation()
-    window.dispatchEvent(new CustomEvent('navigation-start'))
-    router.push('/administrasi/pengguna')
   }
 
   const toggleMute = () => {
@@ -202,35 +244,109 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     setMuted(next)
     try {
       localStorage.setItem(MUTE_KEY, next ? '1' : '0')
+      window.dispatchEvent(new CustomEvent('ds-notif-settings-changed'))
     } catch {
       // ignore
     }
-    // If unmuting, play a sample sound so user knows it works
     if (!next) {
-      playNotifSound()
+      playNotifSound('info')
     }
   }
 
-  // Don't render until role is checked (avoid flash) and not admin
-  if (!isAdminChecked || !isAdmin) return null
+  const handleMarkAllRead = async () => {
+    try {
+      await authFetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAll: true }),
+      })
+      setList((prev) =>
+        prev
+          ? {
+              ...prev,
+              unreadCount: 0,
+              notifications: prev.notifications.map((n) => ({
+                ...n,
+                isRead: true,
+                readAt: n.readAt ?? new Date().toISOString(),
+              })),
+            }
+          : prev
+      )
+    } catch {
+      // silent
+    }
+  }
+
+  const handleNotifClick = async (n: DbNotification) => {
+    if (!n.isRead) {
+      // Optimistis: tandai dibaca di UI lalu kirim ke server (fire & forget)
+      setList((prev) =>
+        prev
+          ? {
+              ...prev,
+              unreadCount: Math.max(0, prev.unreadCount - 1),
+              notifications: prev.notifications.map((x) =>
+                x.id === n.id ? { ...x, isRead: true, readAt: new Date().toISOString() } : x
+              ),
+            }
+          : prev
+      )
+      authFetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: n.id }),
+      }).catch(() => {})
+    }
+    setOpen(false)
+    if (n.link) {
+      startNavigation()
+      window.dispatchEvent(new CustomEvent('navigation-start'))
+      router.push(n.link)
+    }
+  }
+
+  const handleLoadMore = () => {
+    const next = listPage + 1
+    setListPage(next)
+    fetchList(next, true)
+  }
+
+  const filteredNotifs = useMemo(() => {
+    const items = list?.notifications ?? []
+    if (category === 'all') return items
+    return items.filter((n) => categoryOf(n.type) === category)
+  }, [list, category])
+
+  // Don't render until role is checked
+  if (!isAdminChecked) return null
 
   const newCount = data?.newCount ?? 0
   const registrations = data?.registrations ?? []
-  // Only show registrations newer than lastSeen — items already viewed (those
-  // with createdAt <= lastSeen) are filtered out and disappear from the list.
-  // On first run (lastSeen null) all "baru" registrations are shown.
   const visibleRegistrations = lastSeen
     ? registrations.filter(
         (r) => new Date(r.createdAt).getTime() > new Date(lastSeen).getTime()
       )
     : registrations
 
+  const unreadDb = list?.unreadCount ?? 0
+  const badgeCount = (isAdmin ? newCount : 0) + unreadDb
+
+  const categories: { key: Category; label: string }[] = [
+    { key: 'all', label: language === 'en' ? 'All' : 'Semua' },
+    { key: 'registration', label: language === 'en' ? 'Registrations' : 'Pendaftaran' },
+    { key: 'subscription', label: language === 'en' ? 'Subscription' : 'Langganan' },
+    { key: 'system', label: language === 'en' ? 'System' : 'Sistem' },
+  ]
+
+  const showRegistrations = isAdmin && (category === 'all' || category === 'registration')
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={t('notif_registrations')}
+          aria-label={t('notif_center_title')}
           className={cn(
             'relative inline-flex items-center justify-center rounded-lg transition-colors',
             'h-8 w-8 hover:bg-black/5 dark:hover:bg-white/10',
@@ -239,9 +355,9 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           style={{ color: 'var(--app-banner-text)' }}
         >
           <Bell className="w-[18px] h-[18px]" />
-          {newCount > 0 && !open && (
+          {badgeCount > 0 && !open && (
             <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-background">
-              {newCount > 99 ? '99+' : newCount}
+              {badgeCount > 99 ? '99+' : badgeCount}
             </span>
           )}
         </button>
@@ -249,17 +365,17 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 p-0 max-h-[420px] flex flex-col"
+        className="w-88 p-0 max-h-[520px] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
           <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            {t('notif_registrations')}
+            {t('notif_center_title')}
           </h3>
           <div className="flex items-center gap-2">
-            {newCount > 0 && (
+            {badgeCount > 0 && (
               <span className="text-[11px] font-medium text-red-500">
-                {newCount} {language === 'en' ? 'new' : 'baru'}
+                {badgeCount} {language === 'en' ? 'unread' : 'belum dibaca'}
               </span>
             )}
             <button
@@ -274,54 +390,159 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           </div>
         </div>
 
-        {/* List — only items not yet viewed (createdAt > lastSeen) */}
-        <div className="flex-1 overflow-y-auto hide-scrollbar">
-          {visibleRegistrations.length === 0 ? (
+        {/* Kategori */}
+        <div className="flex items-center gap-1 border-b border-slate-100 dark:border-zinc-800 px-2 py-1.5 overflow-x-auto hide-scrollbar">
+          {categories.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setCategory(c.key)}
+              className={cn(
+                'whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+                category === c.key
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={handleMarkAllRead}
+            className="ml-auto inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+          >
+            <CheckCheck className="h-3 w-3" />
+            {t('notif_mark_all_read')}
+          </button>
+        </div>
+
+        {/* Daftar */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Pendaftaran akun (admin) — behavior existing dipertahankan */}
+          {showRegistrations && visibleRegistrations.length > 0 && (
+            <div>
+              <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                {t('notif_cat_registration')}
+              </p>
+              <ul className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {visibleRegistrations.map((reg) => (
+                  <li key={reg.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleItemClick(reg)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors flex items-start gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 text-xs font-bold uppercase">
+                        {(reg.nama || '?').charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                          {reg.nama}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {reg.email}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {t('notif_new_registration')} · {timeAgo(reg.createdAt, language)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Notifikasi DB — semua role */}
+          {filteredNotifs.length === 0 && !(showRegistrations && visibleRegistrations.length > 0) ? (
             <div className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
               {t('notif_no_new')}
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-zinc-800">
-              {visibleRegistrations.map((reg) => (
-                <li key={reg.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleItemClick(reg)}
-                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors flex items-start gap-3"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 text-xs font-bold uppercase">
-                      {(reg.nama || '?').charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-                        {reg.nama}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {reg.email}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {t('notif_new_registration')} · {timeAgo(reg.createdAt, language)}
-                      </p>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            filteredNotifs.length > 0 && (
+              <ul className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {filteredNotifs.map((n) => {
+                  const cat = categoryOf(n.type)
+                  const CatIcon =
+                    cat === 'registration' ? UserPlus : cat === 'subscription' ? CalendarClock : Info
+                  const catLabel =
+                    cat === 'registration'
+                      ? t('notif_cat_registration')
+                      : cat === 'subscription'
+                        ? t('notif_cat_subscription')
+                        : t('notif_cat_system')
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleNotifClick(n)}
+                        className={cn(
+                          'w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors flex items-start gap-3',
+                          !n.isRead && 'bg-primary/[0.04] dark:bg-primary/[0.06]'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                            cat === 'registration' &&
+                              'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400',
+                            cat === 'subscription' &&
+                              'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400',
+                            cat === 'system' &&
+                              'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400'
+                          )}
+                        >
+                          <CatIcon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p
+                              className={cn(
+                                'text-sm truncate',
+                                n.isRead
+                                  ? 'font-normal text-slate-700 dark:text-slate-300'
+                                  : 'font-semibold text-slate-900 dark:text-slate-100'
+                              )}
+                            >
+                              {n.title}
+                            </p>
+                            {!n.isRead && (
+                              <span
+                                className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"
+                                aria-label={language === 'en' ? 'Unread' : 'Belum dibaca'}
+                              />
+                            )}
+                          </div>
+                          {n.body && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 whitespace-pre-line">
+                              {n.body}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {catLabel} · {formatDateTime(n.createdAt, language)}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )
           )}
-        </div>
 
-        {/* Footer */}
-        {visibleRegistrations.length > 0 && (
-          <div className="border-t border-slate-100 dark:border-zinc-800 p-2">
+          {/* Pagination */}
+          {list?.hasMore && (
             <button
               type="button"
-              onClick={handleViewAll}
-              className="w-full text-center text-xs font-medium text-primary hover:underline py-1.5"
+              onClick={handleLoadMore}
+              className="w-full flex items-center justify-center gap-1 py-2.5 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
             >
-              {t('notif_view_all')}
+              <ChevronDown className="h-3.5 w-3.5" />
+              {t('notif_load_more')}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   )

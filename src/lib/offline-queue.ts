@@ -43,6 +43,7 @@ const NEVER_QUEUE_PREFIXES = [
   '/api/import-master-data',
   '/api/midtrans',
   '/api/payment-manual', // PENTING: uang masuk wajib online — cegah transaksi ganda
+  '/api/panel-admin', // Aksi admin (verifikasi, nonaktifkan, HAPUS grup) wajib online — jangan direplay belakangan
   '/api/upload-logo',
   '/api/app-icon',
   '/api/export',

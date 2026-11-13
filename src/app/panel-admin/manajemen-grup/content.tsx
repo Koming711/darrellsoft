@@ -53,6 +53,7 @@ import {
   RefreshCcw,
   Search,
   ShieldAlert,
+  Trash2,
   Users,
 } from 'lucide-react'
 
@@ -127,21 +128,17 @@ const PAY_STATUS_META: Record<string, { label: string; className: string }> = {
   },
 }
 
-/** Label aksi audit id-ID (fallback: action apa adanya). */
+/** Label aksi audit id-ID (fallback: action apa adanya) — aksi riil dari API grup. */
 const AUDIT_LABEL: Record<string, string> = {
-  group_created: 'Grup dibuat',
-  group_renamed: 'Nama grup diubah',
-  member_added: 'Anggota ditambahkan',
-  member_updated: 'Data anggota diubah',
-  member_status_changed: 'Status anggota diubah',
-  member_permissions_updated: 'Hak akses diubah',
-  member_password_reset: 'Kata sandi direset',
-  member_removed: 'Anggota dikeluarkan',
-  group_activated: 'Grup diaktifkan',
-  group_deactivated: 'Grup dinonaktifkan',
-  payment_approved: 'Pembayaran disetujui',
-  payment_rejected: 'Pembayaran ditolak',
-  subscription_activated: 'Langganan aktif',
+  anggota_ditambahkan: 'Anggota ditambahkan',
+  anggota_diedit: 'Data anggota diubah',
+  anggota_dikeluarkan: 'Anggota dikeluarkan',
+  sandi_anggota_direset: 'Kata sandi direset',
+  grup_data_perusahaan_diubah: 'Data perusahaan diubah',
+  grup_owner_dikonversi: 'Owner dikonversi dari pendaftar',
+  grup_diaktifkan: 'Grup diaktifkan',
+  grup_dinonaktifkan: 'Grup dinonaktifkan',
+  grup_dihapus: 'GRUP DIHAPUS PERMANEN',
 }
 
 // ===== Tipe sesuai kontrak API /api/panel-admin/groups =====
@@ -248,6 +245,11 @@ export function ManajemenGrupContent() {
   const [actionNote, setActionNote] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
 
+  // Aksi HAPUS PERMANEN (AlertDialog + catatan opsional)
+  const [deleteTarget, setDeleteTarget] = useState<{ grup: GroupRow } | null>(null)
+  const [deleteNote, setDeleteNote] = useState('')
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
   // Ref id detail yang terbuka — polling 12s memakai ini utk segarkan dialog senyap
   const detailIdRef = useRef<string | null>(null)
   useEffect(() => {
@@ -352,6 +354,35 @@ export function ManajemenGrupContent() {
     )
     setActionTarget(null)
     setActionNote('')
+    await load({ silent: true })
+  }
+
+  // ---- DELETE Hapus permanen grup ----
+  const applyDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteBusy(true)
+    const { grup } = deleteTarget
+    const { data, authError, error } = await panelFetch<{ success: boolean; deletedAccounts?: number }>(
+      '/api/panel-admin/groups',
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ grupId: grup.id, catatan: deleteNote.trim() || undefined }),
+      },
+    )
+    setDeleteBusy(false)
+    if (authError) return
+    if (!data) {
+      toast.error(error || 'Gagal menghapus grup')
+      return
+    }
+    toast.success(
+      `Grup ${grup.nama} (${grup.kode}) dihapus permanen — ${data.deletedAccounts ?? 0} akun login anggota ikut dihapus`,
+    )
+    setDeleteTarget(null)
+    setDeleteNote('')
+    // Dialog detail grup tsb (bila terbuka) ikut ditutup — datanya sudah tidak ada
+    if (detailIdRef.current === grup.id) closeDetail()
     await load({ silent: true })
   }
 
@@ -587,6 +618,17 @@ export function ManajemenGrupContent() {
                         <CheckCircle2 className="h-3.5 w-3.5" /> Aktifkan
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 border-red-300 bg-transparent font-semibold text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white dark:border-red-800 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-white"
+                      onClick={() => {
+                        setDeleteTarget({ grup: g })
+                        setDeleteNote('')
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Hapus
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -699,6 +741,17 @@ export function ManajemenGrupContent() {
                               <CheckCircle2 className="h-3.5 w-3.5" /> Aktifkan
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 border-red-300 bg-transparent font-semibold text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white dark:border-red-800 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-white"
+                            onClick={() => {
+                              setDeleteTarget({ grup: g })
+                              setDeleteNote('')
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Hapus
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -963,6 +1016,66 @@ export function ManajemenGrupContent() {
             >
               {actionBusy && <Loader2 className="h-4 w-4 animate-spin" />}
               {actionTarget?.action === 'nonaktifkan' ? 'Ya, Nonaktifkan' : 'Ya, Aktifkan'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ===== AlertDialog konfirmasi HAPUS PERMANEN grup ===== */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <Trash2 className="h-5 w-5" /> Hapus Grup Permanen?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  {deleteTarget ? (
+                    <>
+                      <b>
+                        {deleteTarget.grup.nama} ({deleteTarget.grup.kode})
+                      </b>{' '}
+                      akan dihapus permanen. Tindakan ini <b className="text-red-600 dark:text-red-400">TIDAK BISA dibatalkan</b>.
+                    </>
+                  ) : (
+                    ''
+                  )}
+                </p>
+                <ul className="list-disc space-y-1 pl-4 text-left text-xs text-muted-foreground">
+                  <li>
+                    Seluruh akun login anggota grup <b>DIHAPUS</b> (owner + staf) — tidak ada yang bisa login lagi dari grup ini.
+                  </li>
+                  <li>
+                    Keanggotaan grup berakhir dan grup hilang dari daftar Manajemen Grup.
+                  </li>
+                  <li>
+                    Data dokumen perusahaan (invoice, riwayat hitungan, dll) tidak ikut terhapus, tetapi sudah tidak bisa diakses lagi.
+                  </li>
+                  <li>Riwayat tagihan &amp; pembayaran langganan tetap tersimpan sebagai arsip keuangan admin.</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            rows={2}
+            value={deleteNote}
+            onChange={(e) => setDeleteNote(e.target.value)}
+            placeholder="Catatan (opsional) — tersimpan sebagai catatan audit"
+            aria-label="Catatan penghapusan grup"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700 gap-1.5"
+              disabled={deleteBusy}
+              onClick={(e) => {
+                e.preventDefault()
+                void applyDelete()
+              }}
+            >
+              {deleteBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Ya, Hapus Permanen
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

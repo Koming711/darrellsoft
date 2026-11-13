@@ -29,7 +29,7 @@ import { createServer } from 'http'
 import { Server } from 'socket.io'
 
 const PORT = 3003        // socket.io (browser via Caddy XTransformPort)
-const INTERNAL_PORT = 3004 // internal emit endpoint (Next.js server saja)
+const INTERNAL_PORT = 3005 // internal emit endpoint (Next.js server saja)
 const SECRET = process.env.NOTIF_WS_SECRET || 'ds-notif-internal-v1'
 
 // ---- Socket.io (port 3003) ----

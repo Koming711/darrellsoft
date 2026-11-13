@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, requireAuth } from '@/lib/server-auth'
 import { stripReminderRef } from '@/lib/subscription-reminders'
 
-// GET: Fetch notifications (admin/superadmin/manager see all, others see own)
+// GET: Fetch notifications (pusat notifikasi semua role).
+// - Admin/superadmin/manager: notifikasi broadcast admin (userId="") + miliknya.
+// - Role lain: HANYA notifikasi miliknya (isolasi per user/grup).
+// Query: ?page=1&take=15 (pagination riwayat), ?since=ISO (polling popup murah).
 export async function GET(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -11,31 +14,43 @@ export async function GET(request: NextRequest) {
     const user = getServerUser(request)!
 
     const isAdmin = ['superadmin', 'admin', 'manager'].includes(user.role || '')
+    const scopeWhere = isAdmin ? { userId: { in: ['', user.id] } } : { userId: user.id }
 
-    const notifications = await db.notification.findMany({
-      where: isAdmin ? {} : { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    })
+    const { searchParams } = new URL(request.url)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+    const take = Math.min(50, Math.max(1, parseInt(searchParams.get('take') || '15', 10) || 15))
+    const since = searchParams.get('since')
 
-    const unreadCount = await db.notification.count({
-      where: {
-        isRead: false,
-        ...(isAdmin ? {} : { userId: user.id }),
-      },
-    })
+    const where: Record<string, unknown> = { ...scopeWhere }
+    if (since) {
+      const d = new Date(since)
+      if (!isNaN(d.getTime())) where.createdAt = { gt: d }
+    }
+
+    const [notifications, unreadCount, total] = await Promise.all([
+      db.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: since ? 0 : (page - 1) * take,
+        take,
+      }),
+      db.notification.count({ where: { ...scopeWhere, isRead: false } }),
+      db.notification.count({ where: scopeWhere }),
+    ])
 
     return NextResponse.json({
       notifications: notifications.map((n) => ({ ...n, body: stripReminderRef(n.body) })),
       unreadCount,
+      hasMore: since ? false : page * take < total,
+      total,
     })
   } catch (error) {
     console.error('Notifications fetch error:', error)
-    return NextResponse.json({ notifications: [], unreadCount: 0 }, { status: 200 })
+    return NextResponse.json({ notifications: [], unreadCount: 0, hasMore: false }, { status: 200 })
   }
 }
 
-// POST: Mark one or all as read
+// POST: Mark one or all as read (mencatat readAt).
 export async function POST(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -45,22 +60,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { id, markAll } = body
 
+    const isAdmin = ['superadmin', 'admin', 'manager'].includes(user.role || '')
+    const scopeWhere = isAdmin ? { userId: { in: ['', user.id] } } : { userId: user.id }
+
     if (markAll) {
-      const isAdmin = ['superadmin', 'admin', 'manager'].includes(user.role || '')
       await db.notification.updateMany({
-        where: {
-          isRead: false,
-          ...(isAdmin ? {} : { userId: user.id }),
-        },
-        data: { isRead: true },
+        where: { isRead: false, ...scopeWhere },
+        data: { isRead: true, readAt: new Date() },
       })
       return NextResponse.json({ success: true })
     }
 
     if (id) {
+      const notification = await db.notification.findUnique({ where: { id } })
+      if (!notification) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      // Otorisasi: user hanya boleh membaca notifikasinya; admin boleh
+      // notifikasi broadcast admin (userId="") + miliknya.
+      const allowed =
+        notification.userId === user.id || (isAdmin && ['', user.id].includes(notification.userId))
+      if (!allowed) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
       await db.notification.update({
         where: { id },
-        data: { isRead: true },
+        data: { isRead: true, readAt: new Date() },
       })
       return NextResponse.json({ success: true })
     }
@@ -93,7 +118,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (!isAdmin && notification.userId !== user.id) {
+    const allowed =
+      notification.userId === user.id ||
+      (isAdmin && ['', user.id].includes(notification.userId))
+    if (!allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

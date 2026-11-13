@@ -33,8 +33,10 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  ReceiptText,
   BadgePercent,
   PiggyBank,
+  BellRing,
 } from 'lucide-react'
 import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
 import { useLanguage } from '@/contexts/language-context'
@@ -210,6 +212,13 @@ const menuItems = [
     section: 'laporan',
   },
   {
+    titleKey: 'rekap_tagihan_cust' as TranslationKey,
+    href: '/rekap-tagihan',
+    icon: ReceiptText,
+    featureId: 'piutang-dagang',
+    section: 'laporan',
+  },
+  {
     titleKey: 'biaya_operasional' as TranslationKey,
     href: '/biaya-operasional',
     icon: Wallet,
@@ -284,6 +293,13 @@ const menuItems = [
     href: '/administrasi/pengaturan',
     icon: Settings,
     featureId: 'pengaturan',
+    section: 'setting',
+  },
+  {
+    titleKey: 'settings_notif_title' as TranslationKey,
+    href: '/administrasi/pengaturan/notifikasi',
+    icon: BellRing,
+    featureId: 'pengaturan-notifikasi',
     section: 'setting',
   },
 ]
@@ -433,7 +449,7 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
       // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
-      if (['grup-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
+      if (['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(item.featureId)) return true
       return grupInfo!.izin.includes(item.featureId)
     })
 

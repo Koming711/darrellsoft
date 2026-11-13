@@ -16,13 +16,34 @@ export const SIMPLE_FEATURES = [
   { id: 'hak-akses', name: 'Hak Akses' },
   { id: 'pengguna', name: 'Pengguna & Pembeli' },
   { id: 'pengaturan', name: 'Pengaturan' },
+  { id: 'pengaturan-notifikasi', name: 'Pengaturan Notifikasi' },
   { id: 'panel-admin', name: 'Panel Admin Langganan' },
+  { id: 'langganan-saya', name: 'Paket Saya' },
+  { id: 'grup-saya', name: 'Grup Saya' },
+  { id: 'pilih-paket', name: 'Pilih Paket' },
   { id: 'invoice', name: 'Invoice' },
   { id: 'surat-jalan', name: 'Surat Jalan' },
   { id: 'purchase-order', name: 'Purchase Order' },
+  { id: 'harga-customer', name: 'Harga Customer' },
+  { id: 'daftar-kategori', name: 'Kategori' },
   { id: 'hutang-dagang', name: 'Hutang Dagang' },
   { id: 'piutang-dagang', name: 'Piutang Dagang' },
   { id: 'laporan', name: 'Laporan' },
+]
+
+/**
+ * Fitur yang SEBELUMNYA selalu terbuka (tidak dikelola matriks Hak Akses) dan
+ * kini memiliki baris sendiri di matriks. Default DIIZINKAN untuk SEMUA role —
+ * termasuk role kustom — agar perilaku lama tidak berubah; Owner cukup
+ * mematikan lewat Halaman Hak Akses bila perlu.
+ */
+export const ALWAYS_ALLOWED_FEATURE_IDS = [
+  'harga-customer',
+  'daftar-kategori',
+  'langganan-saya',
+  'grup-saya',
+  'pilih-paket',
+  'pengaturan-notifikasi',
 ]
 
 export const GROUP_FEATURES = [
@@ -167,7 +188,10 @@ export function buildDefaultPermissions(roleId: string): Record<string, boolean>
 
   for (const f of SIMPLE_FEATURES) {
     let allowed = false
-    if (roleId === 'superadmin') allowed = true
+    // Fitur yang dulu selalu terbuka: default diizinkan utk SEMUA role
+    // (perilaku lama dipertahankan; bisa dimatikan via matriks).
+    if (ALWAYS_ALLOWED_FEATURE_IDS.includes(f.id)) allowed = true
+    else if (roleId === 'superadmin') allowed = true
     else if (roleId === 'admin') allowed = !PRO_FEATURE_IDS.includes(f.id)
     else if (roleId === 'manager') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas', 'riwayat', 'invoice', 'surat-jalan', 'purchase-order', 'hutang-dagang', 'piutang-dagang'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)
     else if (roleId === 'demo') allowed = ['dashboard', 'pembukaan', 'potong-kertas', 'hitung-cetakan', 'hitung-finishing', 'hitung-ongkos-cetak', 'hitung-harga-kertas'].includes(f.id) || ALL_ROLE_FEATURES.includes(f.id)

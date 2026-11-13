@@ -1,12 +1,19 @@
 /**
- * Notification sound utility — uses Web Audio API to generate a pleasant
- * two-tone "ding" chime. No external audio file needed (works offline, PWA-friendly).
+ * Notification sound utility — uses Web Audio API to generate short chimes.
+ * No external audio file needed (works offline, PWA-friendly).
+ *
+ * Suara berbeda per jenis notifikasi:
+ *  - 'registration' : dua nada naik (C6 → G5) — pendaftaran akun baru
+ *  - 'subscription' : tiga nada turun lembut (E5 → C5 → G4) — pengingat langganan
+ *  - 'info'         : dua nada naik (default, kompatibel versi lama)
  *
  * Browser autoplay policy: AudioContext must be resumed after a user gesture.
- * We auto-resume on first call (admins have already interacted via login).
+ * We auto-resume on first call (users have already interacted via login).
  */
 
 let audioCtx: AudioContext | null = null
+
+export type NotifSoundKind = 'registration' | 'subscription' | 'info'
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -26,47 +33,68 @@ function getCtx(): AudioContext | null {
   }
 }
 
+interface ToneSpec {
+  freq: number
+  start: number
+  dur: number
+  peak: number
+  type?: OscillatorType
+}
+
+function playTones(ctx: AudioContext, tones: ToneSpec[], masterEnd: number): void {
+  const now = ctx.currentTime
+  const master = ctx.createGain()
+  master.gain.setValueAtTime(0.0001, now)
+  master.gain.exponentialRampToValueAtTime(0.35, now + 0.02)
+  master.gain.exponentialRampToValueAtTime(0.0001, now + masterEnd)
+  master.connect(ctx.destination)
+
+  for (const t of tones) {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = t.type || 'sine'
+    osc.frequency.setValueAtTime(t.freq, now + t.start)
+    gain.gain.setValueAtTime(0.0001, now + t.start)
+    gain.gain.exponentialRampToValueAtTime(t.peak, now + t.start + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur)
+    osc.connect(gain).connect(master)
+    osc.start(now + t.start)
+    osc.stop(now + t.start + t.dur + 0.05)
+  }
+}
+
 /**
- * Play a short, pleasant notification chime (two ascending tones).
- * Safe to call multiple times — silently fails if audio unavailable.
+ * Play a short notification chime. `kind` memilih pola nada sesuai jenis
+ * notifikasi. Safe to call multiple times — silently fails if audio unavailable.
  */
-export function playNotifSound(): void {
+export function playNotifSound(kind: NotifSoundKind = 'info'): void {
   const ctx = getCtx()
   if (!ctx) return
 
   try {
-    const now = ctx.currentTime
+    if (kind === 'subscription') {
+      // Pengingat langganan: tiga nada turun lembut (beda jelas dari pendaftaran)
+      playTones(
+        ctx,
+        [
+          { freq: 659.25, start: 0.0, dur: 0.32, peak: 0.55 }, // E5
+          { freq: 523.25, start: 0.22, dur: 0.32, peak: 0.5 }, // C5
+          { freq: 392.0, start: 0.44, dur: 0.45, peak: 0.45 }, // G4
+        ],
+        1.05
+      )
+      return
+    }
 
-    // Master gain (envelope)
-    const master = ctx.createGain()
-    master.gain.setValueAtTime(0.0001, now)
-    master.gain.exponentialRampToValueAtTime(0.35, now + 0.02)
-    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
-    master.connect(ctx.destination)
-
-    // Tone 1 (higher, soft bell) — C6
-    const osc1 = ctx.createOscillator()
-    const gain1 = ctx.createGain()
-    osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(880, now)
-    gain1.gain.setValueAtTime(0.0001, now)
-    gain1.gain.exponentialRampToValueAtTime(0.6, now + 0.02)
-    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.5)
-    osc1.connect(gain1).connect(master)
-    osc1.start(now)
-    osc1.stop(now + 0.55)
-
-    // Tone 2 (lower, follows shortly) — G5
-    const osc2 = ctx.createOscillator()
-    const gain2 = ctx.createGain()
-    osc2.type = 'sine'
-    osc2.frequency.setValueAtTime(659.25, now + 0.18)
-    gain2.gain.setValueAtTime(0.0001, now + 0.18)
-    gain2.gain.exponentialRampToValueAtTime(0.5, now + 0.2)
-    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85)
-    osc2.connect(gain2).connect(master)
-    osc2.start(now + 0.18)
-    osc2.stop(now + 0.9)
+    // registration / info: dua nada naik (C6 lalu G5) — kompatibel versi lama
+    playTones(
+      ctx,
+      [
+        { freq: 880, start: 0.0, dur: 0.5, peak: 0.6 }, // A5-ish bell (kompatibel 880 lama)
+        { freq: 659.25, start: 0.18, dur: 0.55, peak: 0.5 }, // G5-ish (kompatibel lama)
+      ],
+      0.9
+    )
   } catch {
     // silent fail — audio not critical
   }

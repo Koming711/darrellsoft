@@ -8,6 +8,7 @@ import {
   getDefaultPermissionsForRole,
   getAllDefaultPermissions,
   ALL_FEATURE_IDS,
+  ALWAYS_ALLOWED_FEATURE_IDS,
 } from './permission-defaults'
 
 // Re-export for convenience
@@ -62,40 +63,21 @@ export function getSubPermissions(roleId: string, featureId: string): Record<str
 
 /** Check if a role has page-level access to a feature */
 export function hasFeatureAccess(roleId: string, featureId: string): boolean {
-  // 'daftar-kategori' TIDAK terdaftar di matriks Hak Akses (pola produksi v123):
-  // menu & halaman selalu tampil/bisa diakses untuk semua user yang login.
-  if (featureId === 'daftar-kategori') return true
-  // Halaman langganan bersifat akun-level — selalu tersedia untuk semua user
-  // login, KECUALI anggota grup (admin/staf): mengikuti izin Owner di Hak
-  // Akses Menu (RBAC grup, id 'langganan-saya'). Owner & non-grup tetap bebas.
-  if (featureId === 'pilih-paket') return true
-  if (featureId === 'langganan-saya') {
-    const grupLangganan = getGrupInfo()
-    if (grupLangganan && grupLangganan.peran !== 'owner') {
-      return grupLangganan.izin.includes('langganan-saya')
-    }
-    return true
-  }
-  // Harga Customer — Owner & akun non-grup selalu boleh; anggota grup
-  // (admin/staf) mengikuti izin Owner di Hak Akses Menu (RBAC grup).
-  if (featureId === 'harga-customer') {
-    const grupHarga = getGrupInfo()
-    if (grupHarga && grupHarga.peran !== 'owner') {
-      return grupHarga.izin.includes('harga-customer')
-    }
-    return true
-  }
-  // Halaman grup milik akun sendiri — selalu tersedia (owner kelola, anggota lihat).
-  if (featureId === 'grup-saya') return true
-
   // RBAC GRUP PERUSAHAAN: anggota grup (admin/staf) hanya dapat mengakses
-  // menu yang diizinkan Owner (izin disimpan di localStorage 'grup_info').
+  // menu yang diizinkan Owner (izin disimpan di localStorage 'grup_info'),
+  // KECUALI halaman akun: 'grup-saya', 'pilih-paket' & 'pengaturan-notifikasi'
+  // selalu tersedia (perilaku lama). 'panel-admin' tidak pernah untuk anggota.
   const grup = getGrupInfo()
   if (grup && grup.peran !== 'owner') {
+    if (featureId === 'grup-saya' || featureId === 'pilih-paket' || featureId === 'pengaturan-notifikasi') return true
     if (featureId === 'panel-admin') return false
     return grup.izin.includes(featureId)
   }
 
+  // Owner grup & akun non-grup: mengikuti MATRIKS HAK AKSES per role.
+  // Catatan: 'harga-customer', 'daftar-kategori', 'langganan-saya', 'grup-saya',
+  // 'pilih-paket' & 'pengaturan-notifikasi' kini punya baris sendiri di matriks
+  // (default semua role = diizinkan, jadi perilaku lama tidak berubah).
   return getFeaturePermissions(roleId)[featureId] || false
 }
 
@@ -209,14 +191,19 @@ export function getFeatureIdForPath(pathname: string): string | null {
   if (pathname === '/invoice') return 'invoice'
   if (pathname === '/surat-jalan') return 'surat-jalan'
   if (pathname === '/purchase-order') return 'purchase-order'
+  if (pathname === '/barang') return 'barang'
   if (pathname === '/riwayat-pembelian') return 'purchase-order'
   if (pathname === '/hutang-dagang') return 'hutang-dagang'
   if (pathname === '/piutang-dagang') return 'piutang-dagang'
+  if (pathname === '/rekap-tagihan') return 'piutang-dagang'
   if (pathname === '/riwayat-penjualan') return 'invoice'
+  if (pathname === '/riwayat-hitung-cetakan') return 'hitung-cetakan'
+  if (pathname === '/riwayat-potong-kertas') return 'potong-kertas'
   if (pathname === '/laporan') return 'laporan'
   if (pathname === '/biaya' || pathname === '/biaya-operasional') return 'biaya'
   if (pathname === '/administrasi/hak-akses') return 'hak-akses'
   if (pathname === '/administrasi/pengguna') return 'pengguna'
+  if (pathname === '/administrasi/pengaturan/notifikasi') return 'pengaturan-notifikasi'
   if (pathname === '/administrasi/pengaturan') return 'pengaturan'
   if (pathname === '/administrasi') return 'pengguna' // default to first accessible admin feature
   if (pathname === '/pilih-paket') return 'pilih-paket'
@@ -248,6 +235,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'invoice': '/invoice',
     'surat-jalan': '/surat-jalan',
     'purchase-order': '/purchase-order',
+    'barang': '/barang',
     'hutang-dagang': '/hutang-dagang',
     'piutang-dagang': '/piutang-dagang',
     'laporan': '/laporan',
@@ -255,6 +243,7 @@ export function getPathForFeatureId(featureId: string): string | null {
     'hak-akses': '/administrasi/hak-akses',
     'pengguna': '/administrasi/pengguna',
     'pengaturan': '/administrasi/pengaturan',
+    'pengaturan-notifikasi': '/administrasi/pengaturan/notifikasi',
     'pilih-paket': '/pilih-paket',
     'langganan-saya': '/langganan-saya',
     'grup-saya': '/grup',
@@ -275,9 +264,11 @@ export function getFirstAccessiblePath(roleId: string): string | null {
     }
   }
 
-  // Fall back to any accessible feature
+  // Fall back to any accessible feature. Fitur akun-level yang dulu selalu
+  // terbuka (harga-customer, kategori, langganan/grup, dll) TIDAK dijadikan
+  // halaman landing — bukan halaman kerja utama.
   for (const [featureId, allowed] of Object.entries(features)) {
-    if (allowed) {
+    if (allowed && !ALWAYS_ALLOWED_FEATURE_IDS.includes(featureId)) {
       const path = getPathForFeatureId(featureId)
       if (path) return path
     }

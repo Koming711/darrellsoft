@@ -5,7 +5,8 @@ import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
 import { normalizePhone, phoneVariants } from '@/lib/phone'
 import { hashPassword } from '@/lib/password'
-import { emitRealtime } from '@/lib/realtime-notify'
+import { fanoutNotification } from '@/lib/notify-fanout'
+import { formatDate } from '@/lib/subscription'
 import {
   buildDefaultPermissions,
   buildDefaultSubPermissions,
@@ -237,13 +238,38 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Seed data error for new user (non-fatal):', seedErr)
     }
 
-    // Notifikasi realtime → semua admin: pendaftaran akun baru masuk
-    emitRealtime({
-      type: 'registration',
-      title: 'Pendaftaran Akun Baru',
-      body: `${namaLengkap} (${username}) baru saja mendaftar via halaman Daftar Akun.`,
-      link: '/administrasi/pengguna',
-    })
+    // Notifikasi otomatis: pendaftaran akun baru → SEMUA Admin & Super Admin
+    // (satu notifikasi per penerima di DB + realtime + web push).
+    // Owner / anggota grup TIDAK menerima notifikasi pendaftaran.
+    // HANYA dijalankan jika pendaftaran berhasil disimpan (posisi di sini,
+    // setelah calonPembeli.create sukses) — gagal daftar tidak mengirim apa pun.
+    try {
+      const adminIds = (
+        await db.pengguna.findMany({
+          where: { role: { in: ['superadmin', 'admin'] } },
+          select: { id: true },
+        })
+      ).map((a) => a.id)
+      if (adminIds.length > 0) {
+        await fanoutNotification({
+          userIds: adminIds,
+          title: 'PENDAFTARAN AKUN BARU',
+          body:
+            `Ada pendaftaran akun baru di Darrellsoft.\n\n` +
+            `Nama: ${namaLengkap}\n` +
+            `Email: ${email}\n` +
+            `Nama Perusahaan: -\n` +
+            `Tanggal Daftar: ${formatDate(calon.createdAt)}\n` +
+            `Paket: Trial\n` +
+            `Status: Menunggu Verifikasi`,
+          refKey: `[ref:reg:${calon.id}]`,
+          type: 'registration',
+          link: '/administrasi/pengguna',
+        })
+      }
+    } catch (notifErr) {
+      console.warn('Notifikasi pendaftaran gagal (non-fatal):', notifErr)
+    }
 
     // Generate session untuk langsung login
     const sessionId = randomUUID()

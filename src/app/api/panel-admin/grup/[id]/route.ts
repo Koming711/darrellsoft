@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getServerUser } from '@/lib/server-auth'
-import { logGroupAudit, GRUP_STATUS } from '@/lib/grup'
+import { logGroupAudit, GRUP_STATUS, hapusGrupPermanen } from '@/lib/grup'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,5 +77,51 @@ export async function PATCH(
   } catch (error) {
     console.error('PATCH /api/panel-admin/grup/[id] error:', error)
     return NextResponse.json({ error: 'Gagal mengubah status grup' }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/panel-admin/grup/[id] — Super Admin MENGHAPUS PERMANEN grup
+ * (tombol Delete di Panel Admin → Manajemen Grup). TIDAK BISA dibatalkan:
+ * seluruh akun login anggota (owner + staf) dihapus beserta Pembeli &
+ * CustomerSubscription miliknya, keanggotaan berakhir (cascade), riwayat
+ * audit grup dipertahankan + entri 'grup_dihapus'. Detail semantik lengkap
+ * di hapusGrupPermanen() di lib/grup.ts.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const err = requireAdmin(request)
+    if (err) return err
+    const adminUser = getServerUser(request)!
+    const admin = await db.pengguna.findUnique({
+      where: { id: adminUser.id },
+      select: { username: true },
+    })
+    const adminUsername = admin?.username || adminUser.id
+
+    const { id } = await params
+    const body = await request.json().catch(() => ({}))
+    const catatan = String(body?.catatan ?? '')
+
+    const hasil = await hapusGrupPermanen(
+      id,
+      { id: adminUser.id, nama: adminUsername },
+      catatan,
+    )
+
+    return NextResponse.json({
+      success: true,
+      deletedAccounts: hasil.deletedAccounts,
+      deletedMembers: hasil.deletedMembers,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Grup tidak ditemukan.') {
+      return NextResponse.json({ error: 'Grup tidak ditemukan.' }, { status: 404 })
+    }
+    console.error('DELETE /api/panel-admin/grup/[id] error:', error)
+    return NextResponse.json({ error: 'Gagal menghapus grup' }, { status: 500 })
   }
 }

@@ -4,6 +4,8 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import { Sidebar } from './sidebar-desktop'
 import { MobileHeader, MobileBottomNav } from './sidebar'
 import { CompanyDataPopup } from './company-data-popup'
+import { NotificationPopupHost } from './notification-popup-host'
+import { EnableNotificationPrompt } from './enable-notification-prompt'
 import { SubscriptionGate } from './subscription-gate'
 import { SubscriptionWaitingPopup } from './subscription-waiting-popup'
 import type { SubscriptionAccessInfo } from '@/lib/subscription'
@@ -858,8 +860,14 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         onRecheck={() => { void handleSubscriptionRecheck() }}
       />
 
-      {/* ===== MODAL: COMPANY DATA POPUP (untuk demo user baru dari checkout) ===== */}
+      {/* ===== POPUP: COMPANY DATA POPUP (untuk demo user baru dari checkout) ===== */}
       {user && <CompanyDataPopup />}
+
+      {/* ===== NOTIFIKASI OTOMATIS: popup in-app + suara (semua role) ===== */}
+      <NotificationPopupHost />
+
+      {/* ===== PROMPT IZIN NOTIFIKASI PERTAMA KALI (install/login pertama) ===== */}
+      {user && <EnableNotificationPrompt />}
     </div>
   )
 }

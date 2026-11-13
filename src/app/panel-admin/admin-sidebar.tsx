@@ -57,9 +57,11 @@ const ADMIN_MENU_SISTEM: { tab: AdminTab; label: string; icon: React.ComponentTy
  * Badge jumlah realtime (pola Rajamesin: sidebar mem-fetch data untuk hitungan).
  * Sumber: /api/panel-admin/subscription-stats — polling 30s (pola RT Rajamesin:
  * interval sebagai pengaman lintas perangkat; aksi lain sudah punya refresh sendiri).
+ * Catatan: badge angka di menu Pengguna dihapus sesuai permintaan user —
+ * hitungan pelangganBelumAktif tidak lagi ditampilkan di sidebar.
  */
 function useAdminCounts() {
-  const [counts, setCounts] = useState<{ pembayaran: number; belumAktif: number } | null>(null)
+  const [counts, setCounts] = useState<{ pembayaran: number } | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -71,7 +73,6 @@ function useAdminCounts() {
         if (!alive) return
         setCounts({
           pembayaran: json?.pembayaranMenungguVerifikasi ?? 0,
-          belumAktif: json?.pelangganBelumAktif ?? 0,
         })
       } catch {
         /* senyap — badge hanya pelengkap */
@@ -108,9 +109,9 @@ export function AdminSidebar({
 
   const renderItem = (item: (typeof ADMIN_MENU)[number]) => {
     const isActive = active === item.tab
-    // Badge: Pendaftar Baru = antrean verifikasi; Pengguna = akun belum aktif
-    const count =
-      item.tab === 'pembayaran' ? counts?.pembayaran : item.tab === 'pelanggan' ? counts?.belumAktif : undefined
+    // Badge: hanya Pendaftar Baru (antrean verifikasi). Menu Pengguna tanpa badge angka
+    // (dihapus sesuai permintaan user).
+    const count = item.tab === 'pembayaran' ? counts?.pembayaran : undefined
     return (
       <button
         key={item.tab}

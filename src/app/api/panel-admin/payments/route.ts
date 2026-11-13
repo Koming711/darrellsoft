@@ -1,6 +1,11 @@
 // GET /api/panel-admin/payments — daftar pembayaran langganan (filter status).
 // ?status=menunggu_verifikasi|disetujui|ditolak  (default: semua)
 // ?limit=50
+// DELETE /api/panel-admin/payments?status=disetujui — HAPUS SEMUA pembayaran
+// berstatus 'disetujui' (HANYA ADMIN). Semantik sama dgn hapus per-item di
+// /api/panel-admin/transactions/[id]: SOFT DELETE (set deletedAt) → pindah ke
+// tab Sampah di Riwayat Transaksi, masih bisa dipulihkan. Antrean
+// 'menunggu_verifikasi' sengaja TIDAK bisa dibulk-delete di endpoint ini.
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAdmin } from '@/lib/server-auth'
@@ -78,5 +83,32 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('GET /api/panel-admin/payments error:', error)
     return NextResponse.json({ error: 'Gagal memuat pembayaran' }, { status: 500 })
+  }
+}
+
+// HAPUS SEMUA pembayaran berstatus 'disetujui' → soft delete (pindah ke Sampah).
+export async function DELETE(request: NextRequest) {
+  const err = requireAdmin(request)
+  if (err) return err
+  try {
+    const status = new URL(request.url).searchParams.get('status') ?? ''
+    if (status !== PAYMENT_STATUS.DISETUJUI) {
+      return NextResponse.json(
+        { error: "Hapus semua hanya diizinkan untuk status 'disetujui'" },
+        { status: 400 },
+      )
+    }
+    const res = await db.subscriptionPayment.updateMany({
+      where: { status: PAYMENT_STATUS.DISETUJUI, deletedAt: null },
+      data: { deletedAt: new Date() },
+    })
+    return NextResponse.json({
+      ok: true,
+      moved: res.count,
+      message: `${res.count} pembayaran disetujui dipindahkan ke Sampah`,
+    })
+  } catch (error) {
+    console.error('DELETE /api/panel-admin/payments error:', error)
+    return NextResponse.json({ error: 'Gagal menghapus pembayaran' }, { status: 500 })
   }
 }

@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-11-v208'
+export const CURRENT_VERSION = '2026-11-12-v230'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,300 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-12-v230',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Panel Admin: Hapus Semua di Tab Disetujui',
+      en: 'Admin Panel: Delete All in Approved Tab',
+    },
+    items: [
+      {
+        id: 'Tombol Hapus Semua di tab Disetujui halaman Verifikasi Pembayaran — bersihkan seluruh daftar sekaligus setelah konfirmasi',
+        en: 'Delete All button in the Approved tab of Payment Verification — clear the entire list at once after confirmation',
+      },
+      {
+        id: 'Item terhapus pindah ke Sampah (Riwayat Transaksi) dan masih bisa dipulihkan; langganan pelanggan yang sudah aktif tidak terpengaruh',
+        en: 'Deleted items move to Trash (Transaction History) and remain recoverable; active customer subscriptions are unaffected',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v229',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Panel Admin: Angka di Menu Pengguna Dihapus',
+      en: 'Admin Panel: Number on Users Menu Removed',
+    },
+    items: [
+      {
+        id: 'Sidebar panel admin tidak lagi menampilkan angka hitungan di samping menu Pengguna — tampilan lebih bersih',
+        en: 'Admin panel sidebar no longer shows a count number next to the Users menu — cleaner look',
+      },
+      {
+        id: 'Badge hitungan tetap ada di menu Pendaftar Baru sebagai penanda antrean verifikasi',
+        en: 'Count badge remains on the New Registrations menu as a verification queue indicator',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v228',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Panel Admin: Tombol Hapus Grup di Manajemen Grup',
+      en: 'Admin Panel: Delete Group Button in Group Management',
+    },
+    items: [
+      {
+        id: 'Tombol Hapus di setiap grup (tabel desktop & kartu mobile) — menghapus grup perusahaan permanen setelah konfirmasi',
+        en: 'Delete button on every group (desktop table & mobile cards) — permanently removes a company group after confirmation',
+      },
+      {
+        id: 'Menghapus grup menghapus seluruh akun login anggota (owner + staf); riwayat tagihan & pembayaran tetap tersimpan sebagai arsip keuangan',
+        en: 'Deleting a group removes all member login accounts (owner + staff); billing & payment history remain stored as financial archive',
+      },
+      {
+        id: 'Halaman Manajemen Grup kini memuat data dengan benar (endpoint API diperbaiki — sebelumnya gagal 404)',
+        en: 'Group Management page now loads data correctly (API endpoint fixed — previously failed with 404)',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v227',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Menu Pengaturan Notifikasi Kini Tampil di Desktop',
+      en: 'Notification Settings Menu Now Visible on Desktop',
+    },
+    items: [
+      {
+        id: 'Menu Pengaturan Notifikasi yang sebelumnya hanya ada di tampilan mobile kini juga tampil di sidebar desktop (seksi Pengaturan, ikon lonceng)',
+        en: 'The Notification Settings menu, previously mobile-only, now also appears in the desktop sidebar (Settings section, bell icon)',
+      },
+      {
+        id: 'Anggota grup tetap dapat membuka menu ini mengikuti aturan yang sama seperti di mobile',
+        en: 'Group members can still open this menu under the same rules as on mobile',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v226',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Hak Akses: Seluruh Menu Kini Bisa Diatur per Role',
+      en: 'Access Rights: All Menus Now Manageable per Role',
+    },
+    items: [
+      {
+        id: 'Menu Harga Customer, Kategori, Paket Saya, Grup Saya, Pilih Paket & Pengaturan Notifikasi kini punya baris di Matriks Hak Akses dan dapat diatur per role',
+        en: 'Harga Customer, Category, My Package, My Group, Choose Plan & Notification Settings now have rows in the Access Rights matrix and can be managed per role',
+      },
+      {
+        id: 'Perilaku akses tidak berubah — keenam menu baru default aktif untuk semua role; cukup matikan lewat Matriks bila perlu',
+        en: 'Access behavior unchanged — all six new menus default to enabled for every role; simply turn them off via the Matrix when needed',
+      },
+      {
+        id: 'Halaman Barang, Rekap Tagihan Cust, Riwayat Hitung Cetakan & Riwayat Potong Kertas kini mengikuti hak akses menu masing-masing',
+        en: 'Barang, Customer Billing Recap, Print Calculation History & Paper Cutting History pages now follow their respective menu access rights',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v225',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Sistem Notifikasi Otomatis: Popup, Suara & Push',
+      en: 'Automatic Notification System: Popup, Sound & Push',
+    },
+    items: [
+      {
+        id: 'Notifikasi pendaftaran akun baru otomatis untuk Admin & Super Admin: popup in-app + suara khusus + push notification',
+        en: 'New account registration notifications for Admin & Super Admin: in-app popup + dedicated sound + push notification',
+      },
+      {
+        id: 'Pengingat masa berlangganan otomatis (7/3/1 hari, hari terakhir & habis) untuk Owner dan seluruh anggota grupnya',
+        en: 'Automatic subscription reminders (7/3/1 days, last day & expired) for the Owner and all group members',
+      },
+      {
+        id: 'Pusat Notifikasi baru: ikon lonceng semua role dengan jumlah belum dibaca, kategori, riwayat & Tandai Semua Dibaca',
+        en: 'New Notification Center: bell icon for all roles with unread count, categories, history & Mark All Read',
+      },
+      {
+        id: 'Push notification PWA saat aplikasi di background + prompt izin pertama kali + menu Pengaturan → Notifikasi (popup, suara, push, tes, daftar perangkat)',
+        en: 'PWA push notifications in background + first-use permission prompt + Settings → Notifications menu (popup, sound, push, test, device list)',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v224',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Tanda Tangan Gaya Invoice',
+      en: 'Customer Billing Recap: Invoice-Style Signature',
+    },
+    items: [
+      {
+        id: 'Tanda tangan "Yang Membuat" kini bergaya sama dengan preview invoice: label tebal + ruang tanda tangan ±12 mm + garis bawah hitam (tanpa kotak)',
+        en: 'The "Prepared by" signature now matches the invoice preview style: bold label + ±12 mm signature space + black bottom line (no box)',
+      },
+      {
+        id: 'Berlaku di preview, cetak & Export PDF — format A5 portrait tetap dipertahankan',
+        en: 'Applies to preview, print & PDF export — A5 portrait format is kept',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v223',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Kotak Tanda Tangan Kembali',
+      en: 'Customer Billing Recap: Signature Box Restored',
+    },
+    items: [
+      {
+        id: 'Kotak tanda tangan "Yang Membuat" ditambahkan kembali di bawah laporan — lengkap dengan kotak ttd & garis nama',
+        en: 'The "Prepared by" signature box is back below the report — complete with a signature box & name line',
+      },
+      {
+        id: 'Tetap berformat A5 portrait dan ikut tercetak / tersertakan di Export PDF',
+        en: 'Still in A5 portrait format and included when printing / in PDF export',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v222',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Kotak Tanda Tangan Dihapus',
+      en: 'Customer Billing Recap: Signature Box Removed',
+    },
+    items: [
+      {
+        id: 'Kotak tanda tangan "Yang Membuat" di bawah laporan dihapus — preview kini berakhir di tabel TOTAL + catatan kaki',
+        en: 'The "Prepared by" signature box below the report has been removed — the preview now ends at the TOTAL row + footnote',
+      },
+      {
+        id: 'Format A5 portrait tetap dipertahankan untuk preview, cetak & Export PDF',
+        en: 'The A5 portrait format remains for preview, print & PDF export',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v221',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Format A5 & Kotak Tanda Tangan',
+      en: 'Customer Billing Recap: A5 Format & Signature Box',
+    },
+    items: [
+      {
+        id: 'Preview & cetak Rekap Tagihan kini berformat A5 portrait (148×210 mm) — lebih ringkas dan hemat kertas',
+        en: 'The billing recap preview & print are now A5 portrait (148×210 mm) — more compact and paper-saving',
+      },
+      {
+        id: 'Kotak tanda tangan "Yang Membuat" ditambahkan di bagian bawah laporan',
+        en: 'A "Prepared by" signature box has been added at the bottom of the report',
+      },
+      {
+        id: 'Kotak tanda tangan ikut tercetak & tersertakan di Export PDF (kini juga A5 portrait)',
+        en: 'The signature box is included when printing & in PDF export (now also A5 portrait)',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v220',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Perbaikan Nama Cetakan & Cetak',
+      en: 'Customer Billing Recap: Print Name & Print Fix',
+    },
+    items: [
+      {
+        id: 'Perbaikan: kolom Nama Cetakan pada rekap kembali menampilkan daftar item invoice (mis. "paperbowl, ongkir, paperbowl + tutup") — sebelumnya sempat tampil "-"',
+        en: 'Fix: the Print Name(s) column in the recap again lists the invoice items (e.g. "paperbowl, ongkir, paperbowl + tutup") — it previously showed "-"',
+      },
+      {
+        id: 'Nominal Total Harga & TOTAL kini tidak terpotong jadi dua baris saat dicetak / Export PDF',
+        en: 'Total Amount & TOTAL figures no longer wrap onto two lines when printed / exported to PDF',
+      },
+      {
+        id: 'Perbaikan ikut berlaku di Export PDF & Export Excel',
+        en: 'The fixes also apply to PDF & Excel export',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v218',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Halaman Dipulihkan & Stabil',
+      en: 'Customer Billing Recap: Page Restored & Stable',
+    },
+    items: [
+      {
+        id: 'Halaman "Rekap Tagihan Cust" dipulihkan sepenuhnya — menu Laporan, preview laporan, cetak A4, Export PDF & Excel kembali berfungsi normal',
+        en: 'The "Customer Billing Recap" page has been fully restored — Reports menu, report preview, A4 print, PDF & Excel export are working normally again',
+      },
+      {
+        id: 'Semua fitur terakhir tetap ada: opsi "Semua Customer", kolom Status, kolom Total Harga (invoice lunas tampil harga penuh namun tidak masuk TOTAL), dan tanggal berformat dd/mm/yy',
+        en: 'All recent features remain: the "All Customers" option, Status column, Total Amount column (paid invoices show full price but are excluded from TOTAL), and dd/mm/yy date format',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v217',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Opsi Semua Customer',
+      en: 'Customer Billing Recap: All Customers Option',
+    },
+    items: [
+      {
+        id: 'Dropdown "Pilih Customer" kini punya opsi "Semua Customer" di urutan pertama — rekap tagihan seluruh customer sekaligus dalam satu laporan',
+        en: 'The "Select Customer" dropdown now has an "All Customers" option at the top — recap billing for all customers in a single report',
+      },
+      {
+        id: 'Pada mode "Semua Customer", tabel rekap menampilkan kolom Customer tambahan agar tiap baris invoice tetap teridentifikasi',
+        en: 'In "All Customers" mode, the recap table shows an extra Customer column so each invoice row stays identifiable',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v216',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Harga Penuh saat Lunas',
+      en: 'Customer Billing Recap: Full Price When Paid',
+    },
+    items: [
+      {
+        id: 'Kolom Total Harga kini tetap menampilkan harga penuh invoice yang SUDAH lunas (sebagai riwayat), tidak lagi Rp 0',
+        en: 'The Total Amount column now keeps showing the full price of PAID invoices (as history), no longer Rp 0',
+      },
+      {
+        id: 'Baris TOTAL tidak berubah: hanya menjumlahkan sisa tagihan invoice yang belum lunas — invoice lunas tetap tidak dihitung',
+        en: 'The TOTAL row is unchanged: it only sums the outstanding balance of unpaid invoices — paid invoices are still excluded',
+      },
+    ],
+  },
+  {
+    version: '2026-11-12-v215',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Rekap Tagihan Cust: Kolom Total Harga & Tanggal dd/mm/yy',
+      en: 'Customer Billing Recap: Total Amount Column & dd/mm/yy Dates',
+    },
+    items: [
+      {
+        id: 'Kolom "Jml Hg" pada preview rekap diganti menjadi "Total Harga" agar lebih jelas',
+        en: 'The "Jml Hg" column in the recap preview is renamed to "Total Amount" for clarity',
+      },
+      {
+        id: 'Kolom Tgl kini berformat dd/mm/yy (contoh: 01/10/26) — konsisten di preview, cetak, Export PDF & Excel',
+        en: 'The Date column now uses dd/mm/yy format (e.g. 01/10/26) — consistent in preview, print, PDF & Excel export',
+      },
+    ],
+  },
   {
     version: '2026-11-11-v208',
     date: { id: '11 November 2026', en: '11 November 2026' },

@@ -44,8 +44,10 @@ import {
   PieChart,
   HandCoins,
   Coins,
+  ReceiptText,
   BadgePercent,
   PiggyBank,
+  BellRing,
 } from 'lucide-react'
 import { getAuthUser } from '@/lib/auth'
 import { hasFeatureAccess, getGrupInfo } from '@/lib/permissions'
@@ -53,7 +55,6 @@ import { useLanguage } from '@/contexts/language-context'
 import { TranslationKey } from '@/lib/i18n'
 import { startNavigation } from '@/components/navigation-progress'
 import { MenuHomeScreen } from '@/components/menu-home-screen'
-import { MenuTagihanRekap } from '@/components/menu-tagihan-rekap'
 import { canGoBackInApp } from '@/lib/app-history'
 import { useBackOverlay } from '@/lib/use-back-overlay'
 
@@ -194,6 +195,13 @@ const menuItems = [
     section: 'laporan',
   },
   {
+    titleKey: 'rekap_tagihan_cust' as TranslationKey,
+    href: '/rekap-tagihan',
+    icon: ReceiptText,
+    featureId: 'piutang-dagang',
+    section: 'laporan',
+  },
+  {
     titleKey: 'biaya_operasional' as TranslationKey,
     href: '/biaya-operasional',
     icon: Wallet,
@@ -269,6 +277,13 @@ const menuItems = [
     href: '/administrasi/pengaturan',
     icon: Settings,
     featureId: 'pengaturan',
+    section: 'setting',
+  },
+  {
+    titleKey: 'settings_notif_title' as TranslationKey,
+    href: '/administrasi/pengaturan/notifikasi',
+    icon: BellRing,
+    featureId: 'pengaturan-notifikasi',
     section: 'setting',
   },
 ]
@@ -411,7 +426,7 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
       // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
-      if (['grup-saya', 'pilih-paket', 'pengaturan'].includes(item.featureId)) return true
+      if (['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(item.featureId)) return true
       return grupInfo!.izin.includes(item.featureId)
     })
 
@@ -554,7 +569,7 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // Admin sistem tidak melihat menu grup pelanggan (sama dgn sidebar desktop)
   const isAdminNav = role === 'admin' || role === 'superadmin'
   const bolehGrupNav = (featureId: string) =>
-    ['grup-saya', 'pilih-paket', 'pengaturan'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
+    ['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
   const visibleItems = bottomNavItems
     .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
     .filter(item => !isAdminNav || item.featureId !== 'grup-saya')
@@ -586,16 +601,6 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   // — back fisik harus MENUTUP menu dulu (tetap di halaman), bukan langsung
   // kembali ke halaman sebelumnya / menutup PWA.
   const requestCloseMenuPopup = useBackOverlay(showPopup, () => setShowPopup(false))
-
-  // Kartu "Rekap Tagihan per Customer" hanya tampil bila user berhak melihat
-  // Piutang Dagang (menu item-nya ada & tidak terkunci PRO / disembunyikan grup).
-  const showTagihanRekap = allMenuItems.some(i => i.featureId === 'piutang-dagang' && !i.isPro)
-  const openPiutangDagang = () => {
-    startNavigation()
-    window.dispatchEvent(new CustomEvent('navigation-start'))
-    setShowPopup(false)
-    router.push('/piutang-dagang')
-  }
 
   return (
     <>
@@ -649,9 +654,6 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
                 router.push(item.href)
               }}
             />
-
-            {/* Rekap Tagihan per Customer — ringkasan piutang dari menu (Task 25) */}
-            {showTagihanRekap && <MenuTagihanRekap onOpenAll={openPiutangDagang} />}
 
             {/* Logout — compact */}
             {username && onLogout && (

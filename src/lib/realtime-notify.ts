@@ -5,7 +5,7 @@
 // tidak boleh gagal hanya karena notifikasi realtime tidak terkirim.
 // (Kalau service mati, client masih punya polling fallback.)
 
-const NOTIF_WS_URL = process.env.NOTIF_WS_URL || 'http://127.0.0.1:3004'
+const NOTIF_WS_URL = process.env.NOTIF_WS_URL || 'http://127.0.0.1:3005'
 const NOTIF_WS_SECRET = process.env.NOTIF_WS_SECRET || 'ds-notif-internal-v1'
 
 export interface RealtimeNotification {

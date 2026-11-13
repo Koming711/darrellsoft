@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   History,
   Search,
+  Trash2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -124,6 +125,11 @@ export function ManajemenGrupContent() {
   const [alasan, setAlasan] = useState('')
   const [acting, setActing] = useState(false)
 
+  // HAPUS PERMANEN grup (tombol Delete) — dialog konfirmasi + catatan opsional
+  const [hapusTarget, setHapusTarget] = useState<GrupPanel | null>(null)
+  const [catatanHapus, setCatatanHapus] = useState('')
+  const [hapusBusy, setHapusBusy] = useState(false)
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       const res = await authFetch('/api/panel-admin/grup')
@@ -190,6 +196,31 @@ export function ManajemenGrupContent() {
       toast.error(e instanceof Error ? e.message : 'Gagal mengubah status grup')
     } finally {
       setActing(false)
+    }
+  }
+
+  // HAPUS PERMANEN grup — seluruh akun anggota ikut dihapus (tidak bisa dibatalkan)
+  const hapusGrup = async (g: GrupPanel) => {
+    setHapusBusy(true)
+    try {
+      const res = await authFetch(`/api/panel-admin/grup/${g.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ catatan: catatanHapus.trim() || undefined }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Gagal menghapus grup')
+      toast.success(
+        `Grup ${g.nama} (${g.kode}) dihapus permanen — ${json.deletedAccounts ?? 0} akun login anggota ikut dihapus`,
+      )
+      setHapusTarget(null)
+      setCatatanHapus('')
+      if (detail?.id === g.id) setDetail(null)
+      load({ silent: true })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Gagal menghapus grup')
+    } finally {
+      setHapusBusy(false)
     }
   }
 
@@ -292,6 +323,15 @@ export function ManajemenGrupContent() {
                               <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Aktifkan
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 border-red-300 font-semibold text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white dark:border-red-800 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-white"
+                            onClick={() => { setHapusTarget(g); setCatatanHapus('') }}
+                            data-testid="hapus-grup-admin"
+                          >
+                            <Trash2 className="mr-1 h-3.5 w-3.5" /> Hapus
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -338,6 +378,15 @@ export function ManajemenGrupContent() {
                         <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Aktifkan
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 flex-1 border-red-300 font-semibold text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white dark:border-red-800 dark:text-red-400 dark:hover:bg-red-700 dark:hover:text-white"
+                      onClick={() => { setHapusTarget(g); setCatatanHapus('') }}
+                      data-testid="hapus-grup-admin-mobile"
+                    >
+                      <Trash2 className="mr-1 h-3.5 w-3.5" /> Hapus
+                    </Button>
                   </div>
                 </div>
               )
@@ -444,6 +493,61 @@ export function ManajemenGrupContent() {
               onClick={() => nonaktifTarget && setStatus(nonaktifTarget, 'dinonaktifkan')}
             >
               {acting ? 'Memproses…' : 'Ya, Nonaktifkan'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ===== Konfirmasi HAPUS PERMANEN grup ===== */}
+      <AlertDialog open={!!hapusTarget} onOpenChange={(o) => !o && setHapusTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+              <Trash2 className="h-5 w-5" /> Hapus grup {hapusTarget?.nama}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Grup <b>{hapusTarget?.nama}</b> ({hapusTarget?.kode}) akan{' '}
+                  <b className="text-red-600 dark:text-red-400">DIHAPUS PERMANEN</b> dan{' '}
+                  <b className="text-red-600 dark:text-red-400">TIDAK BISA dibatalkan</b>.
+                </p>
+                <ul className="list-disc space-y-1 pl-4 text-left text-xs text-muted-foreground">
+                  <li>
+                    Seluruh akun login anggota grup <b>DIHAPUS</b> (owner + staf) — tidak ada yang bisa login lagi dari grup ini.
+                  </li>
+                  <li>Keanggotaan grup berakhir dan grup hilang dari daftar Manajemen Grup.</li>
+                  <li>
+                    Data dokumen perusahaan (invoice, riwayat hitungan, dll) tidak ikut terhapus, tetapi sudah tidak bisa diakses lagi.
+                  </li>
+                  <li>Riwayat tagihan &amp; pembayaran langganan tetap tersimpan sebagai arsip keuangan admin.</li>
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  Bila hanya ingin menghentikan akses sementara, gunakan <b>Nonaktifkan</b> — akses kembali setelah grup diaktifkan.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Catatan (opsional)</label>
+            <Textarea
+              value={catatanHapus}
+              onChange={(e) => setCatatanHapus(e.target.value)}
+              placeholder="cth. langganan dihentikan atas permintaan pelanggan"
+              rows={2}
+              maxLength={300}
+              data-testid="catatan-hapus-grup"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hapusBusy}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={hapusBusy}
+              data-testid="konfirmasi-hapus-grup"
+              onClick={() => hapusTarget && hapusGrup(hapusTarget)}
+            >
+              {hapusBusy ? 'Memproses…' : 'Ya, Hapus Permanen'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
