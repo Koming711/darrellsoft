@@ -1,4 +1,23 @@
 ---
+Task ID: 50
+Agent: Main
+Task: Panel Admin — badge angka "Pendaftar Baru" hilang OTOMATIS begitu halamannya dilihat
+
+Work Log:
+- LAPORAN USER: "di panel admin, di menu sidebar pendaftar baru, apabila sudah dilihat maka angka 1 di sidebar pendaftaran depan otomatis hilang" — badge hitungan antrean verifikasi harus clear sendiri saat halaman Pendaftar Baru dibuka (tidak ada tombol manual).
+- DESAIN: badge berubah semantik dari "total menunggu verifikasi" → "pendaftar BARU yang BELUM dilihat admin". Tracking per-payment via kolom baru SubscriptionPayment.adminSeenAt (DateTime?, db:push ok) — null = belum dilihat; membuka halaman mengisi semua yang masih null; pendaftar yang datang SETELAH itu (adminSeenAt null lagi) dihitung & badge muncul kembali.
+- BACKEND: (1) endpoint POST /api/panel-admin/payments/mark-seen (requireAdmin) — updateMany {status menunggu_verifikasi, deletedAt null, adminSeenAt null} → {adminSeenAt: now}, balas {ok, marked, pembayaranBelumDilihat} (count sisa dihitung ulang supaya klien tak perlu fetch stats penuh); (2) GET /api/panel-admin/subscription-stats menambah field pembayaranBelumDilihat (count unseen) — pembayaranMenungguVerifikasi (total) dipertahankan untuk dashboard Beranda.
+- FRONTEND: (1) store Zustand baru src/stores/admin-counts-store.ts {pembayaranBelumDilihat, setPembayaranBelumDilihat, refresh} — badge DIBAGI antara sidebar & konten verifikasi, jadi pembaruan INSTAN tanpa menunggu polling 30 detik; (2) admin-sidebar.tsx: useAdminCounts kini baca tulis store (refresh + interval 30s tetap sbg pengaman lintas perangkat), badge menu pembayaran = unseen count; (3) verifikasi-pembayaran/content.tsx: markSeen() dipanggil saat load() sukses di tab menunggu_verifikasi (termasuk silent refresh 10 detik useLiveData — pendaftar baru yang muncul saat admin sedang melihat halaman langsung dianggap dilihat), lalu setPembayaranBelumDilihat(json.pembayaranBelumDilihat) → badge hilang seketika.
+- VERSI: SW v232→v233, APP_VERSION/CURRENT '2026-11-12-v230'→'2026-11-12-v231'; changelog v231 "Panel Admin: Badge Pendaftar Baru Hilang Otomatis Setelah Dilihat" (2 item id/en).
+- Lint file terubah (mark-seen route, stats route, admin-sidebar, verifikasi content, store, changelog) → 0 error.
+- VERIFIKASI browser (agent-browser, akun superadmin sementara zztestdesk + 3 invoice/payment uji SUB-49TEST-001..003; pending payment NYATA ditandai seen sementara agar test bersih): popup "Versi Baru! v231" tampil ✓. Desktop: badge "Pendaftar Baru 1" tampil ✓ → klik menu → badge HILANG SEKETIKA (<5 detik, tanpa nunggu poll) ✓ → tunggu 32 detik (1 siklus poll) badge tetap hilang ✓ → pindah ke Beranda, buat pendaftar baru #2 via Prisma → ≤30 detik badge "1" MUNCUL LAGI ✓ → klik Pendaftar Baru → hilang lagi ✓. VERIFIKASI DB: adminSeenAt kedua payment terisi ✓. Mobile 390x844: drawer → badge "1" ✓ → klik → badge hilang ✓ (screenshot desktop+mobile ok). Antrean menunggu tetap menampilkan SEMUA payment menunggu (fitur tak mengubah isi daftar — hanya badge). dev.log bersih.
+- CLEANUP: 3 payment+invoice uji & akun zztestdesk dihapus; pending payment NYATA dipulihkan ke adminSeenAt=null (kondisi pra-test) ✓; tmp-seed49.ts dihapus.
+- CATATAN DEPLOY: data test dulu ter-broadcast ke produksi saat deploy (deploy ditahan owner) — kali ini tidak ada data test yang akan terbawa karena sudah dibersihkan sebelum commit.
+
+Stage Summary:
+- Badge angka di sidebar menu "Pendaftar Baru" kini otomatis hilang begitu halaman verifikasi pembayaran dibuka (instant via store Zustand), tetap hilang setelahnya, dan muncul kembali hanya saat ada pendaftar baru yang belum dilihat — sinkron antar perangkat via polling 30 detik. Implementasi: kolom SubscriptionPayment.adminSeenAt + POST /api/panel-admin/payments/mark-seen + field pembayaranBelumDilihat di subscription-stats + store src/stores/admin-counts-store.ts. Versi v233/v231.
+
+---
 Task ID: 49
 Agent: Main
 Task: Verifikasi Pembayaran — DELETE SEMUA data tab Disetujui (permintaan owner) + PEMULIHAN insiden workspace tertukar snapshot lama

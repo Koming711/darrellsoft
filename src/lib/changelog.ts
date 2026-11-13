@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-12-v230'
+export const CURRENT_VERSION = '2026-11-12-v231'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-12-v231',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Panel Admin: Badge Pendaftar Baru Hilang Otomatis Setelah Dilihat',
+      en: 'Admin Panel: New Registrant Badge Clears Automatically After Viewing',
+    },
+    items: [
+      {
+        id: 'Angka badge di menu sidebar Pendaftar Baru langsung hilang begitu halaman verifikasi dibuka — tidak perlu dihapus manual',
+        en: 'The badge number on the New Registrants sidebar menu disappears as soon as the verification page is opened — no manual clearing needed',
+      },
+      {
+        id: 'Badge muncul kembali otomatis hanya saat ada pendaftar BARU yang belum dilihat, di semua perangkat admin',
+        en: 'The badge reappears automatically only when a NEW unseen registrant arrives, across all admin devices',
+      },
+    ],
+  },
   {
     version: '2026-11-12-v230',
     date: { id: '12 November 2026', en: '12 November 2026' },

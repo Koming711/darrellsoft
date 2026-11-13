@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 import { authFetch } from '@/lib/auth-fetch'
 import { useLiveData } from '@/hooks/use-live-data'
+import { useAdminCountsStore } from '@/stores/admin-counts-store'
 import { LiveIndicator } from '../live-indicator'
 import { toast } from 'sonner'
 import {
@@ -90,6 +91,26 @@ export function VerifikasiPembayaranContent() {
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
   const [deleteAllBusy, setDeleteAllBusy] = useState(false)
 
+  // Badge sidebar "Pendaftar Baru" — dibagikan via store Zustand agar pembaruan INSTAN
+  // (tidak menunggu polling 30 detik sidebar).
+  const setPembayaranBelumDilihat = useAdminCountsStore((s) => s.setPembayaranBelumDilihat)
+
+  // PERMINTAAN USER: halaman Pendaftar Baru DIBUKA = antrean sudah dilihat → tandai di server
+  // sehingga badge angka di sidebar LANGSUNG hilang. Pendaftar baru berikutnya dihitung lagi
+  // (adminSeenAt-nya masih null) — badge muncul kembali otomatis via polling sidebar.
+  const markSeen = useCallback(async () => {
+    try {
+      const res = await authFetch('/api/panel-admin/payments/mark-seen', { method: 'POST' })
+      if (!res.ok) return
+      const json = await res.json()
+      if (typeof json?.pembayaranBelumDilihat === 'number') {
+        setPembayaranBelumDilihat(json.pembayaranBelumDilihat)
+      }
+    } catch {
+      /* senyap — badge hanya pelengkap */
+    }
+  }, [setPembayaranBelumDilihat])
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setRows(null) // silent = segarkan tanpa kedip skeleton
     try {
@@ -101,11 +122,15 @@ export function VerifikasiPembayaranContent() {
         return
       }
       setRows(json.payments ?? [])
+      // Tab Menunggu Verifikasi terbuka dan daftar berhasil dimuat = pendaftar sudah dilihat.
+      // (Juga pada silent refresh 10 detik: pendaftar baru yang muncul saat admin sedang
+      // melihat halaman ini langsung dianggap dilihat — badge tidak menyala tanpa perlu.)
+      if (tab === 'menunggu_verifikasi') void markSeen()
     } catch {
       toast.error('Gagal terhubung ke server')
       setRows([])
     }
-  }, [tab])
+  }, [tab, markSeen])
 
   useEffect(() => {
     load()

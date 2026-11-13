@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [subs, totalPengguna, totalCalon, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices] =
+    const [subs, totalPengguna, totalCalon, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices, belumDilihat] =
       await Promise.all([
         db.customerSubscription.findMany({
           select: { id: true, userId: true, status: true, endDate: true, planId: true },
@@ -54,6 +54,15 @@ export async function GET(request: NextRequest) {
           take: 10,
         }),
         db.subscriptionInvoice.findMany({ select: { userId: true, status: true, dueDate: true } }),
+        // Badge sidebar "Pendaftar Baru": hanya pendaftar yang BELUM dilihat admin
+        // (adminSeenAt null) — hilang otomatis setelah halaman verifikasi dibuka.
+        db.subscriptionPayment.count({
+          where: {
+            status: PAYMENT_STATUS.MENUNGGU_VERIFIKASI,
+            deletedAt: null,
+            adminSeenAt: null,
+          },
+        }),
       ])
 
     // Resolusi userId → NAMA AKUN (Pengguna.namaLengkap / CalonPembeli.nama)
@@ -111,6 +120,7 @@ export async function GET(request: NextRequest) {
       pelangganDitangguhkan: statusCounts[SUB_STATUS.DITANGGUHKAN],
       pelangganBelumAktif: statusCounts[SUB_STATUS.BELUM_AKTIF],
       pembayaranMenungguVerifikasi: pendingPayments.length,
+      pembayaranBelumDilihat: belumDilihat,
       totalPendapatan,
       pendapatanBulanIni,
       tagihanMenungguPembayaran,

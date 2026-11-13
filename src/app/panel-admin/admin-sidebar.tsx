@@ -21,8 +21,8 @@ import {
   Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { authFetch } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
+import { useAdminCountsStore } from '@/stores/admin-counts-store'
 
 export type AdminTab =
   | 'beranda'
@@ -54,39 +54,25 @@ const ADMIN_MENU_SISTEM: { tab: AdminTab; label: string; icon: React.ComponentTy
 ]
 
 /**
- * Badge jumlah realtime (pola Rajamesin: sidebar mem-fetch data untuk hitungan).
- * Sumber: /api/panel-admin/subscription-stats — polling 30s (pola RT Rajamesin:
- * interval sebagai pengaman lintas perangkat; aksi lain sudah punya refresh sendiri).
- * Catatan: badge angka di menu Pengguna dihapus sesuai permintaan user —
- * hitungan pelangganBelumAktif tidak lagi ditampilkan di sidebar.
+ * Badge jumlah pendaftar BARU yang BELUM dilihat admin (pola Rajamesin: sidebar mem-fetch
+ * data untuk hitungan). Sumber: /api/panel-admin/subscription-stats (field pembayaranBelumDilihat)
+ * via useAdminCountsStore — polling 30s sebagai pengaman lintas perangkat.
+ * PERMINTAAN USER: begitu halaman Pendaftar Baru dibuka (antrean ditandai sudah dilihat),
+ * angka badge LANGSUNG hilang — store dibagikan dengan konten verifikasi, jadi pembaruan
+ * tidak menunggu polling. Pendaftar baru berikutnya membuat badge muncul lagi.
+ * Catatan: badge angka di menu Pengguna dihapus sesuai permintaan user.
  */
 function useAdminCounts() {
-  const [counts, setCounts] = useState<{ pembayaran: number } | null>(null)
+  const pembayaranBelumDilihat = useAdminCountsStore((s) => s.pembayaranBelumDilihat)
+  const refresh = useAdminCountsStore((s) => s.refresh)
 
   useEffect(() => {
-    let alive = true
-    const load = async () => {
-      try {
-        const res = await authFetch('/api/panel-admin/subscription-stats')
-        if (!res.ok) return
-        const json = await res.json()
-        if (!alive) return
-        setCounts({
-          pembayaran: json?.pembayaranMenungguVerifikasi ?? 0,
-        })
-      } catch {
-        /* senyap — badge hanya pelengkap */
-      }
-    }
-    load()
-    const iv = setInterval(load, 30_000)
-    return () => {
-      alive = false
-      clearInterval(iv)
-    }
-  }, [])
+    void refresh()
+    const iv = setInterval(() => void refresh(), 30_000)
+    return () => clearInterval(iv)
+  }, [refresh])
 
-  return counts
+  return { pembayaran: pembayaranBelumDilihat }
 }
 
 export function AdminSidebar({
@@ -109,8 +95,8 @@ export function AdminSidebar({
 
   const renderItem = (item: (typeof ADMIN_MENU)[number]) => {
     const isActive = active === item.tab
-    // Badge: hanya Pendaftar Baru (antrean verifikasi). Menu Pengguna tanpa badge angka
-    // (dihapus sesuai permintaan user).
+    // Badge: hanya Pendaftar Baru — jumlah pendaftar yang BELUM dilihat admin.
+    // Hilang otomatis begitu halaman dibuka (mark-seen → store diperbarui konten).
     const count = item.tab === 'pembayaran' ? counts?.pembayaran : undefined
     return (
       <button
