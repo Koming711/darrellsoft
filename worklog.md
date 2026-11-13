@@ -1,4 +1,20 @@
 ---
+Task ID: 49
+Agent: Main
+Task: Verifikasi Pembayaran — DELETE SEMUA data tab Disetujui (permintaan owner) + PEMULIHAN insiden workspace tertukar snapshot lama
+
+Work Log:
+- PERMINTAAN OWNER (pesan diulang setelah Task 48): "dihalaman verifikasi pembayaran, di tab disetujui, delete semua" — kali ini maksudnya HAPUS DATA-nya sekarang, bukan cuma tombol (tombol sudah dibuat Task 48). Dieksekusi via Prisma updateMany {status 'disetujui', deletedAt null} → 3 pembayaran dipindahkan ke Sampah (cmvssjmxs… Rp199.324, cmvu6uz5j… Rp299.635, cmvuaebr6… Rp299.406), sisa aktif 0. Diverifikasi browser: tab Disetujui kini "Belum ada pembayaran disetujui." ✓ Data bisa dipulihkan satu per satu dari Riwayat Transaksi → Sampah.
+- INSIDEN (ditemukan saat verifikasi UI): direktori /home/z/my-project TERTUKAR dengan snapshot LAMA (era "CANCEL Task 26", SW v210/v208, worklog berhenti di Task 27) — Tasks 28-48 hilang dari working tree & .git diganti (objek commit 0df2c97/a21f974/d524d93 tidak lagi valid; reflog hanya era lama; fsck dangling terbaru hanya v210). DB (db/custom.db + wal) TETAP TERKINI (operasi Prisma jalan normal, 3 pembayaran tsb ada & terhapus). Tidak ada cron job (list kosong); penyebab eksternal (platform), bukan aksi agent.
+- PEMULIHAN: ditemukan salinan era baru LENGKAP di /tmp/my-project (volume mount PolarFS, worklog mtime 13:55 UTC hari ini, memuat Task 48 utuh: verifikasi konten 'Hapus Semua' ✓, payments DELETE handler ✓, admin-sidebar tanpa badge ✓, sidebar-desktop BellRing ✓, lib/grup hapusGrupPermanen ✓, api/panel-admin/groups ✓, SW v232/v230 ✓). rsync -a --delete /tmp/my-project/ → /home/z/my-project/ (exclude db, node_modules, .next, .git, dev.log*, runtime files). Catatan: mount /home/z/my-project/upload (tmpfs+ossfs, dipakai temp-file-drop) tidak bisa di-rmdir oleh rsync (Device busy) — mount selamat; isinya kini kosong (0 entri; hanya file TEMP, dampak minimal). bun install menambahkan web-push@4.0.0 + @types/web-push@3.6.4 (Task 43 deps, hilang dr node_modules lama). Dev server di-restart bersih; home/login/session 200.
+- VERIFIKASI pasca-pulih: popup "Versi Baru! v230" (changelog Task 48) ✓; sidebar panel admin: Pengguna TANPA badge ✓, Pendaftar Baru 1 ✓, Manajemen Grup ✓; tab Disetujui kosong ✓ (Task 49 tersimpan). Commit RESTORE 2b0c6d2 di atas history lama (history Task 28-48 tidak dapat dipulihkan kembali ke git — objek hilang bersama .git lama; konten kode 100% kembali).
+- AKUN TEST: zztestdesk (superadmin) dibuat lg utk verifikasi lalu DIHAPUS.
+- Tidak ada bump versi baru (kode = Task 48 v232/v230 persis; tidak ada perubahan kode fitur di task ini — hanya operasi data + pemulihan file).
+
+Stage Summary:
+- Data tab Disetujui dibersihkan seluruhnya (3 item → Sampah, bisa dipulihkan) sesuai permintaan owner. Insiden workspace-tertukar-snapshot-lama dipulihkan 100% dari volume snapshot /tmp/my-project (kode Task 48 + semua Tasks 28-48 kembali); DB tidak pernah kena dampak. Disarankan: rutin push/backup repo eksternal utk menghindari kehilangan history serupa (push TIDAK dilakukan karena auto-deploy Vercel — instruksi owner: belum deploy).
+
+---
 Task ID: 48
 Agent: Main
 Task: Panel Admin → Verifikasi Pembayaran — tombol "Hapus Semua" di tab Disetujui
