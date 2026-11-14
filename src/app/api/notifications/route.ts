@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: Delete a notification
+// DELETE: Delete a notification (?id=) or ALL notifications in scope (?all=1).
 export async function DELETE(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -113,13 +113,29 @@ export async function DELETE(request: NextRequest) {
     const user = getServerUser(request)!
 
     const { searchParams } = new URL(request.url)
+
+    const isAdmin = ['superadmin', 'admin', 'manager'].includes(user.role || '')
+    const scopeWhere = isAdmin ? { userId: { in: ['', user.id] } } : { userId: user.id }
+
+    // ?all=1 — PERMINTAAN OWNER: tombol "Hapus Semua" di Pusat Notifikasi.
+    // Hapus permanen SEMUA notifikasi dalam scope user (admin: broadcast + miliknya;
+    // role lain: miliknya saja) + bersihkan riwayat NotificationDelivery terkait.
+    if (searchParams.get('all') === '1') {
+      const rows = await db.notification.findMany({ where: scopeWhere, select: { id: true } })
+      const ids = rows.map((n) => n.id)
+      if (ids.length > 0) {
+        await db.notificationDelivery.deleteMany({ where: { notificationId: { in: ids } } })
+        await db.notification.deleteMany({ where: { id: { in: ids } } })
+      }
+      return NextResponse.json({ success: true, deleted: ids.length })
+    }
+
     const id = searchParams.get('id')
 
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
 
-    const isAdmin = ['superadmin', 'admin', 'manager'].includes(user.role || '')
     const notification = await db.notification.findUnique({ where: { id } })
 
     if (!notification) {

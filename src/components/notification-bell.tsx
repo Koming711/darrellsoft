@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CalendarClock, CheckCheck, ChevronDown, Info, UserPlus, Volume2, VolumeX } from 'lucide-react'
+import { Bell, CalendarClock, CheckCheck, ChevronDown, Info, Trash2, UserPlus, Volume2, VolumeX } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
@@ -15,6 +16,16 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Registration {
   id: string
@@ -115,6 +126,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   const [listPage, setListPage] = useState(1)
   const [category, setCategory] = useState<Category>('all')
   const [open, setOpen] = useState(false)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const [lastSeen, setLastSeen] = useState<string | null | undefined>(undefined) // undefined = not loaded yet
   const [muted, setMuted] = useState<boolean | undefined>(undefined) // undefined = not loaded
   const prevCountRef = useRef<number | null>(null) // baseline count for sound detection
@@ -275,6 +287,31 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     }
   }
 
+  // HAPUS SEMUA — PERMINTAAN OWNER: hapus PERMANEN seluruh isi pusat notifikasi
+  // (semua notifikasi DB dalam scope user) langsung dari database.
+  const handleDeleteAll = async () => {
+    try {
+      const res = await authFetch('/api/notifications?all=1', { method: 'DELETE' })
+      if (res.ok) {
+        // Kosongkan seluruh daftar + badge — notif DB sudah dihapus permanen di server
+        setList({ notifications: [], unreadCount: 0, hasMore: false, total: 0 })
+        // Sembunyikan juga daftar pendaftaran akun (admin), seperti saat popover ditutup
+        const now = new Date().toISOString()
+        try {
+          localStorage.setItem(STORAGE_KEY, now)
+        } catch {
+          // ignore
+        }
+        setLastSeen(now)
+        toast.success(t('notif_delete_all_success'))
+      } else {
+        toast.error(language === 'en' ? 'Failed to delete notifications' : 'Gagal menghapus notifikasi')
+      }
+    } catch {
+      toast.error(language === 'en' ? 'Failed to delete notifications' : 'Gagal menghapus notifikasi')
+    }
+  }
+
   const handleNotifClick = async (n: DbNotification) => {
     if (!n.isRead) {
       // Optimistis: HAPUS dari daftar lalu tandai dibaca di server (fire & forget) —
@@ -403,14 +440,24 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
               {c.label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={handleMarkAllRead}
-            className="ml-auto inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
-          >
-            <CheckCheck className="h-3 w-3" />
-            {t('notif_mark_all_read')}
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteAll(true)}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+              {t('notif_delete_all')}
+            </button>
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              <CheckCheck className="h-3 w-3" />
+              {t('notif_mark_all_read')}
+            </button>
+          </div>
         </div>
 
         {/* Daftar */}
@@ -539,6 +586,25 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
             </button>
           )}
         </div>
+
+        {/* Konfirmasi Hapus Semua — di dalam PopoverContent agar popover tidak tertutup saat dialog muncul */}
+        <AlertDialog open={confirmDeleteAll} onOpenChange={setConfirmDeleteAll}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('notif_delete_all_confirm_title')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('notif_delete_all_confirm_desc')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('batal')}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteAll}
+                className="bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500 dark:bg-red-500 dark:text-white dark:hover:bg-red-600"
+              >
+                {t('notif_delete_all')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </PopoverContent>
     </Popover>
   )

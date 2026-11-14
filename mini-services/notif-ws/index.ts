@@ -126,3 +126,55 @@ setInterval(() => {
 httpServer.listen(PORT, () => {
   console.log(`[notif-ws] socket.io listening on :${PORT}`)
 })
+
+// ============================================================
+// MAIN-APP DEV SERVER KEEPER (khusus lingkungan dev sandbox)
+//
+// Proses yang di-spawn dari shell tool langsung dipetik oleh sandbox
+// begitu perintah selesai — jadi dev server utama (next dev -p 3000)
+// di-spawn dari proses service ini (yang dijalankan saat boot & tetap
+// hidup), sehingga bertahan lintas perintah.
+// Hanya aktif di folder dev (/home/z/my-project ada); di mesin lain /
+// produksi blok ini no-op. Sekaligus self-healing: kalau dev server
+// mati (mis. OOM), keeper menyalakannya lagi otomatis.
+// ============================================================
+const MAIN_APP_DIR = '/home/z/my-project'
+const MAIN_APP_URL = 'http://127.0.0.1:3000/'
+const KEEPER_LOG = '[notif-ws][dev-keeper]'
+
+async function mainAppAlive(): Promise<boolean> {
+  try {
+    const res = await fetch(MAIN_APP_URL, { signal: AbortSignal.timeout(2500) })
+    return res.status < 500
+  } catch {
+    return false
+  }
+}
+
+let keeperSpawning = false
+async function ensureMainDevServer() {
+  if (keeperSpawning) return
+  if (!(await mainAppAlive())) {
+    keeperSpawning = true
+    try {
+      console.log(`${KEEPER_LOG} dev server :3000 tidak hidup — menyalakan ulang...`)
+      const proc = Bun.spawn(['bun', 'run', 'dev'], {
+        cwd: MAIN_APP_DIR,
+        stdin: 'ignore',
+        stdout: 'ignore',
+        stderr: 'ignore',
+      })
+      proc.unref()
+      console.log(`${KEEPER_LOG} spawn selesai (pid ${proc.pid})`)
+    } catch (e) {
+      console.error(`${KEEPER_LOG} spawn gagal:`, e)
+    } finally {
+      keeperSpawning = false
+    }
+  }
+}
+
+if (existsSync(MAIN_APP_DIR)) {
+  setInterval(ensureMainDevServer, 10_000)
+  void ensureMainDevServer()
+}
