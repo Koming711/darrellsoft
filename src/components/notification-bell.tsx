@@ -105,10 +105,13 @@ interface NotificationBellProps {
 }
 
 /**
- * NotificationBell — PUSAT NOTIFIKASI (ikon lonceng di header, semua role):
+ * NotificationBell — PUSAT NOTIFIKASI (ikon lonceng di header):
  *
+ * - PERMINTAAN OWNER: ikon ini HANYA untuk admin/superadmin/manager.
+ *   Role pelanggan (user/demo) tidak merender ikon ini — mereka cukup SATU
+ *   ikon notifikasi (CustomerNotificationBell) supaya header tidak dobel.
  * - Badge merah = pendaftaran baru belum dilihat (admin) + notifikasi DB
- *   belum dibaca (semua role).
+ *   belum dibaca.
  * - Daftar notifikasi DB dengan kategori: Semua / Pendaftaran Akun /
  *   Masa Berlangganan / Informasi Sistem; tanggal & waktu.
  * - PERMINTAAN OWNER: daftar HANYA menampilkan notifikasi belum dibaca —
@@ -133,10 +136,15 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
 
   const isAdmin = role === 'admin' || role === 'superadmin'
   const isAdminChecked = !!role
+  // PERMINTAAN OWNER: role pelanggan (user/demo) tidak menampilkan Pusat
+  // Notifikasi — cukup satu ikon (CustomerNotificationBell). Admin/superadmin/
+  // manager tetap melihat ikon ini.
+  const isCustomerRole = role === 'user' || role === 'demo'
+  const showBell = isAdminChecked && !isCustomerRole
 
   // Load lastSeen + muted + baseline count from localStorage (client-only)
   useEffect(() => {
-    if (!isAdminChecked) return
+    if (!showBell) return
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       setLastSeen(isAdmin ? stored : null)
@@ -150,7 +158,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     }
     // Unlock audio on first user interaction (browser autoplay policy)
     unlockAudioOnInteraction()
-  }, [isAdmin, isAdminChecked])
+  }, [isAdmin, showBell])
 
   const fetchData = useCallback(async () => {
     if (!isAdmin || lastSeen === undefined || muted === undefined) return
@@ -202,19 +210,19 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   // Initial fetch + polling — only after lastSeen is loaded.
   // Re-fetches immediately whenever lastSeen changes (e.g. after marking as read).
   useEffect(() => {
-    if (!isAdminChecked || lastSeen === undefined) return
+    if (!showBell || lastSeen === undefined) return
     fetchData()
     fetchList(1, false)
     setListPage(1)
     const timer = setInterval(fetchData, POLL_INTERVAL)
     return () => clearInterval(timer)
-  }, [isAdminChecked, lastSeen, fetchData, fetchList])
+  }, [showBell, lastSeen, fetchData, fetchList])
 
   // REALTIME — socket.io push (mini-services/notif-service).
   // Popup in-app + suara ditangani NotificationPopupHost; di sini cukup
   // muat ulang badge & daftar agar angka selalu segar.
   useEffect(() => {
-    if (!isAdminChecked || lastSeen === undefined || muted === undefined) return
+    if (!showBell || lastSeen === undefined || muted === undefined) return
     const user = getAuthUser()
     const unsubscribe = subscribeRealtime(
       () => {
@@ -225,7 +233,7 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
       { userId: user?.id || '', role: role || user?.role || '' },
     )
     return unsubscribe
-  }, [isAdminChecked, lastSeen, muted, role, fetchData, fetchList])
+  }, [showBell, lastSeen, muted, role, fetchData, fetchList])
 
   // Mark all as read when popover CLOSES — registration items yang sudah
   // dilihat hilang dari daftar pada poll berikutnya (behavior existing).
@@ -351,8 +359,9 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     return items.filter((n) => categoryOf(n.type) === category)
   }, [list, category])
 
-  // Don't render until role is checked
-  if (!isAdminChecked) return null
+  // Don't render: until role is known, or for customer roles (user/demo) —
+  // pelanggan hanya memakai CustomerNotificationBell (1 ikon, permintaan owner).
+  if (!showBell) return null
 
   const newCount = data?.newCount ?? 0
   const registrations = data?.registrations ?? []

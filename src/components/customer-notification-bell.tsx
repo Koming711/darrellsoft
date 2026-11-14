@@ -92,7 +92,10 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
   const [open, setOpen] = useState(false)
   const readyRef = useRef(false) // hindari suara pada fetch baseline pertama
 
-  const isAdmin = role === 'admin' || role === 'superadmin'
+  // PERMINTAAN OWNER: ikon pelanggan hanya untuk role user/demo — admin/
+  // superadmin/manager memakai notification-bell.tsx (Pusat Notifikasi) saja,
+  // supaya header tidak menampilkan 2 ikon notifikasi sekaligus.
+  const isAdmin = role === 'admin' || role === 'superadmin' || role === 'manager'
 
   const fetchData = useCallback(async () => {
     try {
