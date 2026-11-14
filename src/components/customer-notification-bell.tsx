@@ -5,6 +5,8 @@
 // Admin memakai notification-bell.tsx (daftar pendaftaran) — komponen ini
 // menampilkan notifikasi pribadi pelanggan: status pembayaran, pengingat
 // langganan 7/3 hari, langganan berakhir, dll. (dari tabel Notification).
+// PERMINTAAN OWNER: daftar HANYA menampilkan yang BELUM dibaca — begitu notif
+// dibaca (diklik / popover ditutup), notif hilang otomatis dr daftar.
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -94,7 +96,9 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await authFetch('/api/notifications')
+      // ?unread=1 — PERMINTAAN OWNER: daftar hanya notifikasi belum dibaca;
+      // begitu dibaca, notif hilang otomatis dari daftar (data tetap di DB).
+      const res = await authFetch('/api/notifications?unread=1')
       if (!res.ok) return
       const json = await res.json()
       const list: NotifItem[] = json.notifications ?? []
@@ -120,8 +124,9 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
   useEffect(() => {
     if (!role || isAdmin) return
     const onRead = () => {
+      // Semua sudah dibaca (instance lain) → daftar belum-dibaca jadi kosong
       setUnread(0)
-      setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
+      setItems([])
     }
     const onRefresh = () => {
       fetchData()
@@ -157,7 +162,7 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
     return unsubscribe
   }, [role, isAdmin, fetchData])
 
-  // Tutup popover = tandai semua sudah dibaca (badge hilang)
+  // Tutup popover = tandai semua sudah dibaca → daftar kosong (hilang otomatis)
   const handleOpenChange = (next: boolean) => {
     setOpen(next)
     if (!next && unread > 0) {
@@ -168,7 +173,7 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
       })
         .then(() => {
           setUnread(0)
-          setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
+          setItems([])
           window.dispatchEvent(new Event(SYNC_READ_EVENT))
         })
         .catch(() => {})
@@ -177,7 +182,8 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
 
   const handleItemClick = async (n: NotifItem) => {
     if (!n.isRead) {
-      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)))
+      // Optimistis: HAPUS dari daftar + tandai dibaca di server (fire & forget)
+      setItems((prev) => prev.filter((x) => x.id !== n.id))
       setUnread((u) => Math.max(0, u - 1))
       authFetch('/api/notifications', {
         method: 'POST',

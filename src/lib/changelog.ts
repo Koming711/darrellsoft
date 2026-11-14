@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-12-v231'
+export const CURRENT_VERSION = '2026-11-12-v232'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-12-v232',
+    date: { id: '12 November 2026', en: '12 November 2026' },
+    title: {
+      id: 'Pusat Notifikasi: Notif Sudah Dibaca Hilang Otomatis',
+      en: 'Notification Center: Read Notifications Disappear Automatically',
+    },
+    items: [
+      {
+        id: 'Daftar di Pusat Notifikasi kini hanya menampilkan notifikasi belum dibaca — begitu dibaca (diklik atau Tandai Semua Dibaca), notif hilang otomatis dari daftar',
+        en: 'The Notification Center list now only shows unread notifications — once read (clicked or Mark All as Read), the notification disappears automatically from the list',
+      },
+      {
+        id: 'Berlaku untuk admin dan pelanggan; data notifikasi tetap tersimpan aman di server (tidak dihapus permanen)',
+        en: 'Applies to both admin and customer views; notification data remains safely stored on the server (not permanently deleted)',
+      },
+    ],
+  },
   {
     version: '2026-11-12-v231',
     date: { id: '12 November 2026', en: '12 November 2026' },

@@ -1,4 +1,25 @@
 ---
+Task ID: 51
+Agent: Main
+Task: Pusat Notifikasi — notif yang sudah dibaca hilang OTOMATIS dari daftar
+
+Work Log:
+- LAPORAN USER: "di pusat notifikasi, apabila ada notif yang sudah dibaca, maka otomatis hilang notifnya. fix" — sebelumnya notif yang dibaca hanya berubah abu-abu dan tetap menumpuk di daftar.
+- DESAIN: daftar Pusat Notifikasi kini hanya menampilkan yang BELUM dibaca. Read masih dicatat di DB (isRead + readAt, data TIDAK dihapus) — notif yang sudah dibaca tinggal tidak ditampilkan. Berlaku di DUA lonceng: NotificationBell (admin/staff, judul "Pusat Notifikasi") & CustomerNotificationBell (pelanggan, judul "Notifikasi").
+- BACKEND (/api/notifications GET): param baru ?unread=1 → findMany where +isRead:false; total untuk pagination (hasMore "Muat lebih banyak") ikut dihitung pada set unread agar konsisten. unreadCount tetap scope penuh. Konsumen lain TIDAK berubah: NotificationPopupHost (?since=) tetap tanpa filter (notif baru selalu unread).
+- FRONTEND notification-bell.tsx: fetchList +&unread=1; handleNotifClick → optimistis FILTER OUT item (bukan tandai abu) + unreadCount-1 + POST mark-read fire&forget; handleMarkAllRead → optimistis list kosong {notifications: [], unreadCount: 0, hasMore: false, total: 0}.
+- FRONTEND customer-notification-bell.tsx: fetchData ?unread=1; handleItemClick → filter out item; handleOpenChange tutup (markAll) → setItems([]) bukan map isRead; handler SYNC_READ_EVENT antar-instance → setItems([]). Komentar header + docstring diperbarui.
+- VERSI: SW v233→v234, APP_VERSION/CURRENT '2026-11-12-v231'→'2026-11-12-v232'; changelog v232 "Pusat Notifikasi: Notif Sudah Dibaca Hilang Otomatis" (2 item id/en).
+- Lint file terubah (notifications route, 2 bell, changelog) → 0 error.
+- VERIFIKASI browser (akun test zztestdesk superadmin 3 notif own + zztestcust role 'user' + Pembeli terhubung 2 notif; 44 notif broadcast nyata di-snapshot lalu DIPULIHKAN persis): popup "Versi Baru! v232" ✓. ADMIN: "47 belum dibaca" ✓ → klik "Info Sistem A" → buka lagi → HILANG, 46 ✓ → klik "Langganan B" (ada link) → navigasi ke link ✓ + hilang, 45 ✓ → "Tandai semua dibaca" → SEMUA hilang seketika + empty state ✓ → tutup/buka ulang tetap kosong (filter server) ✓. CUSTOMER: badge 2 ✓ → klik "Pembayaran Diterima" → hilang, sisa 1 ✓ → tutup popover (auto markAll) → buka ulang "Belum ada notifikasi" + badge hilang ✓; badge Pusat Notifikasi milik role user ikut clear setelah dibuka (refresh list hanya saat open — mekanisme lama, tidak berubah). VERIFIKASI DB: semua baris notif test MASIH ADA dgn isRead=true + readAt terisi (tidak ada hard delete) ✓.
+- INSIDEN KECIL (teratasi): akun test pertama zztestcust (role user TANPA Pembeli) otomatis TERHAPUS saat coba login — rule existing login route membersihkan Pengguna yatim non-admin tanpa record Pembeli (login/route.ts:69-77). Solusi: buat ulang akun + record Pembeli terhubung (penggunaId) → login sukses.
+- CLEANUP: 7 notif test + 1 Pembeli test + 2 akun test dihapus; 44 broadcast nyata dipulihkan ke unread persis (terverifikasi total broadcast 44 = 44 unread, tidak ada baris read sebelumnya yg tertimpa) ✓.
+- CATATAN UX: saat notif tanpa link diklik, popover tetap menutup (perilaku lama setOpen(false) dipertahankan); item hilang terlihat saat dibuka kembali/badge turun seketika.
+
+Stage Summary:
+- Pusat Notifikasi (admin & pelanggan) kini hanya menampilkan notifikasi belum dibaca: begitu dibaca (diklik / Tandai Semua Dibaca / tutup popover utk pelanggan), notif hilang otomatis dari daftar dan badge turun seketika — riwayat tetap tersimpan aman di database (isRead+readAt), tidak dihapus permanen. API GET /api/notifications mendapat param ?unread=1 dgn pagination konsisten. Versi v234/v232.
+
+---
 Task ID: 50
 Agent: Main
 Task: Panel Admin — badge angka "Pendaftar Baru" hilang OTOMATIS begitu halamannya dilihat

@@ -6,7 +6,9 @@ import { stripReminderRef } from '@/lib/subscription-reminders'
 // GET: Fetch notifications (pusat notifikasi semua role).
 // - Admin/superadmin/manager: notifikasi broadcast admin (userId="") + miliknya.
 // - Role lain: HANYA notifikasi miliknya (isolasi per user/grup).
-// Query: ?page=1&take=15 (pagination riwayat), ?since=ISO (polling popup murah).
+// Query: ?page=1&take=15 (pagination riwayat), ?since=ISO (polling popup murah),
+//        ?unread=1 (PERMINTAAN OWNER: pusat notifikasi hanya menampilkan yang BELUM
+//        dibaca — begitu dibaca notif otomatis hilang dr daftar; data tetap tersimpan di DB).
 export async function GET(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -27,15 +29,21 @@ export async function GET(request: NextRequest) {
       if (!isNaN(d.getTime())) where.createdAt = { gt: d }
     }
 
+    // ?unread=1 → daftar hanya notifikasi belum dibaca (hilang otomatis saat dibaca)
+    const unreadOnly = searchParams.get('unread') === '1'
+    const listWhere = unreadOnly ? { ...where, isRead: false } : where
+
     const [notifications, unreadCount, total] = await Promise.all([
       db.notification.findMany({
-        where,
+        where: listWhere,
         orderBy: { createdAt: 'desc' },
         skip: since ? 0 : (page - 1) * take,
         take,
       }),
       db.notification.count({ where: { ...scopeWhere, isRead: false } }),
-      db.notification.count({ where: scopeWhere }),
+      // total untuk pagination dihitung pada set yang sedang ditampilkan
+      // (unreadOnly → total notifikasi belum dibaca, agar "Muat lebih banyak" konsisten)
+      db.notification.count({ where: listWhere }),
     ])
 
     return NextResponse.json({

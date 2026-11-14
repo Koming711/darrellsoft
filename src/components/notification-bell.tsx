@@ -99,8 +99,10 @@ interface NotificationBellProps {
  * - Badge merah = pendaftaran baru belum dilihat (admin) + notifikasi DB
  *   belum dibaca (semua role).
  * - Daftar notifikasi DB dengan kategori: Semua / Pendaftaran Akun /
- *   Masa Berlangganan / Informasi Sistem; tanggal & waktu; status dibaca.
- * - Tombol "Tandai Semua Dibaca" + pagination riwayat ("Muat lebih banyak").
+ *   Masa Berlangganan / Informasi Sistem; tanggal & waktu.
+ * - PERMINTAAN OWNER: daftar HANYA menampilkan notifikasi belum dibaca —
+ *   begitu dibaca (diklik / Tandai Semua Dibaca) notif hilang otomatis
+ *   dari daftar; data tetap tersimpan di DB (tidak dihapus permanen).
  * - Admin/superadmin tetap melihat daftar pendaftaran akun (CalonPembeli
  *   status "baru") di bagian atas — read state via localStorage timestamp.
  * - Popup & suara realtime ditangani NotificationPopupHost (tidak dobel di sini).
@@ -165,7 +167,9 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
 
   const fetchList = useCallback(async (page: number, append: boolean) => {
     try {
-      const res = await authFetch(`/api/notifications?page=${page}&take=${PAGE_SIZE}`)
+      // ?unread=1 — PERMINTAAN OWNER: pusat notifikasi hanya menampilkan yang BELUM dibaca;
+      // begitu notif dibaca (klik / tandai semua), notif itu hilang otomatis dari daftar.
+      const res = await authFetch(`/api/notifications?page=${page}&take=${PAGE_SIZE}&unread=1`)
       if (!res.ok) return
       const json: ListResponse = await res.json()
       setList((prev) =>
@@ -260,17 +264,10 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ markAll: true }),
       })
+      // PERMINTAAN OWNER: semua dibaca = semua HILANG dari daftar (bukan cuma berubah abu-abu)
       setList((prev) =>
         prev
-          ? {
-              ...prev,
-              unreadCount: 0,
-              notifications: prev.notifications.map((n) => ({
-                ...n,
-                isRead: true,
-                readAt: n.readAt ?? new Date().toISOString(),
-              })),
-            }
+          ? { notifications: [], unreadCount: 0, hasMore: false, total: 0 }
           : prev
       )
     } catch {
@@ -280,15 +277,14 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
 
   const handleNotifClick = async (n: DbNotification) => {
     if (!n.isRead) {
-      // Optimistis: tandai dibaca di UI lalu kirim ke server (fire & forget)
+      // Optimistis: HAPUS dari daftar lalu tandai dibaca di server (fire & forget) —
+      // notif yang dibaca hilang otomatis dari pusat notifikasi (permintaan owner).
       setList((prev) =>
         prev
           ? {
               ...prev,
               unreadCount: Math.max(0, prev.unreadCount - 1),
-              notifications: prev.notifications.map((x) =>
-                x.id === n.id ? { ...x, isRead: true, readAt: new Date().toISOString() } : x
-              ),
+              notifications: prev.notifications.filter((x) => x.id !== n.id),
             }
           : prev
       )
