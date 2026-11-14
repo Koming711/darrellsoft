@@ -53,6 +53,7 @@ import {
   Ban,
   Building2,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   ChevronRight,
   Loader2,
@@ -67,6 +68,15 @@ import {
 const rupiah = (n: number) => `Rp ${Math.round(n ?? 0).toLocaleString('id-ID')}`
 const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'
+
+/** Tanggal expired akun (validUntil/expiredDate) — merah = sudah lewat, amber = ≤30 hari lagi. */
+const expiryInfo = (d: string | null | undefined) => {
+  if (!d) return { text: '-', className: 'text-muted-foreground' }
+  const days = Math.ceil((new Date(d).getTime() - Date.now()) / 86_400_000)
+  if (days < 0) return { text: fmtDate(d), className: 'font-medium text-red-600 dark:text-red-400' }
+  if (days <= 30) return { text: fmtDate(d), className: 'font-medium text-amber-600 dark:text-amber-400' }
+  return { text: fmtDate(d), className: 'text-muted-foreground' }
+}
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   belum_aktif: { label: 'Belum Aktif', className: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
@@ -94,6 +104,7 @@ interface Row {
   role: string
   companyName: string
   registeredAt: string
+  expiredAt: string | null
   subscription: {
     id: string
     planName: string
@@ -415,6 +426,12 @@ export function KelolaPelangganContent() {
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <Phone className="size-3 shrink-0" /> {u.nomorHP || '-'}
                     </p>
+                    {u.expiredAt && (
+                      <p className="mt-0.5 flex items-center gap-1 text-xs">
+                        <CalendarClock className="size-3 shrink-0 text-muted-foreground" />
+                        <span className={expiryInfo(u.expiredAt).className}>{expiryInfo(u.expiredAt).text}</span>
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </div>
@@ -440,6 +457,7 @@ export function KelolaPelangganContent() {
                   <th className="p-2">Perusahaan</th>
                   <th className="p-2">Role</th>
                   <th className="p-2">Bergabung</th>
+                  <th className="p-2">Tanggal Expired</th>
                   <th className="p-2 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -467,6 +485,7 @@ export function KelolaPelangganContent() {
                       </Badge>
                     </td>
                     <td className="p-2 text-xs text-muted-foreground">{fmtDate(u.registeredAt)}</td>
+                    <td className={cn('p-2 text-xs', expiryInfo(u.expiredAt).className)}>{expiryInfo(u.expiredAt).text}</td>
                     <td className="p-2" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-center">
                         <button
@@ -566,6 +585,17 @@ export function KelolaPelangganContent() {
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Calendar className="size-3.5" /> Bergabung</span>
                   <span className="font-medium">{fmtDate(previewUser.registeredAt)}</span>
+                </div>
+                <Separator className="bg-border" />
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><CalendarClock className="size-3.5" /> Tanggal Expired</span>
+                  {previewUser.expiredAt ? (
+                    <span className={cn('font-medium', expiryInfo(previewUser.expiredAt).className)}>
+                      {expiryInfo(previewUser.expiredAt).text}
+                    </span>
+                  ) : (
+                    <span className="text-xs italic text-muted-foreground">Tanpa batas waktu</span>
+                  )}
                 </div>
                 <Separator className="bg-border" />
                 <div className="flex items-center justify-between gap-3 text-sm">

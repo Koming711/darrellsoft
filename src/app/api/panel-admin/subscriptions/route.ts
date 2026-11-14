@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       role: string
       companyName: string
       registeredAt: Date
+      expiredAt: Date | null
       subscription: {
         id: string
         planId: string | null
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     const buildRow = (
-      u: { id: string; username: string | null; namaLengkap: string; email: string; nomorHP: string; role: string; createdAt: Date },
+      u: { id: string; username: string | null; namaLengkap: string; email: string; nomorHP: string; role: string; createdAt: Date; expiredAt?: Date | null },
     ): SubsRow => {
       const sub = subMap.get(u.id) ?? null
       const derived = sub ? derivedSubscriptionStatus(sub) : SUB_STATUS.BELUM_AKTIF
@@ -96,6 +97,8 @@ export async function GET(request: NextRequest) {
         role: u.role,
         companyName: companyMap.get(u.id) ?? '',
         registeredAt: u.createdAt,
+        // Tanggal expired akun: Pengguna.validUntil / CalonPembeli.expiredDate (null = tanpa batas)
+        expiredAt: u.expiredAt ?? null,
         subscription: sub
           ? {
               id: sub.id,
@@ -134,10 +137,14 @@ export async function GET(request: NextRequest) {
           nomorHP: c.nomorHP,
           role: c.role,
           createdAt: c.createdAt,
+          expiredAt: c.expiredDate,
         }),
       )
 
-    let rows: SubsRow[] = [...penggunas.map(buildRow), ...calonRows]
+    let rows: SubsRow[] = [
+      ...penggunas.map((u) => buildRow({ ...u, expiredAt: u.validUntil })),
+      ...calonRows,
+    ]
 
     if (search) {
       rows = rows.filter(
