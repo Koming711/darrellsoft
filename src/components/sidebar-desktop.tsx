@@ -25,7 +25,6 @@ import {
   Wallet,
   Tags,
   ListTree,
-  UserCog,
   PackageOpen,
   PackageCheck,
   LayoutDashboard,
@@ -274,13 +273,9 @@ const menuItems = [
     featureId: 'hak-akses',
     section: 'administrasi',
   },
-  {
-    titleKey: 'pengguna' as TranslationKey,
-    href: '/administrasi/pengguna',
-    icon: UserCog,
-    featureId: 'pengguna',
-    section: 'administrasi',
-  },
+  // PERMINTAAN USER: menu "Pengguna" DIHAPUS dari seksi Administrasi.
+  // Halaman /administrasi/pengguna tetap ada (dipakai Panel Admin › Sistem ›
+  // Pengguna dan link notifikasi) — hanya entrinya yang tidak tampil di menu.
   {
     titleKey: 'panel_admin' as TranslationKey,
     href: '/panel-admin',
