@@ -19,7 +19,6 @@ import {
   Receipt,
   ScrollText,
   Users2,
-  KeyRound,
   Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -95,12 +94,15 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
   },
   sistem: {
     title: 'Sistem',
-    desc: 'Pengguna, hak akses, dan pengaturan akun.',
+    desc: 'Pengguna dan pengaturan akun.',
     subs: [
       { key: 'pengguna', label: 'Pengguna', icon: Users2 },
-      { key: 'hak-akses', label: 'Hak Akses', icon: KeyRound },
       { key: 'akun', label: 'Pengaturan Akun', icon: Settings },
     ],
+  },
+  'hak-akses': {
+    title: 'Hak Akses',
+    desc: 'Matrix hak akses pengguna per fitur.',
   },
 }
 
@@ -164,10 +166,13 @@ function AdminPanelInner() {
           <>
             <HubTabs tabs={SECTIONS.sistem.subs!} param="sub" />
             {activeSub === 'pengguna' && <PenggunaContent />}
-            {activeSub === 'hak-akses' && <HakAksesContent />}
             {activeSub === 'akun' && <PengaturanAkunContent />}
           </>
         )
+      // PERMINTAAN USER: Hak Akses kini menu sidebar tersendiri (dipindah dari
+      // sub-tab halaman Sistem) — konten tetap sama (Matrix Hak Akses).
+      case 'hak-akses':
+        return <HakAksesContent />
     }
   }
 

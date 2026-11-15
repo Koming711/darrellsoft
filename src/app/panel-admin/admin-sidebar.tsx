@@ -19,6 +19,7 @@ import {
   ExternalLink,
   X,
   Building2,
+  KeyRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getAuthUser } from '@/lib/auth'
@@ -34,6 +35,7 @@ export type AdminTab =
   | 'grup'
   | 'laporan'
   | 'sistem'
+  | 'hak-akses'
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'beranda', label: 'Beranda Admin', icon: LayoutDashboard },
@@ -50,9 +52,12 @@ const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ cl
   { tab: 'laporan', label: 'Laporan', icon: FileText },
 ]
 
-// Seksi Sistem (setelah divider — pola sub menu Rajamesin)
+// Seksi Sistem (setelah divider — pola sub menu Rajamesin).
+// PERMINTAAN USER: "Hak Akses" DIPINDAH dari sub-tab di dalam halaman Sistem
+// menjadi menu sidebar tersendiri di sini.
 const ADMIN_MENU_SISTEM: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'sistem', label: 'Sistem', icon: Settings },
+  { tab: 'hak-akses', label: 'Hak Akses', icon: KeyRound },
 ]
 
 /**
