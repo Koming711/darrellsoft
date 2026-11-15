@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   LayoutDashboard,
-  Users,
   Crown,
   UserPlus,
   Receipt,
@@ -37,9 +36,10 @@ export type AdminTab =
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'beranda', label: 'Beranda Admin', icon: LayoutDashboard },
-  // Penamaan sesuai permintaan user: seksi pelanggan = "Pengguna", seksi pembayaran = "Pendaftar Baru",
-  // dan Pengaturan (metode pembayaran) jadi menu sidebar tersendiri (dipindah dari sub-tab Pendaftar Baru).
-  { tab: 'pelanggan', label: 'Pengguna', icon: Users },
+  // PERMINTAAN USER: menu "Pengguna" DIHAPUS dari sidebar. Tab 'pelanggan' (Kelola
+  // Pengguna) tetap hidup untuk deep-link/redirect lama (?tab=pelanggan) — hanya
+  // entrinya yang tidak lagi tampil di menu. Seksi pembayaran = "Pendaftar Baru",
+  // Pengaturan (metode pembayaran) tetap menu sidebar tersendiri.
   { tab: 'paket', label: 'Paket', icon: Crown },
   { tab: 'pembayaran', label: 'Pendaftar Baru', icon: UserPlus },
   { tab: 'grup', label: 'Manajemen Grup', icon: Building2 },
@@ -60,7 +60,6 @@ const ADMIN_MENU_SISTEM: { tab: AdminTab; label: string; icon: React.ComponentTy
  * PERMINTAAN USER: begitu halaman Pendaftar Baru dibuka (antrean ditandai sudah dilihat),
  * angka badge LANGSUNG hilang — store dibagikan dengan konten verifikasi, jadi pembaruan
  * tidak menunggu polling. Pendaftar baru berikutnya membuat badge muncul lagi.
- * Catatan: badge angka di menu Pengguna dihapus sesuai permintaan user.
  */
 function useAdminCounts() {
   const pembayaranBelumDilihat = useAdminCountsStore((s) => s.pembayaranBelumDilihat)
