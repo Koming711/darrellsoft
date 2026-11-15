@@ -61,8 +61,6 @@ interface ListResponse {
   total: number
 }
 
-type Category = 'all' | 'registration' | 'subscription' | 'system'
-
 const STORAGE_KEY = 'notif-reg-last-seen'
 const COUNT_KEY = 'notif-last-known-count'
 const MUTE_KEY = 'notif-sound-muted'
@@ -93,7 +91,9 @@ function formatDateTime(dateStr: string, lang: 'id' | 'en'): string {
   })
 }
 
-function categoryOf(type: string): Exclude<Category, 'all'> {
+type NotifCategory = 'registration' | 'subscription' | 'system'
+
+function categoryOf(type: string): NotifCategory {
   if (type === 'registration') return 'registration'
   if (type === 'subscription') return 'subscription'
   return 'system'
@@ -112,8 +112,9 @@ interface NotificationBellProps {
  *   ikon notifikasi (CustomerNotificationBell) supaya header tidak dobel.
  * - Badge merah = pendaftaran baru belum dilihat (admin) + notifikasi DB
  *   belum dibaca.
- * - Daftar notifikasi DB dengan kategori: Semua / Pendaftaran Akun /
- *   Masa Berlangganan / Informasi Sistem; tanggal & waktu.
+ * - Daftar notifikasi DB flat (tanggal & waktu) — TANPA tab kategori.
+ *   PERMINTAAN USER: semua tab kategori (Semua/Pendaftaran/Langganan/Sistem)
+ *   DIHAPUS dari popup Pusat Notifikasi.
  * - PERMINTAAN OWNER: daftar HANYA menampilkan notifikasi belum dibaca —
  *   begitu dibaca (diklik / Tandai Semua Dibaca) notif hilang otomatis
  *   dari daftar; data tetap tersimpan di DB (tidak dihapus permanen).
@@ -127,7 +128,6 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   const [data, setData] = useState<NotifResponse | null>(null)
   const [list, setList] = useState<ListResponse | null>(null)
   const [listPage, setListPage] = useState(1)
-  const [category, setCategory] = useState<Category>('all')
   const [open, setOpen] = useState(false)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const [lastSeen, setLastSeen] = useState<string | null | undefined>(undefined) // undefined = not loaded yet
@@ -359,10 +359,9 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   const filteredNotifs = useMemo(() => {
     // Pendaftaran akun (type=registration) tidak ditampilkan di daftar —
     // sudah diwakili seksi "Pendaftaran" di atas (1 notifikasi per akun daftar).
-    const items = (list?.notifications ?? []).filter((n) => n.type !== 'registration')
-    if (category === 'all') return items
-    return items.filter((n) => categoryOf(n.type) === category)
-  }, [list, category])
+    // Tab kategori dihapus (permintaan user) — semua notif tampil dalam 1 daftar.
+    return (list?.notifications ?? []).filter((n) => n.type !== 'registration')
+  }, [list])
 
   // Don't render: until role is known, or for customer roles (user/demo) —
   // pelanggan hanya memakai CustomerNotificationBell (1 ikon, permintaan owner).
@@ -379,14 +378,8 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   const unreadDb = list?.unreadCount ?? 0
   const badgeCount = (isAdmin ? newCount : 0) + unreadDb
 
-  const categories: { key: Category; label: string }[] = [
-    { key: 'all', label: language === 'en' ? 'All' : 'Semua' },
-    { key: 'registration', label: language === 'en' ? 'Registrations' : 'Pendaftaran' },
-    { key: 'subscription', label: language === 'en' ? 'Subscription' : 'Langganan' },
-    { key: 'system', label: language === 'en' ? 'System' : 'Sistem' },
-  ]
-
-  const showRegistrations = isAdmin && (category === 'all' || category === 'registration')
+  // PERMINTAAN USER: tab kategori DIHAPUS — seksi pendaftaran selalu tampil (admin).
+  const showRegistrations = isAdmin
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -437,24 +430,10 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
           </div>
         </div>
 
-        {/* Kategori */}
-        <div className="flex items-center gap-1 border-b border-slate-100 dark:border-zinc-800 px-2 py-1.5 overflow-x-auto hide-scrollbar">
-          {categories.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => setCategory(c.key)}
-              className={cn(
-                'whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                category === c.key
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-zinc-800'
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
-          <div className="ml-auto flex items-center gap-1">
+        {/* PERMINTAAN USER: baris tab kategori (Semua/Pendaftaran/Langganan/Sistem)
+            DIHAPUS. Baris aksi tetap: Hapus Semua + Tandai Semua Dibaca. */}
+        <div className="flex items-center justify-end gap-1 border-b border-slate-100 dark:border-zinc-800 px-2 py-1.5">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setConfirmDeleteAll(true)}
