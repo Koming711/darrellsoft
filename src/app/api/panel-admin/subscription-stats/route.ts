@@ -27,13 +27,17 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [subs, totalPengguna, totalCalon, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices, belumDilihat] =
+    const [subs, penggunaIds, calonIds, pendingPayments, approvedPayments, planCounts, recentPayments, pendingInvoices, belumDilihat] =
       await Promise.all([
         db.customerSubscription.findMany({
           select: { id: true, userId: true, status: true, endDate: true, planId: true },
         }),
-        db.pengguna.count(),
-        db.calonPembeli.count(),
+        // FIX: ambil daftar ID akun yang ADA — statistik hanya menghitung langganan
+        // yang userId-nya masih punya akun (Pengguna/CalonPembeli). Baris langganan
+        // YATIM (akun sudah terhapus oleh alur lama) tidak lagi menggelembungkan
+        // "Pelanggan Aktif" & "Pelanggan per Paket" di Beranda.
+        db.pengguna.findMany({ select: { id: true } }),
+        db.calonPembeli.findMany({ select: { id: true } }),
         db.subscriptionPayment.findMany({
           where: { status: PAYMENT_STATUS.MENUNGGU_VERIFIKASI, deletedAt: null },
           include: { invoice: true },
@@ -83,7 +87,12 @@ export async function GET(request: NextRequest) {
     for (const u of penggunaRows) akunById.set(u.id, u.namaLengkap || u.username || 'Akun')
     for (const c of calonRows) akunById.set(c.id, c.nama || c.username || 'Akun')
 
-    // Hitung status turunan per langganan
+    // Hitung status turunan per AKUN (bukan per baris langganan) — identik dengan
+    // logika halaman Pengguna (subMap + status turunan). Akun TANPA baris langganan
+    // = belum_aktif, jadi angka Beranda selalu konsisten dgn halaman Pengguna.
+    const akunIdSet = new Set([...penggunaIds.map((p) => p.id), ...calonIds.map((c) => c.id)])
+    const liveSubs = subs.filter((s) => akunIdSet.has(s.userId))
+    const subByUser = new Map(liveSubs.map((s) => [s.userId, s]))
     const statusCounts: Record<string, number> = {
       [SUB_STATUS.BELUM_AKTIF]: 0,
       [SUB_STATUS.AKTIF]: 0,
@@ -93,10 +102,11 @@ export async function GET(request: NextRequest) {
       [SUB_STATUS.DIBATALKAN]: 0,
     }
     const perPlan: Record<string, number> = {}
-    for (const s of subs) {
-      const st = derivedSubscriptionStatus(s)
+    for (const accId of akunIdSet) {
+      const s = subByUser.get(accId)
+      const st = s ? derivedSubscriptionStatus(s) : SUB_STATUS.BELUM_AKTIF
       statusCounts[st] = (statusCounts[st] ?? 0) + 1
-      if ((st === SUB_STATUS.AKTIF || st === SUB_STATUS.AKAN_BERAKHIR) && s.planId) {
+      if ((st === SUB_STATUS.AKTIF || st === SUB_STATUS.AKAN_BERAKHIR) && s?.planId) {
         perPlan[s.planId] = (perPlan[s.planId] ?? 0) + 1
       }
     }
@@ -113,7 +123,7 @@ export async function GET(request: NextRequest) {
     }).length
 
     return NextResponse.json({
-      totalAkun: totalPengguna + totalCalon,
+      totalAkun: penggunaIds.length + calonIds.length,
       pelangganAktif: statusCounts[SUB_STATUS.AKTIF],
       pelangganAkanBerakhir: statusCounts[SUB_STATUS.AKAN_BERAKHIR],
       pelangganKedaluwarsa: statusCounts[SUB_STATUS.KEDALUWARSA],
