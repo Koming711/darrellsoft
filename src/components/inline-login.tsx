@@ -65,7 +65,10 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
 
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
-        allPerms[data.role] = data.permissions
+        // Entri role LAIN dari perangkat ini dipertahankan, tetapi izin role yang
+        // baru login HARUS memakai data TERBARU dari server (snapshot lama di
+        // localStorage tidak boleh menimpa — penyebab menu terkunci setelah login
+        // meski matriks Hak Akses sudah diubah).
         try {
           const existing = localStorage.getItem('permissions')
           if (existing) {
@@ -73,6 +76,7 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
             Object.assign(allPerms, parsed)
           }
         } catch {}
+        allPerms[data.role] = data.permissions
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
 
@@ -162,7 +166,8 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
 
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
-        allPerms[data.role] = data.permissions
+        // Entri role LAIN dipertahankan; izin role baru daftar memakai data
+        // TERBARU dari server (bukan snapshot lama di localStorage).
         try {
           const existing = localStorage.getItem('permissions')
           if (existing) {
@@ -170,6 +175,7 @@ export function InlineLogin({ onSuccess }: { onSuccess: (user: any) => void }) {
             Object.assign(allPerms, parsed)
           }
         } catch {}
+        allPerms[data.role] = data.permissions
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
 

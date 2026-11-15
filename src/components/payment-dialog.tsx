@@ -197,7 +197,10 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
             });
             if (u.permissions) {
               const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
-              allPerms[u.role] = u.permissions;
+              // Entri role LAIN dari perangkat ini dipertahankan, tetapi izin role
+              // yang baru dibuat/login HARUS memakai data TERBARU dari server —
+              // snapshot lama di localStorage tidak boleh menimpa (penyebab menu
+              // seperti "Daftar Barang" terkunci meski matriks sudah diubah).
               try {
                 const existing = localStorage.getItem('permissions');
                 if (existing) {
@@ -205,6 +208,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
                   Object.assign(allPerms, parsed);
                 }
               } catch {}
+              allPerms[u.role] = u.permissions;
               localStorage.setItem('permissions', JSON.stringify(allPerms));
             }
           } catch {}
@@ -349,7 +353,8 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
           // Store permissions
           if (loginData.permissions) {
             const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {};
-            allPerms[loginData.role] = loginData.permissions;
+            // Entri role LAIN dipertahankan; izin role ini memakai data TERBARU
+            // dari server (snapshot lama di localStorage tidak boleh menimpa).
             try {
               const existing = localStorage.getItem('permissions');
               if (existing) {
@@ -357,6 +362,7 @@ export default function PaymentDialog({ open, onClose, pkg, customerData, onSucc
                 Object.assign(allPerms, parsed);
               }
             } catch {}
+            allPerms[loginData.role] = loginData.permissions;
             localStorage.setItem('permissions', JSON.stringify(allPerms));
           }
 

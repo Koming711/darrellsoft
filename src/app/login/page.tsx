@@ -125,8 +125,12 @@ function LoginContent() {
       // Store permissions in localStorage
       if (data.permissions) {
         const allPerms: Record<string, { features: Record<string, boolean>; subPermissions: Record<string, Record<string, boolean>> }> = {}
-        allPerms[data.role] = data.permissions
-        // Merge with existing permissions from other roles (if any)
+        // Entri role LAIN dari perangkat ini dipertahankan, tetapi izin role yang
+        // baru login HARUS memakai data TERBARU dari server. Dulu Object.assign
+        // menimpa data server dengan snapshot lama di localStorage — akibatnya
+        // menu (mis. "Daftar Barang") tetap terkunci setelah login meski matriks
+        // Hak Akses sudah diubah, dan hanya terbuka lagi setelah verify-session
+        // berhasil (atau selamanya bila request itu gagal).
         try {
           const existing = localStorage.getItem('permissions')
           if (existing) {
@@ -134,6 +138,7 @@ function LoginContent() {
             Object.assign(allPerms, parsed)
           }
         } catch {}
+        allPerms[data.role] = data.permissions
         localStorage.setItem('permissions', JSON.stringify(allPerms))
       }
 
