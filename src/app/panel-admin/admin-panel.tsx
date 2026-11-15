@@ -36,6 +36,7 @@ import { LaporanAuditContent } from './laporan-audit/content'
 import { HakAksesContent } from '@/app/administrasi/hak-akses/page'
 import { PengaturanAkunContent } from './pengaturan/content'
 import { ManajemenGrupContent } from './grup/content'
+import { ManajemenPerangkatContent } from './manajemen-perangkat/content'
 
 interface SectionDef {
   title: string
@@ -79,6 +80,11 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
   grup: {
     title: 'Manajemen Grup',
     desc: 'Seluruh grup perusahaan: owner, anggota, kuota, dan status langganan.',
+  },
+  // PERMINTAAN USER: Manajemen Perangkat — sesi "Login 1 Perangkat".
+  'manajemen-perangkat': {
+    title: 'Manajemen Perangkat',
+    desc: 'Perangkat aktif tiap akun (Login 1 Perangkat): cabut sesi, reset perangkat, riwayat login ditolak.',
   },
   laporan: {
     title: 'Laporan',
@@ -147,6 +153,10 @@ function AdminPanelInner() {
         return <RiwayatTransaksiContent />
       case 'grup':
         return <ManajemenGrupContent />
+      // PERMINTAAN USER: Manajemen Perangkat — tabel perangkat aktif + cabut
+      // sesi + reset perangkat + riwayat login ditolak (Login 1 Perangkat).
+      case 'manajemen-perangkat':
+        return <ManajemenPerangkatContent />
       case 'laporan':
         return (
           <>

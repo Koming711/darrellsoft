@@ -117,6 +117,25 @@ export function setAuthUser(user: User): void {
 
 export function clearAuthUser(): void {
   if (typeof window === 'undefined') return
+  // LOGIN 1 PERANGKAT: cabut sesi perangkat ini di server (status → revoked)
+  // sehingga akun boleh login kembali di perangkat lain. Hanya sesi milik
+  // perangkat INI yang dicabut (identifikasi via device token) — fire-and-forget.
+  try {
+    const rawAuth = localStorage.getItem('auth')
+    const uid = rawAuth ? (JSON.parse(rawAuth) as User)?.id : null
+    if (uid) {
+      const rawToken = localStorage.getItem('ds_device_token')
+      const token = rawToken || readCookie('dsDevice') || ''
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, deviceToken: token }),
+        keepalive: true,
+      }).catch(() => {})
+    }
+  } catch {
+    // ignore
+  }
   // Hapus catatan halaman terakhir milik user ini — setelah logout, buka
   // ulang aplikasi kembali mulai dari Beranda (bukan halaman user sebelumnya).
   try {

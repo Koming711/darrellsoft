@@ -5,10 +5,15 @@ import { ensureSeedData, seedUserData, seedKategoriForUser } from '@/lib/auto-se
 import { buildDefaultPermissions, buildDefaultSubPermissions } from '@/lib/permission-defaults'
 import { sanitizeError } from '@/lib/api-error'
 import { verifyPassword } from '@/lib/password'
+import {
+  registerDeviceSession,
+  isSingleDeviceEnabled,
+  getSingleDeviceMessage,
+} from '@/lib/device-session'
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json()
+    const { username, password, deviceToken } = await request.json()
 
     // Auto-seed global data (users, settings) if not yet seeded
     await ensureSeedData(null)
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return await buildLoginResponse(pengguna.id, pengguna.username, pengguna.namaLengkap, pengguna.role, pengguna.validUntil, username)
+      return await buildLoginResponse(request, pengguna.id, pengguna.username, pengguna.namaLengkap, pengguna.role, pengguna.validUntil, username, deviceToken)
     }
 
     // 2. Tidak cocok di Pengguna -> cek kandidat CalonPembeli (owner grup /
@@ -121,7 +126,7 @@ export async function POST(request: NextRequest) {
       // Status "baru" atau "aktif" -> langsung izinkan login
       // Pakai CalonPembeli ID sebagai userId, role = demo
       const role = calon.role || 'demo'
-      return await buildLoginResponse(calon.id, calon.username || username, calon.nama, role, calon.expiredDate, calon.username || username)
+      return await buildLoginResponse(request, calon.id, calon.username || username, calon.nama, role, calon.expiredDate, calon.username || username, deviceToken)
     }
 
     // 3. Tidak ditemukan di mana pun
@@ -135,26 +140,63 @@ export async function POST(request: NextRequest) {
 
 // Shared helper: build login response with session, cookies, permissions
 async function buildLoginResponse(
+  request: NextRequest,
   userId: string,
   username: string,
   name: string,
   role: string,
   validUntil: Date | null,
-  usernameForSession: string
+  usernameForSession: string,
+  deviceToken?: string | null
 ): Promise<NextResponse> {
   const sessionId = randomUUID()
 
-  // Check single device setting
-  const singleDeviceSetting = await db.setting.findUnique({ where: { key: 'single_device' } })
-  const singleDevice = singleDeviceSetting?.value !== 'false'
-
-  if (singleDevice || role === 'admin' || role === 'superadmin') {
-    await db.setting.upsert({
-      where: { key: `session_${usernameForSession}` },
-      update: { value: sessionId },
-      create: { key: `session_${usernameForSession}`, value: sessionId },
+  // ===== LOGIN 1 PERANGKAT (1 akun = 1 perangkat aktif) =====
+  // Perangkat yang berhasil login pertama terdaftar otomatis sebagai
+  // perangkat aktif. Login dari perangkat lain DITOLAK (403) dengan
+  // peringatan keamanan — tidak ada pengambilalihan sesi otomatis.
+  // Berlaku untuk SEMUA role (superadmin, admin, owner, anggota grup, user, demo).
+  const singleDevice = await isSingleDeviceEnabled()
+  if (deviceToken) {
+    const reg = await registerDeviceSession({
+      userId,
+      username: usernameForSession,
+      role,
+      deviceToken,
+      userAgent: request.headers.get('user-agent') || '',
+      enforce: singleDevice,
     })
+    if (!reg.ok && reg.conflict) {
+      const customMessage = await getSingleDeviceMessage()
+      return NextResponse.json(
+        {
+          deviceConflict: true,
+          error:
+            'PERINGATAN KEAMANAN! Akun Darrellsoft ini sedang digunakan pada perangkat lain. ' +
+            'Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat. ' +
+            'Login dari perangkat ini tidak diizinkan.',
+          warningMessage: customMessage,
+          activeDevice: {
+            deviceName: reg.conflict.deviceName,
+            deviceType: reg.conflict.deviceType,
+            browser: reg.conflict.browser,
+            os: reg.conflict.os,
+            loginAt: reg.conflict.loginAt,
+            lastActivityAt: reg.conflict.lastActivityAt,
+          },
+        },
+        { status: 403, headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      )
+    }
   }
+
+  // ===== LEGACY sesi username (kompatibilitas alur lain — register/checkout
+  // masih menulis key ini; penegakan 1 perangkat kini lewat DeviceSession) =====
+  await db.setting.upsert({
+    where: { key: `session_${usernameForSession}` },
+    update: { value: sessionId },
+    create: { key: `session_${usernameForSession}`, value: sessionId },
+  }).catch(() => {})
 
   // Get demo popup message and remaining days for demo users
   let demoPopupMessage: string | null = null

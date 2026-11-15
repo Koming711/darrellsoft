@@ -1,6 +1,6 @@
 'use client'
 
-import { Save, ShieldCheck } from 'lucide-react'
+import { Save, ShieldCheck, Smartphone } from 'lucide-react'
 import React, { useState, useEffect, useRef } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,9 @@ export default function KeamananPage() {
   const [demoMessage, setDemoMessage] = useState('')
   const demoMsgRef = useRef<HTMLTextAreaElement>(null)
 
+  // === LOGIN 1 PERANGKAT STATUS (dibaca dari setting 'single_device') ===
+  const [singleDevice, setSingleDevice] = useState(true)
+
   // === LOAD SETTINGS ===
   useEffect(() => {
     let cancelled = false
@@ -30,6 +33,7 @@ export default function KeamananPage() {
           for (const s of data) {
             if (s.key === 'demo_days') setDemoDays(s.value || '7')
             if (s.key === 'demo_message') setDemoMessage(s.value || 'Selamat datang! Anda sedang menggunakan akun demo.\nUpgrade ke akun penuh untuk mengakses semua fitur.')
+            if (s.key === 'single_device') setSingleDevice(s.value === 'false' ? false : true)
           }
         }
       } catch {}
@@ -136,13 +140,27 @@ export default function KeamananPage() {
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-slate-700">Multi perangkat diizinkan</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Satu akun boleh dipakai di beberapa perangkat sekaligus tanpa saling mengeluarkan.
-                </p>
-              </div>
+              {singleDevice ? (
+                <>
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Login 1 Perangkat aktif</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Setiap akun hanya aktif pada satu perangkat. Login dari perangkat lain ditolak dengan peringatan keamanan. Perangkat aktif, pencabutan sesi, dan reset perangkat dikelola di Panel Admin — Manajemen Perangkat.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Smartphone className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Multi perangkat diizinkan</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Satu akun boleh dipakai di beberapa perangkat sekaligus tanpa saling mengeluarkan. Aktifkan "Login 1 Perangkat" di Halaman Hak Akses untuk membatasi satu akun satu perangkat.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

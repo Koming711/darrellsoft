@@ -11,12 +11,13 @@ import { SubscriptionWaitingPopup } from './subscription-waiting-popup'
 import type { SubscriptionAccessInfo } from '@/lib/subscription'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser, type User } from '@/lib/auth'
+import { getOrCreateDeviceToken } from '@/lib/device'
 import { saveLastRoute } from '@/lib/last-route'
 import { tagCurrentHistoryEntry } from '@/lib/app-history'
 import { setGrupInfo } from '@/lib/permissions'
 import { hasFeatureAccess, getFeatureIdForPath, getFirstAccessiblePath, saveRolePermissions } from '@/lib/permissions'
 import { authFetch } from '@/lib/auth-fetch'
-import { AlertTriangle, LogOut, Smartphone, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
+import { AlertTriangle, LogOut, ShieldAlert, TimerOff, Lock, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/contexts/language-context'
 
@@ -101,7 +102,6 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // === SESSION CHECK STATE ===
   const [sessionWarning, setSessionWarning] = useState<string | null>(null)
   const [forceLogoutAvailable, setForceLogoutAvailable] = useState(false)
-  const [isReclaiming, setIsReclaiming] = useState(false)
   const [accountExpired, setAccountExpired] = useState(false)
   const sessionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -264,7 +264,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       const res = await authFetch('/api/auth/verify-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role, deviceToken: getOrCreateDeviceToken() }),
       })
       const data = await res.json()
       applyVerifyData(data)
@@ -312,7 +312,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           const sessionRes = await authFetch('/api/auth/verify-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role, deviceToken: getOrCreateDeviceToken() }),
           })
           const data = await sessionRes.json()
           applyVerifyData(data)
@@ -374,7 +374,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
                       const vRes = await authFetch('/api/auth/verify-session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: restored.username, sessionId: restored.sessionId, role: restored.role }),
+                        body: JSON.stringify({ username: restored.username, sessionId: restored.sessionId, role: restored.role, deviceToken: getOrCreateDeviceToken() }),
                       })
                       const vData = await vRes.json()
                       if (!cancelled) applyVerifyData(vData)
@@ -418,7 +418,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
           const sessionRes = await authFetch('/api/auth/verify-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+            body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role, deviceToken: getOrCreateDeviceToken() }),
           })
           if (cancelled) return
           const data = await sessionRes.json()
@@ -509,7 +509,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       authFetch('/api/auth/verify-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role }),
+        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, role: authUser.role, deviceToken: getOrCreateDeviceToken() }),
       })
       .then(r => r.json())
       .then(data => {
@@ -746,79 +746,33 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
         </div>
       )}
 
-      {/* ===== MODAL: SESSION WARNING (Multi-Device) ===== */}
+      {/* ===== MODAL: SESSION WARNING (Login 1 Perangkat) =====
+          Muncul bila sesi perangkat ini ditolak server: sesi aktif milik
+          perangkat lain (device_conflict) atau sesi dicabut administrator
+          (session_revoked). Pengambilalihan sesi otomatis TIDAK diizinkan —
+          hanya logout ke halaman login. */}
       {sessionWarning && !accountExpired && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
           <div className="rounded-2xl shadow-2xl border border-red-200 dark:border-red-800 max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200" style={{ backgroundColor: 'var(--card)' }}>
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-                {forceLogoutAvailable ? <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> : <Smartphone className="w-5 h-5 text-red-600 dark:text-red-400" />}
+                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">{t('peringatan_keamanan')}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('akun_digunakan_di_perangkat_lain')}</p>
+                <h3 className="text-lg font-bold text-foreground">PERINGATAN KEAMANAN!</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Login 1 Perangkat Darrellsoft</p>
               </div>
             </div>
             <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-5">
               <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">{sessionWarning}</p>
             </div>
-            {forceLogoutAvailable ? (
-              <div className="space-y-2.5">
-                <button
-                  onClick={async () => {
-                    setIsReclaiming(true)
-                    try {
-                      const authUser = getAuthUser()
-                      if (!authUser?.sessionId) {
-                        toast.error(t('session_data_not_found'))
-                        setIsReclaiming(false)
-                        handleLogout()
-                        return
-                      }
-                      const res = await authFetch('/api/auth/reclaim-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: authUser.username, sessionId: authUser.sessionId, userId: authUser.id }),
-                      })
-                      const data = await res.json()
-                      if (res.ok) {
-                        setSessionWarning(null)
-                        setForceLogoutAvailable(false)
-                        toast.success(t('other_device_logged_out'))
-                      } else {
-                        toast.error(data.error || t('reclaim_session_failed'))
-                      }
-                    } catch {
-                      toast.error(t('terjadi_kesalahan_jaringan'))
-                    }
-                    setIsReclaiming(false)
-                  }}
-                  disabled={isReclaiming}
-                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white font-semibold py-2.5 rounded-xl transition-colors"
-                  autoFocus
-                >
-                  {isReclaiming ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {t('memproses')}</>
-                  ) : (
-                    <><ShieldAlert className="w-4 h-4" /> {t('paksa_logout_perangkat_lain')}</>
-                  )}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
-                >
-                  <LogOut className="w-4 h-4" /> {t('logout_dari_sini')}
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleLogout}
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
-                autoFocus
-              >
-                {t('ok_logout')}
-              </button>
-            )}
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              autoFocus
+            >
+              {t('ok_logout')}
+            </button>
           </div>
         </div>
       )}

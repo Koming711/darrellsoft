@@ -2213,7 +2213,7 @@ export default function Home() {
       </footer>
 
       {/* PERMINTAAN USER: popup sliding "ada yang order" di halaman landing —
-          10 popup nama & daerah berbeda, muncul bergantian kiri-bawah */}
+          50 popup nama & daerah berbeda (durasi max 2 hari), muncul bergantian kiri-bawah */}
       <LandingOrderPopup />
 
     </div>

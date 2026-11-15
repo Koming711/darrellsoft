@@ -1,14 +1,34 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Eye, EyeOff, Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft, KeyRound, X, MessageCircle } from 'lucide-react'
+import { Eye, EyeOff, Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft, KeyRound, X, MessageCircle, ShieldAlert, Smartphone } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getAuthUser, setAuthUser } from '@/lib/auth'
+import { getAuthUser, setAuthUser, clearAuthUser } from '@/lib/auth'
+import { getOrCreateDeviceToken } from '@/lib/device'
 import { useLanguage } from '@/contexts/language-context'
 import { applyThemeAfterLogin } from '@/contexts/theme-context'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LanguageToggle } from '@/components/language-toggle'
 import { useTheme } from 'next-themes'
+
+// Kontak admin Darrellsoft (sama dengan landing page) — dipakai tombol
+// "Hubungi Administrator" pada peringatan keamanan Login 1 Perangkat.
+const ADMIN_WA_NUMBER = '6285888082208'
+const ADMIN_WA_URL = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(
+  'Halo Admin Darrellsoft, saya tidak bisa login karena peringatan KEAMANAN Login 1 Perangkat. Akun saya sedang aktif di perangkat lain. Mohon bantuan reset perangkat.'
+)}`
+
+interface DeviceBlockInfo {
+  warningMessage: string
+  activeDevice: {
+    deviceName: string
+    deviceType: string
+    browser: string
+    os: string
+    loginAt?: string
+    lastActivityAt?: string
+  } | null
+}
 
 
 export default function LoginPage() {
@@ -41,6 +61,11 @@ function LoginContent() {
   const [password, setPassword] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
   const [loginError, setLoginError] = useState('')
+
+  // LOGIN 1 PERANGKAT — layar peringatan keamanan bila login dari perangkat
+  // kedua DITOLAK server (akun sedang aktif di perangkat lain).
+  const [deviceBlocked, setDeviceBlocked] = useState<DeviceBlockInfo | null>(null)
+  const [showContactAdmin, setShowContactAdmin] = useState(false)
 
   // Forgot password state — alur OTP WhatsApp ke nomor terdaftar:
   // step 'search' (cari akun) → 'otp' (kirim + verifikasi OTP) → 'reset' (password baru)
@@ -100,7 +125,7 @@ function LoginContent() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, deviceToken: getOrCreateDeviceToken() }),
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
@@ -108,6 +133,17 @@ function LoginContent() {
       const data = await res.json()
 
       if (!res.ok) {
+        // LOGIN 1 PERANGKAT: perangkat kedua ditolak → tampilkan layar
+        // peringatan keamanan (bukan sekadar pesan error biasa).
+        if (data?.deviceConflict) {
+          clearAuthUser() // pastikan tidak ada sesi basi perangkat ini
+          setDeviceBlocked({
+            warningMessage: typeof data.warningMessage === 'string' ? data.warningMessage : '',
+            activeDevice: data.activeDevice || null,
+          })
+          setLoginLoading(false)
+          return
+        }
         setLoginError(data.error || 'Login gagal')
         setLoginLoading(false)
         return
@@ -387,9 +423,61 @@ function LoginContent() {
           <p className="text-muted-foreground mt-2 text-base">{t('app_tagline')}</p>
         </div>
 
-        {/* Card — tab "Daftar" dihapus: pendaftaran hanya lewat halaman /daftar */}
+        {/* Card — tab "Daftar" dihapus: pendaftaran hanya lewat halaman /daftar.
+            LOGIN 1 PERANGKAT: bila login perangkat kedua ditolak, isi kartu
+            diganti layar PERINGATAN KEAMANAN. */}
         <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-          {/* Form Content */}
+          {deviceBlocked ? (
+            <div className="p-6">
+              {/* ===== LAYAR PERINGATAN KEAMANAN (login perangkat kedua ditolak) ===== */}
+              <div className="flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center mb-3">
+                  <ShieldAlert className="w-7 h-7 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-xl font-bold text-red-600 dark:text-red-400 tracking-wide">PERINGATAN KEAMANAN!</h2>
+              </div>
+
+              <div className="mt-4 space-y-2 text-sm text-foreground leading-relaxed text-center">
+                <p className="font-semibold">Akun Darrellsoft ini sedang digunakan pada perangkat lain.</p>
+                <p>Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat.</p>
+                <p className="font-semibold text-red-600 dark:text-red-400">Login dari perangkat ini tidak diizinkan.</p>
+              </div>
+
+              {deviceBlocked.warningMessage && (
+                <div className="mt-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                  <p className="text-xs text-red-700 dark:text-red-400 whitespace-pre-line leading-relaxed">{deviceBlocked.warningMessage}</p>
+                </div>
+              )}
+
+              {/* Info perangkat aktif — tanpa data sensitif (bukan IP/password) */}
+              {deviceBlocked.activeDevice?.deviceName && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
+                  <Smartphone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="text-[11px] text-muted-foreground">Perangkat yang sedang aktif</p>
+                    <p className="text-xs font-medium text-foreground truncate">{deviceBlocked.activeDevice.deviceName}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => { setDeviceBlocked(null); setPassword(''); setLoginError('') }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  Kembali ke Halaman Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowContactAdmin(true)}
+                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" /> Hubungi Administrator
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="p-6">
             <form onSubmit={handleLogin} className="space-y-4">
               {/* Error Message */}
@@ -479,6 +567,7 @@ function LoginContent() {
               </div>
             </form>
           </div>
+          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
@@ -744,6 +833,51 @@ function LoginContent() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== DIALOG: HUBUNGI ADMINISTRATOR (peringatan Login 1 Perangkat) ===== */}
+      {showContactAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/30">
+                <MessageCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-foreground">Hubungi Administrator</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Bantuan keamanan akun Darrellsoft</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowContactAdmin(false)}
+                aria-label="Tutup dialog hubungi administrator"
+                className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              Jika perangkat Anda hilang, rusak, atau Anda yakin perangkat aktif ini bukan milik Anda,
+              hubungi administrator untuk memverifikasi identitas dan melakukan <strong className="text-foreground">Reset Perangkat</strong>.
+              Sesi perangkat lama akan dicabut agar Anda dapat login di perangkat baru.
+            </p>
+            <a
+              href={ADMIN_WA_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" /> Chat WhatsApp Administrator
+            </a>
+            <button
+              type="button"
+              onClick={() => setShowContactAdmin(false)}
+              className="w-full mt-2 text-sm text-muted-foreground hover:text-foreground py-1.5 transition-colors"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       )}

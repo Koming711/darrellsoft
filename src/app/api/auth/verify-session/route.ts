@@ -6,10 +6,14 @@ import {
 } from '@/lib/permission-defaults'
 import { getServerUser } from '@/lib/server-auth'
 import { evaluateSubscriptionAccess, type SubscriptionAccessInfo } from '@/lib/subscription'
+import {
+  validateDeviceSession,
+  getSingleDeviceMessage,
+} from '@/lib/device-session'
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, sessionId, role } = await request.json()
+    const { username, sessionId, role, deviceToken } = await request.json()
 
     // sessionId dipakai untuk cek "Login 1 Perangkat" (saat toggle aktif —
     // setting 'single_device' ≠ 'false'). Username tetap penanda pemanggil sah.
@@ -192,47 +196,64 @@ export async function POST(request: NextRequest) {
       ...(subscriptionAccess ? { subscriptionAccess } : {}),
     }
 
-    // ===== LOGIN 1 PERANGKAT (single-device session guard) =====
-    // PERMINTAAN USER: toggle "Login 1 Perangkat" di Halaman Hak Akses → Keamanan
-    // harus benar-benar berfungsi. Bila setting 'single_device' aktif (≠ 'false')
-    // dan sessionId perangkat ini ≠ sesi tersimpan (ada login lebih baru di
-    // perangkat lain), sesi dianggap tidak valid → klien menampilkan popup
-    // peringatan multi-perangkat dengan opsi klaim ulang sesi (reclaim-session).
-    // - Admin/superadmin dikecualikan (operator aplikasi — konsisten dengan
-    //   pengecualian cek expired di atas).
+    // ===== LOGIN 1 PERANGKAT (validasi sesi perangkat di server) =====
+    // PERMINTAAN USER: 1 akun hanya boleh aktif pada 1 perangkat. Validasi
+    // berjalan di server pada polling sesi ini (pembukaan halaman aplikasi,
+    // pemulihan sesi, dan setiap 10 detik saat aplikasi aktif):
+    // - Bila sesi aktif akun milik perangkat LAIN → perangkat ini ditolak
+    //   (valid:false + deviceConflict) → klien memaksa logout + peringatan.
+    // - Bila sesi perangkat ini DICABUT ADMINISTRATOR → wajib login ulang.
+    // - Perangkat belum terdaftar (pasca deploy / logout normal) → didaftar
+    //   otomatis sebagai perangkat aktif.
+    // - Berlaku untuk SEMUA role (termasuk admin/superadmin).
     // - Fail-open: bila pemeriksaan gagal, sesi tetap dianggap valid.
-    let singleDeviceMismatch: { warningMessage: string } | null = null
     try {
-      if (!isAdminRole && sessionId) {
-        const singleDeviceSetting = await db.setting.findUnique({ where: { key: 'single_device' } })
-        if (singleDeviceSetting?.value !== 'false') {
-          const storedSession = await db.setting.findUnique({ where: { key: `session_${username}` } })
-          if (storedSession && storedSession.value !== sessionId) {
-            const warningMsgSetting = await db.setting.findUnique({ where: { key: 'single_device_message' } })
-            singleDeviceMismatch = {
-              warningMessage: warningMsgSetting?.value || 'Akun Anda sedang digunakan di perangkat lain.',
-            }
-          }
+      const serverUser = getServerUser(request)
+      let userId = serverUser?.id || ''
+      const effectiveUsername = username || ''
+      if (!userId && username) {
+        // Fallback identitas via username (klien tanpa cookie/header).
+        const pu = await db.pengguna.findFirst({ where: { username }, select: { id: true, role: true } })
+        if (pu) {
+          userId = pu.id
+        } else {
+          const cu = await db.calonPembeli.findFirst({ where: { username }, select: { id: true } })
+          if (cu) userId = cu.id
+        }
+      }
+      if (userId) {
+        const tokenFromCookie = request.cookies.get('dsDevice')?.value || ''
+        const deviceCheck = await validateDeviceSession({
+          userId,
+          username: effectiveUsername,
+          role: serverUser?.role || role || '',
+          deviceToken: deviceToken || tokenFromCookie,
+          userAgent: request.headers.get('user-agent') || '',
+        })
+        if (deviceCheck.status === 'conflict') {
+          const customMessage = await getSingleDeviceMessage()
+          const message =
+            deviceCheck.kind === 'session_revoked'
+              ? 'Sesi perangkat Anda telah dicabut oleh administrator. Silakan login kembali dari perangkat ini untuk mengaktifkan perangkat.'
+              : (customMessage || 'Akun Anda sedang digunakan pada perangkat lain. Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat.')
+          return NextResponse.json({
+            valid: false as const,
+            deviceConflict: true,
+            warningMessage: message,
+            forceLogoutAvailable: false,
+            permissions,
+            securitySettings,
+            grup,
+            ...(subscriptionAccess ? { subscriptionAccess } : {}),
+          }, { headers: cacheHeaders })
         }
       }
     } catch (sessionCheckError) {
-      console.error('verify-session single-device check error:', sessionCheckError)
+      console.error('verify-session device check error:', sessionCheckError)
     }
 
-    if (singleDeviceMismatch) {
-      return NextResponse.json({
-        valid: false as const,
-        warningMessage: singleDeviceMismatch.warningMessage,
-        forceLogoutAvailable: true,
-        permissions,
-        securitySettings,
-        grup,
-        ...(subscriptionAccess ? { subscriptionAccess } : {}),
-      }, { headers: cacheHeaders })
-    }
-
-    // Sesi selalu valid selama akun tidak expired dan (bila toggle aktif)
-    // tidak dipindahkan ke perangkat lain oleh login yang lebih baru.
+    // Sesi selalu valid selama akun tidak expired dan perangkat ini adalah
+    // perangkat aktif akun (Login 1 Perangkat).
     return NextResponse.json(responseBase, { headers: cacheHeaders })
   } catch (error) {
     console.error('Verify session error:', error)

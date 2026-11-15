@@ -875,6 +875,51 @@ model NotificationDelivery {
   @@index([notificationId])
   @@index([userId])
 }
+
+// ====================================================================
+// LOGIN 1 PERANGKAT — sesi perangkat (1 akun = 1 perangkat aktif)
+//
+// Identitas perangkat = device token acak yang dibuat browser (cookie +
+// localStorage, tidak pernah IP/User-Agent saja). Token asli TIDAK pernah
+// disimpan di database — hanya hash SHA-256-nya.
+// Aturan backend: maksimal SATU baris berstatus 'active' per userId.
+// ====================================================================
+model DeviceSession {
+  id              String    @id @default(cuid())
+  userId          String    // Pengguna.id | CalonPembeli.id
+  username        String    @default("") // snapshot utk tampilan admin
+  userRole        String    @default("") // snapshot role saat login
+  deviceTokenHash String // SHA-256(deviceToken) — token asli tidak disimpan
+  deviceName      String    @default("") // mis. "Chrome di Windows"
+  deviceType      String    @default("") // desktop | mobile | tablet
+  browser         String    @default("")
+  os              String    @default("")
+  loginAt         DateTime  @default(now()) // tanggal & jam login perangkat
+  lastActivityAt  DateTime  @default(now()) // aktivitas terakhir (polling)
+  status          String    @default("active") // active | revoked | expired
+  logoutAt        DateTime? // tanggal & jam sesi berakhir (logout/cabut)
+  revokedBy       String    @default("") // "" = user sendiri/sistem; selain itu id admin
+
+  @@index([userId, status])
+  @@index([deviceTokenHash])
+  @@index([status, loginAt])
+}
+
+// Riwayat percobaan login yang DITOLAK dari perangkat kedua (audit keamanan).
+model DeviceLoginAttempt {
+  id         String   @id @default(cuid())
+  userId     String // akun yang dicoba
+  username   String   @default("")
+  deviceName String   @default("")
+  deviceType String   @default("")
+  browser    String   @default("")
+  os         String   @default("")
+  reason     String   @default("device_conflict") // device_conflict | session_revoked | device_reset
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
 // ====================================================================
 // STOCK BAHAN — transaksi terpisah (Stok Masuk / Keluar / Penyesuaian)
 // Setiap transaksi di tabel ini; stok Bahan direplay via recalcBahan().

@@ -864,7 +864,7 @@ export function HakAksesContent() {
               <div className="flex-1 min-w-0">
                 <Label className="text-sm font-medium text-slate-700">Login 1 Perangkat</Label>
                 <p className="text-xs text-slate-400 mt-1">
-                  Jika diaktifkan, setiap akun hanya bisa login di satu perangkat saja. Jika ada yang login dari perangkat lain, akan muncul peringatan.
+                  Jika diaktifkan, setiap akun hanya bisa login di satu perangkat. Perangkat lain yang mencoba login DITOLAK dengan peringatan keamanan. Kelola perangkat aktif, cabut sesi, dan reset perangkat di Panel Admin — Manajemen Perangkat.
                 </p>
               </div>
               <Switch checked={singleDevice} onCheckedChange={setSingleDevice} />
