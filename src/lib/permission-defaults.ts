@@ -66,7 +66,7 @@ export const GROUP_FEATURES = [
     ]
   },
   {
-    id: 'barang', name: 'Barang',
+    id: 'barang', name: 'Daftar Barang',
     subPermissions: [
       { id: 'barang-lihat', name: 'Daftar Barang' },
       { id: 'barang-tambah', name: 'Tambah Barang' },
