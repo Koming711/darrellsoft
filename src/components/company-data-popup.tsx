@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Building2, MapPin, Phone, Mail, Hash, Landmark, Loader2, CheckCircle2, Sparkles } from 'lucide-react';
+import { Building2, MapPin, Phone, Mail, Loader2, CheckCircle2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ interface CompanyDataPopupProps {
  *
  * Popup tidak bisa dilewati — user wajib mengisi & menyimpan data perusahaan
  * (field wajib: nama, alamat, telepon) sebelum bisa menutup popup.
+ * PERMINTAAN USER: field NPWP & Rekening Bank DIHAPUS dari popup —
+ * hanya Nama, Alamat, Telepon, dan Email yang tersisa.
  */
 export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopupProps) {
   const router = useRouter();
@@ -37,10 +39,6 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
     alamat: '',
     telepon: '',
     email: '',
-    npwp: '',
-    bankName: '',
-    bankAccount: '',
-    bankHolder: '',
   });
 
   // Deteksi trigger: query param ?fill_company=1 atau localStorage flag
@@ -86,15 +84,13 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
     setLoading(true);
     try {
       // Simpan semua field ke settings API
+      // PERMINTAAN USER: NPWP & rekening bank DIHAPUS dari popup ini —
+      // tidak lagi disimpan dari sini.
       const settings: Record<string, string> = {
         company_name: form.nama.trim(),
         company_address: form.alamat.trim(),
         company_phone: form.telepon.trim(),
         company_email: form.email.trim(),
-        npwp: form.npwp.trim(),
-        bank_name: form.bankName.trim(),
-        bank_account: form.bankAccount.trim(),
-        bank_holder: form.bankHolder.trim(),
       };
 
       const responses = await Promise.all(
@@ -215,57 +211,6 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="info@perusahaan.com"
                 />
-              </div>
-            </div>
-
-            {/* NPWP */}
-            <div className="space-y-1.5">
-              <Label htmlFor="cp-npwp" className="text-sm font-medium flex items-center gap-1.5">
-                <Hash className="w-3.5 h-3.5 text-muted-foreground" />
-                NPWP
-              </Label>
-              <Input
-                id="cp-npwp"
-                value={form.npwp}
-                onChange={(e) => setForm({ ...form, npwp: e.target.value })}
-                placeholder="01.234.567.8-901.000"
-              />
-            </div>
-
-            {/* Bank (opsional) */}
-            <div className="pt-2 border-t border-border">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Landmark className="w-3.5 h-3.5" />
-                Rekening Bank (Opsional)
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="cp-bank-name" className="text-xs font-medium">Nama Bank</Label>
-                  <Input
-                    id="cp-bank-name"
-                    value={form.bankName}
-                    onChange={(e) => setForm({ ...form, bankName: e.target.value })}
-                    placeholder="BCA / Mandiri / BNI"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="cp-bank-account" className="text-xs font-medium">Nomor Rekening</Label>
-                  <Input
-                    id="cp-bank-account"
-                    value={form.bankAccount}
-                    onChange={(e) => setForm({ ...form, bankAccount: e.target.value })}
-                    placeholder="1234567890"
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="cp-bank-holder" className="text-xs font-medium">Nama Pemilik Rekening</Label>
-                  <Input
-                    id="cp-bank-holder"
-                    value={form.bankHolder}
-                    onChange={(e) => setForm({ ...form, bankHolder: e.target.value })}
-                    placeholder="PT. Contoh Perusahaan"
-                  />
-                </div>
               </div>
             </div>
           </div>
