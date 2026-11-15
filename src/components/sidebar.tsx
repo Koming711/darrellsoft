@@ -20,7 +20,6 @@ import {
   History,
   Settings,
   Users,
-  ShieldCheck,
   LogOut,
   X,
   Paintbrush,
@@ -250,16 +249,9 @@ const menuItems = [
     featureId: 'pilih-paket',
     section: 'langganan',
   },
-  {
-    titleKey: 'hak_akses' as TranslationKey,
-    href: '/administrasi/hak-akses',
-    icon: ShieldCheck,
-    featureId: 'hak-akses',
-    section: 'administrasi',
-  },
-  // PERMINTAAN USER: menu "Pengguna" DIHAPUS dari seksi Administrasi.
-  // Halaman /administrasi/pengguna tetap ada (dipakai Panel Admin › Sistem ›
-  // Pengguna dan link notifikasi) — hanya entrinya yang tidak tampil di menu.
+  // PERMINTAAN USER: menu "Hak Akses" DIHAPUS dari seksi Administrasi.
+  // Halaman /administrasi/hak-akses tetap ada (dipakai Panel Admin › Sistem ›
+  // Hak Akses) — hanya entrinya yang tidak tampil di menu.
   {
     titleKey: 'panel_admin' as TranslationKey,
     href: '/panel-admin',
