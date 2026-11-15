@@ -8,10 +8,13 @@ import { useLanguage } from '@/contexts/language-context';
 /**
  * LandingOrderPopup — PERMINTAAN USER (halaman landing):
  * popup "bukti sosial" yang muncul bergantian (slide dari kiri-bawah)
- * seolah-olah ada pelanggan baru yang memesan beberapa menit yang lalu.
+ * seolah-olah ada pelanggan baru yang memesan beberapa waktu yang lalu.
  *
- * - 10 popup dengan NAMA & DAERAH berbeda (satu per satu, tidak dobel).
- * - Siklus berulang terus-menerus (10 → kembali ke 1) sampai pengunjung
+ * - 50 popup dengan NAMA & DAERAH berbeda-beda (satu per satu, tidak dobel).
+ * - Popup pertama muncul 6 DETIK setelah halaman terbuka.
+ * - Waktu dipesan BERTINGKAT NAIK mulai dari 8 MENIT dan terus meningkat
+ *   TANPA BATAS (menit → jam → hari, otomatis diformat rapi).
+ * - Siklus berulang terus-menerus (50 → kembali ke 1) sampai pengunjung
  *   menutup lewat tombol X — setelah ditutup, popup berhenti seluruhnya
  *   untuk sesi tersebut.
  * - Hanya tampil di halaman landing (/); tidak dipasang di halaman aplikasi.
@@ -24,6 +27,7 @@ interface OrderProof {
 }
 
 const ORDER_PROOFS: OrderProof[] = [
+  // 1-10 — menit (8 sampai 50, bertingkat)
   { name: 'Budi Santoso', daerah: 'Jakarta Selatan', minutes: 8 },
   { name: 'Siti Nurhaliza', daerah: 'Bandung', minutes: 12 },
   { name: 'Ahmad Fauzi', daerah: 'Surabaya', minutes: 16 },
@@ -34,13 +38,73 @@ const ORDER_PROOFS: OrderProof[] = [
   { name: 'Ayu Wulandari', daerah: 'Denpasar', minutes: 40 },
   { name: 'Hendra Gunawan', daerah: 'Palembang', minutes: 45 },
   { name: 'Fitri Handayani', daerah: 'Bekasi', minutes: 50 },
+  // 11-17 — menit lanjutan (60-120)
+  { name: 'Andi Wijaya', daerah: 'Tangerang', minutes: 60 },
+  { name: 'Rina Marlina', daerah: 'Depok', minutes: 70 },
+  { name: 'Bambang Setiawan', daerah: 'Bogor', minutes: 80 },
+  { name: 'Sri Wahyuni', daerah: 'Malang', minutes: 90 },
+  { name: 'Agus Salim', daerah: 'Batam', minutes: 100 },
+  { name: 'Maya Anggraini', daerah: 'Pekanbaru', minutes: 110 },
+  { name: 'Doni Hermawan', daerah: 'Balikpapan', minutes: 120 },
+  // 18-30 — jam (3-15 jam, bertingkat)
+  { name: 'Lina Kartika', daerah: 'Pontianak', minutes: 180 },
+  { name: 'Eko Prasetyo', daerah: 'Manado', minutes: 240 },
+  { name: 'Yuni Astuti', daerah: 'Samarinda', minutes: 300 },
+  { name: 'Fajar Nugroho', daerah: 'Cirebon', minutes: 360 },
+  { name: 'Ratna Sari', daerah: 'Solo', minutes: 420 },
+  { name: 'Taufik Hidayat', daerah: 'Padang', minutes: 480 },
+  { name: 'Mega Puspita', daerah: 'Serang', minutes: 540 },
+  { name: 'Ilham Ramadhan', daerah: 'Cilacap', minutes: 600 },
+  { name: 'Wulan Sari', daerah: 'Tasikmalaya', minutes: 660 },
+  { name: 'Gunawan Wibowo', daerah: 'Sukabumi', minutes: 720 },
+  { name: 'Putri Amelia', daerah: 'Kediri', minutes: 780 },
+  { name: 'Rudi Hartono', daerah: 'Jember', minutes: 840 },
+  { name: 'Sari Puspita', daerah: 'Madiun', minutes: 900 },
+  // 31-34 — jam lanjutan sampai 1 hari
+  { name: 'Dimas Aditya', daerah: 'Banda Aceh', minutes: 960 },
+  { name: 'Kartika Dewi', daerah: 'Banjarmasin', minutes: 1080 },
+  { name: 'Yusuf Maulana', daerah: 'Palu', minutes: 1200 },
+  { name: 'Indah Permata', daerah: 'Ambon', minutes: 1440 },
+  // 35-50 — hari (2-40 hari, tanpa batas atas di konsep; siklus kembali ke 8 menit)
+  { name: 'Hasan Basri', daerah: 'Jayapura', minutes: 2880 },
+  { name: 'Diah Rahayu', daerah: 'Mataram', minutes: 4320 },
+  { name: 'Arif Budiman', daerah: 'Kendari', minutes: 5760 },
+  { name: 'Nia Ramadhani', daerah: 'Gorontalo', minutes: 7200 },
+  { name: 'Bayu Setiawan', daerah: 'Kupang', minutes: 8640 },
+  { name: 'Melati Putri', daerah: 'Sorong', minutes: 10080 },
+  { name: 'Wahyu Kurnia', daerah: 'Ternate', minutes: 12960 },
+  { name: 'Ayu Lestari', daerah: 'Banten', minutes: 14400 },
+  { name: 'Rangga Mahendra', daerah: 'Lampung', minutes: 17280 },
+  { name: 'Sinta Bella', daerah: 'Bengkulu', minutes: 20160 },
+  { name: 'Aldi Saputra', daerah: 'Jambi', minutes: 25920 },
+  { name: 'Gita Savitri', daerah: 'Kuningan', minutes: 28800 },
+  { name: 'Rio Fernandes', daerah: 'Baubau', minutes: 36000 },
+  { name: 'Tia Amelia', daerah: 'Mojokerto', minutes: 43200 },
+  { name: 'Fauzan Aziz', daerah: 'Banyuwangi', minutes: 50400 },
+  { name: 'Nadya Zahra', daerah: 'Subang', minutes: 57600 },
 ];
+
+/** Format waktu lalu: menit → jam → hari (otomatis, sesuai durasi). */
+function formatAgo(minutes: number, lang: 'id' | 'en'): string {
+  if (minutes < 60) {
+    return lang === 'en' ? `${minutes} minutes ago` : `${minutes} menit yang lalu`;
+  }
+  if (minutes < 1440) {
+    const h = minutes / 60;
+    const label = Number.isInteger(h) ? String(h) : h.toFixed(1).replace('.', ',');
+    const unit = h === 1 ? 'hour' : 'hours';
+    return lang === 'en' ? `${label} ${unit} ago` : `${label} jam lalu`;
+  }
+  const d = Math.round(minutes / 1440);
+  const unit = d === 1 ? 'day' : 'days';
+  return lang === 'en' ? `${d} ${unit} ago` : `${d} hari lalu`;
+}
 
 const SHOW_MS = 5000; // durasi popup tampil
 const GAP_MS = 8000; // jeda antar popup
 const FIRST_DELAY_MS = 6000; // PERMINTAAN USER: popup pertama muncul 6 detik
-// setelah halaman terbuka. Urutan popup menit dipesan BERTINGKAT naik:
-// 8 → 12 → 16 → 20 → 25 → 30 → 35 → 40 → 45 → 50 menit lalu.
+// setelah halaman terbuka. 50 popup, waktu dipesan BERTINGKAT NAIK mulai
+// dari 8 menit dan terus meningkat TANPA BATAS (menit → jam → hari).
 
 export function LandingOrderPopup() {
   const { language } = useLanguage();
@@ -78,8 +142,7 @@ export function LandingOrderPopup() {
 
   const orderedLabel =
     language === 'en' ? 'just placed an order' : 'baru saja melakukan pemesanan';
-  const minutesLabel =
-    language === 'en' ? `${order?.minutes} minutes ago` : `${order?.minutes} menit yang lalu`;
+  const minutesLabel = order ? formatAgo(order.minutes, language) : '';
 
   return (
     <div
