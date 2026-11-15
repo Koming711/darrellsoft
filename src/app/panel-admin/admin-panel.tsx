@@ -18,8 +18,6 @@ import {
   BarChart3,
   Receipt,
   ScrollText,
-  Users2,
-  Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -35,7 +33,6 @@ import { RiwayatTransaksiContent } from './riwayat-transaksi/content'
 import { LaporanBulananContent } from './laporan-bulanan/content'
 import { RiwayatPenjualanContent } from './riwayat-penjualan/content'
 import { LaporanAuditContent } from './laporan-audit/content'
-import { PenggunaContent } from '@/app/administrasi/pengguna/page'
 import { HakAksesContent } from '@/app/administrasi/hak-akses/page'
 import { PengaturanAkunContent } from './pengaturan/content'
 import { ManajemenGrupContent } from './grup/content'
@@ -92,13 +89,11 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
       { key: 'audit', label: 'Audit', icon: ScrollText },
     ],
   },
-  sistem: {
-    title: 'Sistem',
-    desc: 'Pengguna dan pengaturan akun.',
-    subs: [
-      { key: 'pengguna', label: 'Pengguna', icon: Users2 },
-      { key: 'akun', label: 'Pengaturan Akun', icon: Settings },
-    ],
+  // PERMINTAAN USER: menu "Sistem" DIHAPUS — sub-tab "Pengguna" dihapus dan
+  // "Pengaturan Akun" jadi seksi sidebar tersendiri (sejajar "Hak Akses").
+  'pengaturan-akun': {
+    title: 'Pengaturan Akun',
+    desc: 'Masa demo, verifikasi akun baru, masa berlaku default, dan notifikasi akun.',
   },
   'hak-akses': {
     title: 'Hak Akses',
@@ -130,7 +125,7 @@ function AdminPanelInner() {
         // TANPA baris sub-tab di atas konten (permintaan user: hapus tulisan
         // Langganan/Baru/Aktif/Expired/Ditolak di atas judul "Kelola Pelanggan").
         // Sub tetap bisa diakses via deep-link ?sub= dan kartu ringkasan di
-        // AkunListPage; daftar akun juga terjangkau dari Sistem › Pengaturan Akun.
+        // AkunListPage; daftar akun juga terjangkau dari menu Pengaturan Akun.
         return (
           <>
             {activeSub === 'langganan' && <KelolaPelangganContent />}
@@ -161,14 +156,10 @@ function AdminPanelInner() {
             {activeSub === 'audit' && <LaporanAuditContent />}
           </>
         )
-      case 'sistem':
-        return (
-          <>
-            <HubTabs tabs={SECTIONS.sistem.subs!} param="sub" />
-            {activeSub === 'pengguna' && <PenggunaContent />}
-            {activeSub === 'akun' && <PengaturanAkunContent />}
-          </>
-        )
+      // PERMINTAAN USER: "Pengaturan Akun" kini menu sidebar tersendiri (dipindah
+      // dari sub-tab halaman Sistem) — konten tetap sama. Sub-tab "Pengguna" dihapus.
+      case 'pengaturan-akun':
+        return <PengaturanAkunContent />
       // PERMINTAAN USER: Hak Akses kini menu sidebar tersendiri (dipindah dari
       // sub-tab halaman Sistem) — konten tetap sama (Matrix Hak Akses).
       case 'hak-akses':

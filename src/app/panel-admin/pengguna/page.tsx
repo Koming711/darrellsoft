@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
-// Rute lama — diarahkan ke hub baru (menu panel admin disederhanakan).
+// Rute lama — sub-tab "Pengguna" di halaman Sistem sudah DIHAPUS (permintaan user),
+// jadi rute ini diarahkan ke Beranda Panel Admin.
 export default function Page() {
-  redirect('/panel-admin?tab=sistem&sub=pengguna')
+  redirect('/panel-admin')
 }

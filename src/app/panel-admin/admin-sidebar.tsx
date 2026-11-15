@@ -34,7 +34,7 @@ export type AdminTab =
   | 'transaksi'
   | 'grup'
   | 'laporan'
-  | 'sistem'
+  | 'pengaturan-akun'
   | 'hak-akses'
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -53,10 +53,10 @@ const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ cl
 ]
 
 // Seksi Sistem (setelah divider — pola sub menu Rajamesin).
-// PERMINTAAN USER: "Hak Akses" DIPINDAH dari sub-tab di dalam halaman Sistem
-// menjadi menu sidebar tersendiri di sini.
+// PERMINTAAN USER: menu "Sistem" DIHAPUS — sub-tab "Pengguna" dihapus dan
+// "Pengaturan Akun" DIPINDAH menjadi menu sidebar tersendiri (sejajar "Hak Akses").
 const ADMIN_MENU_SISTEM: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { tab: 'sistem', label: 'Sistem', icon: Settings },
+  { tab: 'pengaturan-akun', label: 'Pengaturan Akun', icon: Settings },
   { tab: 'hak-akses', label: 'Hak Akses', icon: KeyRound },
 ]
 
