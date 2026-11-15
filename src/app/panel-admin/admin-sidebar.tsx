@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   LayoutDashboard,
+  Users,
   Crown,
   UserPlus,
   Receipt,
@@ -36,10 +37,11 @@ export type AdminTab =
 
 const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { tab: 'beranda', label: 'Beranda Admin', icon: LayoutDashboard },
-  // PERMINTAAN USER: menu "Pengguna" DIHAPUS dari sidebar. Tab 'pelanggan' (Kelola
-  // Pengguna) tetap hidup untuk deep-link/redirect lama (?tab=pelanggan) — hanya
-  // entrinya yang tidak lagi tampil di menu. Seksi pembayaran = "Pendaftar Baru",
+  // PERMINTAAN USER (dipulihkan): menu "Pengguna" KEMBALI ke sidebar. Tab 'pelanggan'
+  // (Kelola Pengguna) memang tidak pernah dihapus — deep-link/redirect lama
+  // (?tab=pelanggan) tetap berfungsi. Seksi pembayaran = "Pendaftar Baru",
   // Pengaturan (metode pembayaran) tetap menu sidebar tersendiri.
+  { tab: 'pelanggan', label: 'Pengguna', icon: Users },
   { tab: 'paket', label: 'Paket', icon: Crown },
   { tab: 'pembayaran', label: 'Pendaftar Baru', icon: UserPlus },
   { tab: 'grup', label: 'Manajemen Grup', icon: Building2 },
