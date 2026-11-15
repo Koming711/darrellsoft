@@ -24,21 +24,23 @@ interface OrderProof {
 }
 
 const ORDER_PROOFS: OrderProof[] = [
-  { name: 'Budi Santoso', daerah: 'Jakarta Selatan', minutes: 2 },
-  { name: 'Siti Nurhaliza', daerah: 'Bandung', minutes: 5 },
-  { name: 'Ahmad Fauzi', daerah: 'Surabaya', minutes: 8 },
-  { name: 'Dewi Lestari', daerah: 'Medan', minutes: 3 },
-  { name: 'Rizky Pratama', daerah: 'Semarang', minutes: 12 },
-  { name: 'Nina Kurniawati', daerah: 'Yogyakarta', minutes: 6 },
-  { name: 'Joko Susilo', daerah: 'Makassar', minutes: 4 },
-  { name: 'Ayu Wulandari', daerah: 'Denpasar', minutes: 9 },
-  { name: 'Hendra Gunawan', daerah: 'Palembang', minutes: 7 },
-  { name: 'Fitri Handayani', daerah: 'Bekasi', minutes: 11 },
+  { name: 'Budi Santoso', daerah: 'Jakarta Selatan', minutes: 8 },
+  { name: 'Siti Nurhaliza', daerah: 'Bandung', minutes: 12 },
+  { name: 'Ahmad Fauzi', daerah: 'Surabaya', minutes: 16 },
+  { name: 'Dewi Lestari', daerah: 'Medan', minutes: 20 },
+  { name: 'Rizky Pratama', daerah: 'Semarang', minutes: 25 },
+  { name: 'Nina Kurniawati', daerah: 'Yogyakarta', minutes: 30 },
+  { name: 'Joko Susilo', daerah: 'Makassar', minutes: 35 },
+  { name: 'Ayu Wulandari', daerah: 'Denpasar', minutes: 40 },
+  { name: 'Hendra Gunawan', daerah: 'Palembang', minutes: 45 },
+  { name: 'Fitri Handayani', daerah: 'Bekasi', minutes: 50 },
 ];
 
 const SHOW_MS = 5000; // durasi popup tampil
 const GAP_MS = 8000; // jeda antar popup
-const FIRST_DELAY_MS = 3500; // jeda popup pertama setelah halaman terbuka
+const FIRST_DELAY_MS = 6000; // PERMINTAAN USER: popup pertama muncul 6 detik
+// setelah halaman terbuka. Urutan popup menit dipesan BERTINGKAT naik:
+// 8 → 12 → 16 → 20 → 25 → 30 → 35 → 40 → 45 → 50 menit lalu.
 
 export function LandingOrderPopup() {
   const { language } = useLanguage();
