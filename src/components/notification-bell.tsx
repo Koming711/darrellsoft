@@ -189,7 +189,10 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
     try {
       // ?unread=1 — PERMINTAAN OWNER: pusat notifikasi hanya menampilkan yang BELUM dibaca;
       // begitu notif dibaca (klik / tandai semua), notif itu hilang otomatis dari daftar.
-      const res = await authFetch(`/api/notifications?page=${page}&take=${PAGE_SIZE}&unread=1`)
+      // ?exclude=registration — PERMINTAAN OWNER: pendaftaran akun baru tampil SEKALI
+      // saja di pusat notifikasi (lewat seksi "Pendaftaran" di atas); baris DB
+      // type=registration dieksklusi dr daftar & badge agar tidak dobel.
+      const res = await authFetch(`/api/notifications?page=${page}&take=${PAGE_SIZE}&unread=1&exclude=registration`)
       if (!res.ok) return
       const json: ListResponse = await res.json()
       setList((prev) =>
@@ -354,7 +357,9 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
   }
 
   const filteredNotifs = useMemo(() => {
-    const items = list?.notifications ?? []
+    // Pendaftaran akun (type=registration) tidak ditampilkan di daftar —
+    // sudah diwakili seksi "Pendaftaran" di atas (1 notifikasi per akun daftar).
+    const items = (list?.notifications ?? []).filter((n) => n.type !== 'registration')
     if (category === 'all') return items
     return items.filter((n) => categoryOf(n.type) === category)
   }, [list, category])

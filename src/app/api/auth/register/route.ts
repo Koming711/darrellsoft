@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
 import { phoneVariants } from '@/lib/phone'
-import { emitRealtime } from '@/lib/realtime-notify'
+import { fanoutNotification } from '@/lib/notify-fanout'
+import { formatDate } from '@/lib/subscription'
 import { registerSchema, zodFieldErrors, displayPhone } from '@/lib/register-schema'
 import { hashPassword } from '@/lib/password'
 import {
@@ -27,7 +28,8 @@ function fail(message: string, status = 400, code?: string, fieldErrors?: Record
  *   tetap melalui persetujuan Admin di menu Calon Pembeli/Pengguna.
  * - OTP diverifikasi dari tabel RegisterOtp (maks 5 percobaan salah).
  * - Username / email / nomor HP harus unik (dengan pembersihan record yatim).
- * - Setelah berhasil: seed data contoh, notifikasi realtime ke admin,
+ * - Setelah berhasil: seed data contoh, notifikasi ke admin & superadmin saja
+ *   (SATU notifikasi per pendaftaran — idempoten via refKey),
  *   cookie sesi + permissions role demo → user diarahkan ke /pilih-paket.
  *
  * Kontrak respons mengikuti halaman /daftar:
@@ -182,13 +184,40 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Seed data error for new user (non-fatal):', seedErr)
     }
 
-    // Notifikasi realtime → semua admin: pendaftaran akun baru masuk
-    emitRealtime({
-      type: 'registration',
-      title: 'Pendaftaran Akun Baru',
-      body: `${d.fullName} (${d.username}) baru saja mendaftar via halaman Daftar Akun.`,
-      link: '/administrasi/pengguna',
-    })
+    // PERMINTAAN OWNER: notifikasi pendaftaran akun baru HANYA untuk role
+    // admin & superadmin (manager/owner/anggota/pelanggan TIDAK menerima),
+    // dan HANYA SATU notifikasi per pendaftaran per penerima — idempoten
+    // via refKey [ref:reg:<id CalonPembeli>] (retry/double-submit tidak
+    // menduplikasi). fanout menulis baris DB + realtime popup per admin
+    // (room user:<id>, tidak bocor ke role lain) + web push ke admin.
+    // HANYA dijalankan jika pendaftaran berhasil — gagal daftar tidak mengirim.
+    try {
+      const adminIds = (
+        await db.pengguna.findMany({
+          where: { role: { in: ['superadmin', 'admin'] } },
+          select: { id: true },
+        })
+      ).map((a) => a.id)
+      if (adminIds.length > 0) {
+        await fanoutNotification({
+          userIds: adminIds,
+          title: 'PENDAFTARAN AKUN BARU',
+          body:
+            `Ada pendaftaran akun baru di Darrellsoft.\n\n` +
+            `Nama: ${d.fullName}\n` +
+            `Email: ${d.email}\n` +
+            `Nama Perusahaan: ${d.companyName || '-'}\n` +
+            `Tanggal Daftar: ${formatDate(calon.createdAt)}\n` +
+            `Paket: Trial\n` +
+            `Status: Menunggu Verifikasi`,
+          refKey: `[ref:reg:${calon.id}]`,
+          type: 'registration',
+          link: '/administrasi/pengguna',
+        })
+      }
+    } catch (notifErr) {
+      console.warn('Notifikasi pendaftaran gagal (non-fatal):', notifErr)
+    }
 
     // ===== Sesi (single device) =====
     const sessionId = randomUUID()

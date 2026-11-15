@@ -8,7 +8,11 @@ import { stripReminderRef } from '@/lib/subscription-reminders'
 // - Role lain: HANYA notifikasi miliknya (isolasi per user/grup).
 // Query: ?page=1&take=15 (pagination riwayat), ?since=ISO (polling popup murah),
 //        ?unread=1 (PERMINTAAN OWNER: pusat notifikasi hanya menampilkan yang BELUM
-//        dibaca — begitu dibaca notif otomatis hilang dr daftar; data tetap tersimpan di DB).
+//        dibaca — begitu dibaca notif otomatis hilang dr daftar; data tetap tersimpan di DB),
+//        ?exclude=registration (PERMINTAAN OWNER: pendaftaran akun baru tampil
+//        SEKALI saja di pusat notifikasi — lewat seksi "Pendaftaran" (CalonPembeli
+//        status baru); baris DB type=registration dieksklusi dr daftar & badge agar
+//        tidak dobel. Popup realtime/push tetap memakai baris tsb via poll tanpa param ini.)
 export async function GET(request: NextRequest) {
   try {
     const authErr = requireAuth(request)
@@ -33,6 +37,19 @@ export async function GET(request: NextRequest) {
     const unreadOnly = searchParams.get('unread') === '1'
     const listWhere = unreadOnly ? { ...where, isRead: false } : where
 
+    // ?exclude=<type> → buang type tertentu dr daftar + hitungan badge
+    // (dipakai bell admin: type=registration sudah diwakili seksi Pendaftaran)
+    const excludeType = (searchParams.get('exclude') || '').trim()
+    if (excludeType) {
+      listWhere.type = { not: excludeType }
+    }
+    // unreadCount untuk badge mengikuti exclude yang sama
+    const unreadWhere: Record<string, unknown> = {
+      ...scopeWhere,
+      isRead: false,
+      ...(excludeType ? { type: { not: excludeType } } : {}),
+    }
+
     const [notifications, unreadCount, total] = await Promise.all([
       db.notification.findMany({
         where: listWhere,
@@ -40,7 +57,7 @@ export async function GET(request: NextRequest) {
         skip: since ? 0 : (page - 1) * take,
         take,
       }),
-      db.notification.count({ where: { ...scopeWhere, isRead: false } }),
+      db.notification.count({ where: unreadWhere }),
       // total untuk pagination dihitung pada set yang sedang ditampilkan
       // (unreadOnly → total notifikasi belum dibaca, agar "Muat lebih banyak" konsisten)
       db.notification.count({ where: listWhere }),
