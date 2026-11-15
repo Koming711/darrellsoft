@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
   try {
     const { username, sessionId, role } = await request.json()
 
-    // sessionId tidak dipakai di endpoint ini (sesi tidak pernah berakhir otomatis)
-    // — cukup username sebagai penanda pemanggil sah.
+    // sessionId dipakai untuk cek "Login 1 Perangkat" (saat toggle aktif —
+    // setting 'single_device' ≠ 'false'). Username tetap penanda pemanggil sah.
     if (!username) {
       return NextResponse.json({ valid: true })
     }
@@ -192,8 +192,47 @@ export async function POST(request: NextRequest) {
       ...(subscriptionAccess ? { subscriptionAccess } : {}),
     }
 
-    // Sesi selalu valid selama akun tidak expired. Login di perangkat lain
-    // TIDAK lagi mengeluarkan perangkat ini (multi-device tetap login).
+    // ===== LOGIN 1 PERANGKAT (single-device session guard) =====
+    // PERMINTAAN USER: toggle "Login 1 Perangkat" di Halaman Hak Akses → Keamanan
+    // harus benar-benar berfungsi. Bila setting 'single_device' aktif (≠ 'false')
+    // dan sessionId perangkat ini ≠ sesi tersimpan (ada login lebih baru di
+    // perangkat lain), sesi dianggap tidak valid → klien menampilkan popup
+    // peringatan multi-perangkat dengan opsi klaim ulang sesi (reclaim-session).
+    // - Admin/superadmin dikecualikan (operator aplikasi — konsisten dengan
+    //   pengecualian cek expired di atas).
+    // - Fail-open: bila pemeriksaan gagal, sesi tetap dianggap valid.
+    let singleDeviceMismatch: { warningMessage: string } | null = null
+    try {
+      if (!isAdminRole && sessionId) {
+        const singleDeviceSetting = await db.setting.findUnique({ where: { key: 'single_device' } })
+        if (singleDeviceSetting?.value !== 'false') {
+          const storedSession = await db.setting.findUnique({ where: { key: `session_${username}` } })
+          if (storedSession && storedSession.value !== sessionId) {
+            const warningMsgSetting = await db.setting.findUnique({ where: { key: 'single_device_message' } })
+            singleDeviceMismatch = {
+              warningMessage: warningMsgSetting?.value || 'Akun Anda sedang digunakan di perangkat lain.',
+            }
+          }
+        }
+      }
+    } catch (sessionCheckError) {
+      console.error('verify-session single-device check error:', sessionCheckError)
+    }
+
+    if (singleDeviceMismatch) {
+      return NextResponse.json({
+        valid: false as const,
+        warningMessage: singleDeviceMismatch.warningMessage,
+        forceLogoutAvailable: true,
+        permissions,
+        securitySettings,
+        grup,
+        ...(subscriptionAccess ? { subscriptionAccess } : {}),
+      }, { headers: cacheHeaders })
+    }
+
+    // Sesi selalu valid selama akun tidak expired dan (bila toggle aktif)
+    // tidak dipindahkan ke perangkat lain oleh login yang lebih baru.
     return NextResponse.json(responseBase, { headers: cacheHeaders })
   } catch (error) {
     console.error('Verify session error:', error)
