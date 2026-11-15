@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageToggle } from '@/components/language-toggle';
+import { LandingOrderPopup } from '@/components/landing-order-popup';
 
 // Paket langganan langsung dari database (Panel Admin → Kelola Paket)
 interface LivePlan {
@@ -2210,6 +2211,10 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* PERMINTAAN USER: popup sliding "ada yang order" di halaman landing —
+          10 popup nama & daerah berbeda, muncul bergantian kiri-bawah */}
+      <LandingOrderPopup />
 
     </div>
   );
