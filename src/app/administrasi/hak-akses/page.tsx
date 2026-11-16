@@ -2,7 +2,7 @@
 
 import {
   Plus, Save, Trash2, MessageCircle, Loader2, CheckCheck, Ban, RotateCcw,
-  ShieldCheck, Pencil, Lock, X, Minus, MoreVertical, Check,
+  ShieldCheck, Pencil, Lock, X, Minus, MoreVertical, Check, Smartphone,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { DashboardLayout } from '@/components/dashboard-layout'
@@ -200,6 +200,18 @@ export function HakAksesContent() {
   const [waApiKey, setWaApiKey] = useState('')
   const [waApiUrl, setWaApiUrl] = useState('https://api.fonnte.com/send')
   const [waSaving, setWaSaving] = useState(false)
+  // Nomor WhatsApp pengirim OTP yang DIHARAPKAN (mis. 085888082208) + hasil
+  // verifikasi perangkat Fonnte aktif (pengirim OTP sebenarnya).
+  const [waSenderNumber, setWaSenderNumber] = useState('')
+  const [waDeviceChecking, setWaDeviceChecking] = useState(false)
+  const [waDeviceResult, setWaDeviceResult] = useState<{
+    ok: boolean
+    configured: boolean | null
+    devices: Array<{ name: string; number: string; status: string; quota: string; expired: string }>
+    match: boolean | null
+    message?: string
+    error?: string
+  } | null>(null)
 
   // === LOAD SETTINGS & CUSTOM PERMISSIONS (non-blocking) ===
   useEffect(() => {
@@ -221,6 +233,7 @@ export function HakAksesContent() {
             if (s.key === 'logout_warning_sec') setLogoutWarningSec(s.value)
             if (s.key === 'wa_api_key') setWaApiKey(s.value)
             if (s.key === 'wa_api_url') setWaApiUrl(s.value)
+            if (s.key === 'wa_sender_number') setWaSenderNumber(s.value)
 
             // Collect custom role permissions (applied after loop to avoid race with custom_roles)
             if (s.key === 'role_permissions' && s.value) {
@@ -527,6 +540,7 @@ export function HakAksesContent() {
       await Promise.all([
         saveSetting('wa_api_key', waApiKey),
         saveSetting('wa_api_url', waApiUrl),
+        saveSetting('wa_sender_number', waSenderNumber),
       ])
       toast.success('Pengaturan WhatsApp API berhasil disimpan!')
     } catch {
@@ -534,7 +548,29 @@ export function HakAksesContent() {
     } finally {
       setWaSaving(false)
     }
-  }, [waApiKey, waApiUrl])
+  }, [waApiKey, waApiUrl, waSenderNumber])
+
+  // === WHATSAPP DEVICE CHECK — verifikasi nomor pengirim OTP via Fonnte /device ===
+  const handleCheckDevice = useCallback(async () => {
+    setWaDeviceChecking(true)
+    try {
+      const res = await authFetch('/api/whatsapp/device')
+      const data = await res.json()
+      setWaDeviceResult(data)
+      if (data?.match === true) {
+        toast.success('Perangkat pengirim OTP sudah sesuai nomor target!')
+      } else if (data?.match === false) {
+        toast.error('Perangkat pengirim OTP TIDAK sesuai nomor target!')
+      } else if (data?.ok === false || data?.error) {
+        toast.error(data?.error || 'Gagal memeriksa perangkat Fonnte')
+      }
+    } catch {
+      setWaDeviceResult(null)
+      toast.error('Gagal memeriksa perangkat Fonnte')
+    } finally {
+      setWaDeviceChecking(false)
+    }
+  }, [])
 
   // === KEAMANAN HANDLER ===
   const handleSaveKeamanan = useCallback(async () => {
@@ -938,7 +974,7 @@ export function HakAksesContent() {
           </div>
         </div>
         <div className="p-4 lg:p-6 space-y-5">
-          <p className="text-xs text-slate-500">Daftar di <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">fonnte.com</a> untuk mendapatkan API key.</p>
+          <p className="text-xs text-slate-500">Daftar di <a href="https://fonnte.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">fonnte.com</a> untuk mendapatkan API key. API key ini juga menentukan nomor pengirim OTP pendaftaran akun baru &amp; lupa password.</p>
           <div>
             <Label className="text-sm font-medium text-slate-700">API Key Fonnte</Label>
             <Input
@@ -948,6 +984,17 @@ export function HakAksesContent() {
               placeholder="Masukkan API key dari Fonnte"
               className="mt-1.5"
             />
+          </div>
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Nomor WhatsApp Pengirim (OTP)</Label>
+            <Input
+              type="tel"
+              value={waSenderNumber}
+              onChange={(e) => setWaSenderNumber(e.target.value)}
+              placeholder="Contoh: 085888082208"
+              className="mt-1.5"
+            />
+            <p className="text-xs text-slate-400 mt-1">Nomor yang diharapkan muncul sebagai pengirim OTP pendaftaran akun baru. Klik "Cek Perangkat Aktif" untuk memverifikasi bahwa perangkat Fonnte yang terhubung benar-benar nomor ini.</p>
           </div>
           <div>
             <Label className="text-sm font-medium text-slate-700">API URL</Label>
@@ -960,9 +1007,45 @@ export function HakAksesContent() {
             />
             <p className="text-xs text-slate-400 mt-1">Default: https://api.fonnte.com/send</p>
           </div>
-          <Button onClick={handleSaveWhatsApp} disabled={waSaving} className="w-full gap-2">
-            {waSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4" />Simpan</>}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={handleSaveWhatsApp} disabled={waSaving} className="flex-1 gap-2">
+              {waSaving ? <><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</> : <><Save className="w-4 h-4" />Simpan</>}
+            </Button>
+            <Button onClick={handleCheckDevice} disabled={waDeviceChecking} variant="outline" className="flex-1 gap-2">
+              {waDeviceChecking ? <><Loader2 className="w-4 h-4 animate-spin" />Memeriksa...</> : <><Smartphone className="w-4 h-4" />Cek Perangkat Aktif</>}
+            </Button>
+          </div>
+          {waDeviceResult && (
+            <div
+              role="status"
+              className={`rounded-xl border p-3 text-sm space-y-2 ${
+                waDeviceResult.match === true
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : waDeviceResult.match === false || waDeviceResult.ok === false
+                    ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300'
+                    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300'
+              }`}
+            >
+              <p className="font-medium">{waDeviceResult.message || waDeviceResult.error || 'Hasil pemeriksaan perangkat.'}</p>
+              {waDeviceResult.devices.length > 0 && (
+                <ul className="space-y-1.5">
+                  {waDeviceResult.devices.map((d, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                      <Smartphone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="font-semibold">{d.name || 'Perangkat'}</span>
+                      {d.number && <span className="font-mono">({d.number.startsWith('62') && d.number.length > 4 ? '0' + d.number.slice(2) : d.number})</span>}
+                      {d.status && <span className={`rounded-full px-1.5 py-0.5 ${String(d.status).toLowerCase().includes('connect') ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{d.status}</span>}
+                      {d.quota && <span className="text-slate-500 dark:text-slate-400">kuota {d.quota}</span>}
+                      {d.expired && <span className="text-slate-500 dark:text-slate-400">expired {d.expired}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {waDeviceResult.senderNumber && (
+                <p className="text-xs opacity-80">Nomor target pengirim: <span className="font-mono font-semibold">{waDeviceResult.senderNumber}</span></p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -17598,3 +17598,20 @@ Work Log:
 Stage Summary:
 - OTP daftar terkirim sukses ke 085888082208 (200 OK) — production tetap aman
 - Kode lokal Task 13+14+teks Task 12 dipulihkan & terverifikasi; gap tersisa Task 7/8/9 (perlu rekonstruksi sebelum deploy berikutnya)
+
+---
+Task ID: 16
+Agent: Main
+Task: Ganti nomor pengirim OTP pendaftaran akun baru 0818666711 → 085888082208 (wa_sender_number + verifikasi perangkat Fonnte)
+
+Work Log:
+- Analisis: nomor 0818666711 = perangkat Fonnte "darrellsoft" pengirim OTP di production (worklog lama, token c1yD...b87h di DB Supabase). Pengirim OTP SAMA SEKALI tidak di-hardcode — sepenuhnya ditentukan token wa_api_key di tabel Setting (tiap device Fonnte = 1 token). Request user = pindahkan pengirim ke nomor baru 085888082208.
+- FIX BUG STORAGE: wa_api_key/wa_api_url TIDAK terdaftar di SYSTEM_SETTING_KEYS (settings-shared.ts) → token yang disimpan via UI Panel Admin (Hak Akses) masuk ke UserSetting per-user, sementara pengirim OTP (src/lib/whatsapp.ts + 3 endpoint OTP) membaca GLOBAL Setting → token dari UI TIDAK PERNAH terpakai oleh OTP. Ditambahkan wa_api_key + wa_api_url + wa_sender_number ke SYSTEM_SETTING_KEYS (global). Terverifikasi E2E: simpan via UI → nilai muncul di tabel Setting global.
+- ENDPOINT BARU GET /api/whatsapp/device (admin-only): baca wa_api_key + wa_sender_number dari Setting → panggil Fonnte POST /device dgn token → parse defensif (array/objek, field nomor/status/kuota/expired) → bandingkan nomor perangkat CONNECT dgn nomor target → respons { configured, devices[], match, message }. Path error lengkap: token kosong → amber "belum diisi"; Fonnte tolak (status:false / 401/403) → merah + reason; request gagal → merah.
+- UI HAK AKSES (section WhatsApp API): field baru "Nomor WhatsApp Pengirim (OTP)" (wa_sender_number, placeholder contoh 085888082208) + tombol "Cek Perangkat Aktif" (Smartphone icon) berdampingan dgn Simpan + panel hasil berwarna (hijau cocok / merah tidak cocok-atau-ditolak / amber informasi) menampilkan daftar perangkat: nama, nomor (62→0), status CONNECT, kuota, expired + nomor target. Simpan WA kini ikut menyimpan wa_sender_number.
+- DB LOKAL: Setting wa_sender_number = 085888082208 (terpasang, tampil di UI). wa_api_key lokal sengaja kosong (dev mode otp_dev_mode=true — OTP tak kirim WA asli).
+- E2E browser (superadmin lokal): field pengirim = 085888082208 ✓; Cek Perangkat tanpa token → amber "API Key Fonnte belum diisi..." + nomor target ✓; dgn token dummy → merah "Fonnte menolak permintaan info perangkat..." ✓ (parser + error path OK); Simpan → token mendarat di GLOBAL Setting ✓. eslint 3 file bersih.
+- CATATAN PENGIrim PRODUCTION: agar OTP benar-benar terkirim DARI 085888082208, owner perlu (a) hubungkan nomor 085888082208 sebagai perangkat di dashboard Fonnte, (b) pasang token device baru itu ke Setting.wa_api_key (bisa via Panel Admin → Hak Akses → WhatsApp API, kini tersimpan global dengan benar), (c) isi Nomor WhatsApp Pengirim = 085888082208 → klik Cek Perangkat Aktif sampai panel HIJAU (cocok). Alternatif: bila perangkat "darrellsoft" hanya di-scan ulang QR dgn nomor baru (device sama), token lama otomatis mengirim dari nomor baru tanpa perubahan apa pun — cukup verifikasi lewat Cek Perangkat Aktif.
+
+Stage Summary:
+- Nomor pengirim OTP target 085888082208 terpasang & terverifikasi di app (setting + UI + endpoint verifikasi perangkat Fonnte); bug storage token UI→global diperbaiki; langkah aktivasi production menunggu token device Fonnte baru dari owner.

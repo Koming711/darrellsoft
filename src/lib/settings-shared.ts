@@ -27,6 +27,13 @@ export const SYSTEM_SETTING_KEYS: ReadonlySet<string> = new Set([
   'branding_default_v3',
   'appName',
   'currency',
+  // WhatsApp (Fonnte) — GLOBAL: pengirim OTP pendaftaran & lupa password membaca
+  // langsung dari tabel Setting (lihat src/lib/whatsapp.ts). Tanpa entri ini,
+  // token yang disimpan lewat UI Panel Admin masuk ke UserSetting per-user dan
+  // TIDAK PERNAH dipakai pengirim OTP (bug konsistensi storage, diperbaiki).
+  'wa_api_key',
+  'wa_api_url',
+  'wa_sender_number',
 ])
 
 /**
