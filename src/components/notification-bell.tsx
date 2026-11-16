@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CalendarClock, ChevronDown, Info, UserPlus, Volume2, VolumeX } from 'lucide-react'
+import { Bell, CalendarClock, ChevronDown, Info, ShieldAlert, UserPlus, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/language-context'
 import { startNavigation } from '@/components/navigation-progress'
 import { playNotifSound, unlockAudioOnInteraction } from '@/lib/notif-sound'
 import { subscribeRealtime, type RealtimeNotification } from '@/lib/realtime-client'
+import { isSecurityNotifType } from '@/lib/security-notif'
 import {
   Popover,
   PopoverTrigger,
@@ -80,11 +81,14 @@ function formatDateTime(dateStr: string, lang: 'id' | 'en'): string {
   })
 }
 
-type NotifCategory = 'registration' | 'subscription' | 'system'
+type NotifCategory = 'registration' | 'subscription' | 'security' | 'system'
 
 function categoryOf(type: string): NotifCategory {
   if (type === 'registration') return 'registration'
   if (type === 'subscription') return 'subscription'
+  // Keamanan (login 1 perangkat): percobaan login perangkat lain, perangkat
+  // baru terdaftar, sesi dicabut/reset — tampil merah dengan ikon perisai.
+  if (isSecurityNotifType(type)) return 'security'
   return 'system'
 }
 
@@ -428,13 +432,23 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
                 {filteredNotifs.map((n) => {
                   const cat = categoryOf(n.type)
                   const CatIcon =
-                    cat === 'registration' ? UserPlus : cat === 'subscription' ? CalendarClock : Info
+                    cat === 'registration'
+                      ? UserPlus
+                      : cat === 'subscription'
+                        ? CalendarClock
+                        : cat === 'security'
+                          ? ShieldAlert
+                          : Info
                   const catLabel =
                     cat === 'registration'
                       ? t('notif_cat_registration')
                       : cat === 'subscription'
                         ? t('notif_cat_subscription')
-                        : t('notif_cat_system')
+                        : cat === 'security'
+                          ? language === 'en'
+                            ? 'Security'
+                            : 'Keamanan'
+                          : t('notif_cat_system')
                   return (
                     <li key={n.id}>
                       <button
@@ -452,6 +466,8 @@ export function NotificationBell({ role, className }: NotificationBellProps) {
                               'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400',
                             cat === 'subscription' &&
                               'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400',
+                            cat === 'security' &&
+                              'bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400',
                             cat === 'system' &&
                               'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400'
                           )}

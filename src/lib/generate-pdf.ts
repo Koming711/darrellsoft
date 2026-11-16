@@ -10,6 +10,7 @@ import type { CuttingResult } from '@/lib/cutting-engine'
 import type { InvoiceData, PurchaseOrderData, SuratJalanData } from '@/lib/types'
 import { formatRupiah, formatTanggal } from '@/lib/format'
 import { terbilang } from '@/lib/terbilang'
+import { applyLiveBank, fetchLiveBankFields } from '@/lib/use-live-bank'
 
 // ============================================================
 // Shared helpers
@@ -127,17 +128,19 @@ function drawDocHeader(
   }
 
   // Bank info — matches print: inline on same line, 9pt
+  // Hanya bagian yang benar-benar terisi yang dicetak (rekening kosong
+  // di Pengaturan = tidak tampil di dokumen).
   let bankY = nextY
-  if (company.bankName || company.bankName2) {
+  const bankLine1 = [company.bankName, company.bankAccount].filter(Boolean).join(' ')
+  const bankLine1Full = bankLine1 + (bankLine1 && company.bankHolder ? ` a.n. ${company.bankHolder}` : '')
+  const bankLine2 = [company.bankName2, company.bankAccount2].filter(Boolean).join(' ')
+  const bankLine2Full = bankLine2 + (bankLine2 && company.bankHolder2 ? ` a.n. ${company.bankHolder2}` : '')
+  if (bankLine1Full || bankLine2Full) {
     pdf.setFontSize(6.5)
     pdf.setTextColor(0, 0, 0)
     const bankParts: string[] = []
-    if (company.bankName) {
-      bankParts.push(`${company.bankName} ${company.bankAccount} a.n. ${company.bankHolder}`)
-    }
-    if (company.bankName2) {
-      bankParts.push(`${company.bankName2} ${company.bankAccount2} a.n. ${company.bankHolder2}`)
-    }
+    if (bankLine1Full) bankParts.push(bankLine1Full)
+    if (bankLine2Full) bankParts.push(bankLine2Full)
     pdf.text(bankParts.join('   '), infoX, bankY)
     bankY += 3.5
   }
@@ -820,6 +823,11 @@ export async function generatePotongKertasPdf(data: {
 export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
 
+  // Rekening bank = data LIVE dari Pengaturan (bukan snapshot dokumen):
+  // nomor rekening yang sudah dihapus Owner tidak ikut tercetak ke PDF.
+  const liveBank = await fetchLiveBankFields()
+  const company = applyLiveBank(data.company, liveBank)
+
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()  // 148
   const pageH = pdf.internal.pageSize.getHeight() // 210
@@ -836,7 +844,7 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
 
   // ---- HEADER (with Jatuh Tempo in header area, matching print) ----
   y = drawDocHeader(pdf, {
-    pageW, m, y, company: data.company, title: 'INVOICE',
+    pageW, m, y, company, title: 'INVOICE',
     subtitle: data.type === 'invoice' && dpPercent > 0 ? 'DOWN PAYMENT' : undefined,
     jatuhTempo: data.tanggalJatuhTempo || undefined,
   })
@@ -898,6 +906,11 @@ export async function generateInvoicePdf(data: InvoiceData): Promise<Blob> {
 export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
 
+  // Rekening bank + email = data LIVE dari Pengaturan (bukan snapshot dokumen):
+  // nilai yang sudah dihapus Owner tidak ikut tercetak ke PDF.
+  const liveBank = await fetchLiveBankFields()
+  const company = applyLiveBank(data.company, liveBank)
+
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
@@ -911,7 +924,7 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
 
   // ---- HEADER (with Jatuh Tempo) ----
   y = drawDocHeader(pdf, {
-    pageW, m, y, company: data.company, title: 'PURCHASE ORDER', subtitle: 'Pesanan Pembelian',
+    pageW, m, y, company, title: 'PURCHASE ORDER', subtitle: 'Pesanan Pembelian',
     jatuhTempo: data.tanggalJatuhTempo || undefined,
   })
 
@@ -969,6 +982,11 @@ export async function generatePurchaseOrderPdf(data: PurchaseOrderData): Promise
 export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob> {
   const { jsPDF } = await import('jspdf')
 
+  // Rekening bank + email = data LIVE dari Pengaturan (bukan snapshot dokumen):
+  // nilai yang sudah dihapus Owner tidak ikut tercetak ke PDF.
+  const liveBank = await fetchLiveBankFields()
+  const company = applyLiveBank(data.company, liveBank)
+
   const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a5' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
@@ -977,7 +995,7 @@ export async function generateSuratJalanPdf(data: SuratJalanData): Promise<Blob>
   let y = m
 
   // ---- HEADER ----
-  y = drawDocHeader(pdf, { pageW, m, y, company: data.company, title: 'SURAT JALAN', subtitle: 'Pengiriman Barang' })
+  y = drawDocHeader(pdf, { pageW, m, y, company, title: 'SURAT JALAN', subtitle: 'Pengiriman Barang' })
 
   // ---- DIVIDER ----
   y = drawDivider(pdf, m, pageW, y)

@@ -24,14 +24,24 @@ node scripts/prepare-build.js
 echo "📦 Step 2: Generating Prisma client for PostgreSQL..."
 npx prisma generate
 
-# Step 3: Push schema changes to Supabase (optional - uncomment if needed)
-# echo "📦 Step 3: Pushing schema to Supabase..."
-# npx prisma db push
-# echo "✅ Schema pushed to Supabase"
+# Step 3: Push schema changes to Supabase (session mode port 5432 —
+# worklog lesson: transaction mode 6543 timeout utk db push).
+# NON-FATAL: bila URL tidak ditemukan / push gagal, deploy tetap lanjut.
+echo "📦 Step 3: Pushing schema to Supabase..."
+PUSH_URL="$(node scripts/build-push-url.js 2>/dev/null || true)"
+if [ -n "$PUSH_URL" ]; then
+  if DATABASE_URL="$PUSH_URL" npx prisma db push --skip-generate; then
+    echo "✅ Schema pushed to Supabase"
+  else
+    echo "⚠️  prisma db push gagal (non-fatal) — lanjut deploy. Jalankan manual bila ada tabel baru."
+  fi
+else
+  echo "⚠️  DATABASE_URL production tidak ditemukan — skip push schema (non-fatal)."
+fi
 
 # Step 4: Deploy to Vercel
 echo "📦 Step 4: Deploying to Vercel..."
-npx vercel --prod
+npx vercel --prod --token "$VERCEL_TOKEN"
 
 # Step 5: Revert schema back to sqlite
 echo "📦 Step 5: Reverting schema to sqlite for local dev..."

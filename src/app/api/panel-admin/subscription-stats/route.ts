@@ -10,6 +10,7 @@ import {
   SUB_STATUS,
 } from '@/lib/subscription'
 import { runExpiryReminderSweep } from '@/lib/subscription-reminders'
+import { hiddenGroupMemberIds } from '@/lib/grup-akun'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,8 +123,14 @@ export async function GET(request: NextRequest) {
       return new Date(i.dueDate).getTime() > now.getTime()
     }).length
 
+    // PERMINTAAN USER ("grup tidak dihitung"): anggota grup (non-owner) TIDAK
+    // dihitung sebagai akun terpisah — konsisten dgn Kelola Pengguna yang
+    // menyembunyikan anggota di dalam baris owner-nya. (akunIdSet sudah
+    // didefinisikan di atas utk statusCounts.)
+    const hiddenMemberIds = await hiddenGroupMemberIds(akunIdSet)
+    const totalAkun = [...akunIdSet].filter((id) => !hiddenMemberIds.has(id)).length
     return NextResponse.json({
-      totalAkun: penggunaIds.length + calonIds.length,
+      totalAkun,
       pelangganAktif: statusCounts[SUB_STATUS.AKTIF],
       pelangganAkanBerakhir: statusCounts[SUB_STATUS.AKAN_BERAKHIR],
       pelangganKedaluwarsa: statusCounts[SUB_STATUS.KEDALUWARSA],

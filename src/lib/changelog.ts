@@ -8,7 +8,7 @@
 // ("2026-10-08-v148") supaya popup What's New muncul lagi, sementara CACHE_NAME
 // SW naik sendiri (v150) agar perangkat ber-cache menerima bundle terbaru.
 
-export const CURRENT_VERSION = '2026-11-12-v232'
+export const CURRENT_VERSION = '2026-11-16-v233'
 
 /** Label versi rilis yang tampil ke user (diambil dari segmen terakhir CURRENT_VERSION, mis. "v145"). */
 export function releaseVersionLabel(): string {
@@ -23,6 +23,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2026-11-16-v233',
+    date: { id: '16 November 2026', en: '16 November 2026' },
+    title: {
+      id: 'Verifikasi Perangkat Pengirim OTP WhatsApp (Fonnte)',
+      en: 'WhatsApp OTP Sender Device Verification (Fonnte)',
+    },
+    items: [
+      {
+        id: 'Pengaturan → Hak Akses → WhatsApp API kini punya field "Nomor WhatsApp Pengirim (OTP)" dan tombol "Cek Perangkat Aktif" untuk memastikan OTP pendaftaran terkirim dari nomor yang benar',
+        en: 'Settings → Access Rights → WhatsApp API now has a "WhatsApp OTP Sender Number" field and an "Check Active Device" button to make sure registration OTPs are sent from the correct number',
+      },
+      {
+        id: 'API Key Fonnte kini selalu tersimpan global sehingga pasti dipakai oleh pengirim OTP pendaftaran akun baru & lupa password',
+        en: 'The Fonnte API key is now always stored globally, so it is reliably used by the registration & forgot-password OTP sender',
+      },
+    ],
+  },
   {
     version: '2026-11-12-v232',
     date: { id: '12 November 2026', en: '12 November 2026' },

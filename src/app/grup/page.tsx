@@ -130,10 +130,19 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
   { id: 'master-finishing', label: 'Master Finishing', grup: 'Master Cetak' },
   { id: 'master-toko-pemasok', label: 'Master Toko Pemasok', grup: 'Master Cetak' },
   { id: 'stock-bahan', label: 'Stock Bahan', grup: 'Master Cetak' },
-  { id: 'pengaturan', label: 'Pengaturan', grup: 'Lainnya' },
-  // Langganan — bila TIDAK dicentang, menu Langganan disembunyikan dari
-  // anggota grup (owner & non-grup tetap selalu melihat).
-  { id: 'langganan-saya', label: 'Langganan', grup: 'Lainnya' },
+  // Pengaturan — seksi TERSENDIRI di kotak RBAC. Bila TIDAK dicentang: menu
+  // Pengaturan disembunyikan dari anggota grup (owner & non-grup tetap selalu
+  // melihat).
+  { id: 'pengaturan', label: 'Pengaturan', grup: 'Pengaturan' },
+  // Pengaturan Notifikasi — bila TIDAK dicentang: menu "Pengaturan Notifikasi"
+  // disembunyikan dari anggota grup (owner & non-grup tetap selalu melihat).
+  // Judul seksi "SETTING" di sidebar anggota hilang HANYA bila kedua izin di
+  // seksi ini tidak ada yang dicentang.
+  { id: 'pengaturan-notifikasi', label: 'Pengaturan Notifikasi', grup: 'Pengaturan' },
+  // Langganan — seksi TERSENDIRI di kotak RBAC. Bila TIDAK dicentang: menu
+  // Langganan disembunyikan dari anggota grup DAN judul seksi "LANGGANAN"
+  // tidak muncul di sidebar anggota (owner & non-grup tetap selalu melihat).
+  { id: 'langganan-saya', label: 'Langganan', grup: 'Langganan' },
   // Data sensitif — bila TIDAK dicentang, anggota tidak melihat profit
   // (kolom & kotak Total Profit di riwayat invoice, baris Profit di editor,
   // kotak Laba Kotor di beranda). SINKRON dengan GRUP_MENU_IZIN server.
@@ -141,7 +150,7 @@ const MENU_IZIN: { id: string; label: string; grup: string }[] = [
 ]
 
 // Urutan seksi utk pengelompokan tampilan hak akses
-const IZIN_GRUP_ORDER = ['Beranda', 'Hitung Produksi', 'Dokumen', 'Keuangan & Laporan', 'Master Cetak', 'Lainnya', 'Data Sensitif']
+const IZIN_GRUP_ORDER = ['Beranda', 'Hitung Produksi', 'Dokumen', 'Keuangan & Laporan', 'Master Cetak', 'Langganan', 'Pengaturan', 'Data Sensitif']
 
 const PESAN_KUOTA_PENUH =
   'Kuota akun Anda sudah penuh. Hapus atau keluarkan anggota yang tidak digunakan, atau pilih paket dengan kuota lebih besar.'
@@ -1002,6 +1011,19 @@ function HalamanTambahAnggota({
                         </label>
                       ))}
                     </div>
+                    {namaGrup === 'Langganan' && (
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                        Bila TIDAK dicentang: seluruh seksi LANGGANAN di sidebar anggota
+                        disembunyikan — termasuk menu Grup Saya &amp; Beli Paket.
+                      </p>
+                    )}
+                    {namaGrup === 'Pengaturan' && (
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                        Bila TIDAK dicentang: menu Pengaturan / Pengaturan Notifikasi disembunyikan
+                        dari anggota. Judul seksi &quot;SETTING&quot; di sidebar anggota hilang bila
+                        kedua izin di seksi ini tidak ada yang dicentang.
+                      </p>
+                    )}
                   </div>
                 )
               })}
@@ -1198,6 +1220,19 @@ function HalamanEditAnggota({
                         </label>
                       ))}
                     </div>
+                    {namaGrup === 'Langganan' && (
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                        Bila TIDAK dicentang: seluruh seksi LANGGANAN di sidebar anggota
+                        disembunyikan — termasuk menu Grup Saya &amp; Beli Paket.
+                      </p>
+                    )}
+                    {namaGrup === 'Pengaturan' && (
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                        Bila TIDAK dicentang: menu Pengaturan / Pengaturan Notifikasi disembunyikan
+                        dari anggota. Judul seksi &quot;SETTING&quot; di sidebar anggota hilang bila
+                        kedua izin di seksi ini tidak ada yang dicentang.
+                      </p>
+                    )}
                   </div>
                 )
               })}

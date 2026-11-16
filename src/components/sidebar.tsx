@@ -412,8 +412,13 @@ export function Sidebar({ username, role, onLogout, isOpen = true, onToggle, per
     .filter(item => {
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
-      // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
-      if (['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(item.featureId)) return true
+      // 'langganan-saya', 'pengaturan' & 'pengaturan-notifikasi' TIDAK bypass —
+      // mengikuti centangan RBAC Owner (kotak Hak Akses Menu halaman Grup Saya).
+      // Item bypass (Grup Saya & Beli Paket) IKUT HILANG bila izin "Langganan"
+      // tidak dicentang — selaras dgn seksi LANGGANAN di sidebar desktop.
+      if (['grup-saya', 'pilih-paket'].includes(item.featureId)) {
+        return grupInfo!.izin.includes('langganan-saya')
+      }
       return grupInfo!.izin.includes(item.featureId)
     })
 
@@ -555,8 +560,16 @@ export function MobileBottomNav({ role, onMoreClick, username, onLogout }: Mobil
   const isAnggotaNav = !!grupInfoNav && grupInfoNav.peran !== 'owner'
   // Admin sistem tidak melihat menu grup pelanggan (sama dgn sidebar desktop)
   const isAdminNav = role === 'admin' || role === 'superadmin'
-  const bolehGrupNav = (featureId: string) =>
-    ['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(featureId) || grupInfoNav!.izin.includes(featureId)
+  // ANGGOTA GRUP (RBAC Owner): menu yang tidak diizinkan DISEMBUNYIKAN dari bottom bar.
+  // 'pengaturan' & 'pengaturan-notifikasi' mengikuti izin Owner (bypass dihapus —
+  // konsisten dengan sidebar desktop). Item bypass (Grup Saya & Beli Paket)
+  // ikut hilang bila izin "Langganan" tidak dicentang — selaras sidebar desktop.
+  const bolehGrupNav = (featureId: string) => {
+    if (['grup-saya', 'pilih-paket'].includes(featureId)) {
+      return grupInfoNav!.izin.includes('langganan-saya')
+    }
+    return grupInfoNav!.izin.includes(featureId)
+  }
   const visibleItems = bottomNavItems
     .filter(item => !isAnggotaNav || bolehGrupNav(item.featureId))
     .filter(item => !isAdminNav || item.featureId !== 'grup-saya')

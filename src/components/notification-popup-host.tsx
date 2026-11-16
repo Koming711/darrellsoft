@@ -10,18 +10,21 @@
 //
 // Tampilan: kartu popup tidak menghalangi (kanan bawah desktop / bawah
 // mobile) — judul, isi, tanggal & waktu, tombol Lihat Detail + Tutup.
-// Suara berbeda per jenis (pendaftaran vs langganan) via notif-sound.
+// PERINGATAN KEAMANAN (login 1 perangkat) memakai tema merah + ikon perisai,
+// suara alarm khusus, dan TETAP tampil meski popup dimatikan di pengaturan.
+// Suara berbeda per jenis (pendaftaran/langganan/keamanan) via notif-sound.
 // Preferensi: popup (notif-popup-off) & suara (notif-sound-muted) di
 // localStorage — diatur lewat Pengaturan → Notifikasi.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CalendarClock, UserPlus, X } from 'lucide-react'
+import { Bell, CalendarClock, ShieldAlert, UserPlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getAuthUser } from '@/lib/auth'
 import { authFetch } from '@/lib/auth-fetch'
 import { playNotifSound, unlockAudioOnInteraction, type NotifSoundKind } from '@/lib/notif-sound'
 import { subscribeRealtime, type RealtimeNotification } from '@/lib/realtime-client'
+import { isSecurityNotifType } from '@/lib/security-notif'
 
 interface PopupItem {
   id: string
@@ -53,12 +56,14 @@ export function isSoundMuted(): boolean {
 }
 
 function soundKindFor(type: string): NotifSoundKind {
+  if (isSecurityNotifType(type)) return 'security'
   if (type === 'registration') return 'registration'
   if (type === 'subscription') return 'subscription'
   return 'info'
 }
 
 function typeIconNode(type: string, className: string) {
+  if (isSecurityNotifType(type)) return <ShieldAlert className={className} />
   if (type === 'registration') return <UserPlus className={className} />
   if (type === 'subscription') return <CalendarClock className={className} />
   return <Bell className={className} />
@@ -149,8 +154,9 @@ export function NotificationPopupHost() {
     // karena fungsi ini hanya dipanggil sekali per notifikasi (dedupe di atas)
     if (!soundMutedRef.current) playNotifSound(soundKindFor(item.type))
 
-    // Popup (kecuali dimatikan)
-    if (popupOffRef.current) return
+    // Popup (kecuali dimatikan) — PERINGATAN KEAMANAN SELALU tampil meski
+    // preferensi popup dimatikan, karena menyangkut keamanan akun.
+    if (popupOffRef.current && !isSecurityNotifType(item.type)) return
     setCurrent((prev) => {
       if (prev) {
         setQueue((q) => [...q.slice(-4), item])
@@ -273,9 +279,10 @@ export function NotificationPopupHost() {
     [markRead, closeCurrent, router]
   )
 
-  // Jangan render apa pun bila popup dimatikan (suara tetap jalan di atas)
-  if (popupOff) return null
+  // Jangan render apa pun bila popup dimatikan (suara tetap jalan di atas) —
+  // KECUALI PERINGATAN KEAMANAN yang selalu wajib tampil.
   if (!current) return null
+  if (popupOff && !isSecurityNotifType(current.type)) return null
 
   const created = new Date(current.createdAt)
   const timeLabel = isNaN(created.getTime())
@@ -288,18 +295,38 @@ export function NotificationPopupHost() {
         minute: '2-digit',
       })
 
+  const isSecurity = isSecurityNotifType(current.type)
+
   return (
     <div
       className="fixed bottom-4 right-4 z-[100] w-[calc(100vw-2rem)] max-w-sm animate-in slide-in-from-bottom-4 fade-in duration-300"
       role="alert"
       aria-live="polite"
     >
-      <div className="rounded-xl border bg-background shadow-xl overflow-hidden">
+      <div
+        className={cn(
+          'rounded-xl border bg-background shadow-xl overflow-hidden',
+          isSecurity && 'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40'
+        )}
+      >
         <div className="flex items-start gap-3 p-4 pb-2">
-          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
+          <div
+            className={cn(
+              'mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
+              isSecurity
+                ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400'
+                : 'bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400'
+            )}
+          >
             {typeIconNode(current.type, 'h-4 w-4')}
           </div>
           <div className="min-w-0 flex-1">
+            {isSecurity && (
+              <span className="mb-1 inline-flex items-center gap-1 rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                <ShieldAlert className="h-2.5 w-2.5" aria-hidden="true" />
+                Peringatan Keamanan
+              </span>
+            )}
             <p className="text-sm font-semibold leading-snug break-words">{current.title}</p>
             <p className="mt-0.5 text-[10px] text-muted-foreground">{timeLabel}</p>
           </div>
@@ -319,7 +346,7 @@ export function NotificationPopupHost() {
             </p>
           </div>
         )}
-        <div className={cn('flex items-center gap-2 border-t bg-muted/40 px-4 py-2.5')}>
+        <div className={cn('flex items-center gap-2 border-t bg-muted/40 px-4 py-2.5', isSecurity && 'border-red-200 dark:border-red-900')}>
           {current.link && (
             <button
               type="button"

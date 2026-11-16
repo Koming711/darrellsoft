@@ -14,6 +14,7 @@ import {
   PAYMENT_STATUS,
   SUB_STATUS,
 } from '@/lib/subscription'
+import { hiddenGroupMemberIds } from '@/lib/grup-akun'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +75,9 @@ export async function GET(request: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
     // ===== Total Akun Terdaftar =====
+    // PERMINTAAN USER ("grup tidak dihitung"): anggota grup (non-owner) tidak
+    // masuk daftar — konsisten dgn angka kartu Beranda & halaman Kelola
+    // Pengguna yang menyembunyikan anggota di dalam baris owner-nya.
     if (type === 'total-akun') {
       const [penggunaRows, calonRows] = await Promise.all([
         db.pengguna.findMany({
@@ -85,39 +89,58 @@ export async function GET(request: NextRequest) {
           select: { id: true, nama: true, username: true, email: true, status: true, createdAt: true },
         }),
       ])
+      const hiddenMemberIds = await hiddenGroupMemberIds([
+        ...penggunaRows.map((u) => u.id),
+        ...calonRows.map((c) => c.id),
+      ])
       const rows: DetailRow[] = [
-        ...penggunaRows.map((u) => ({
-          id: u.id,
-          akun: u.namaLengkap || u.username || 'Akun',
-          keterangan: `@${u.username || '-'} · ${u.email || 'tanpa email'}`,
-          jumlah: null,
-          tanggal: iso(u.createdAt),
-          status: u.role,
-        })),
-        ...calonRows.map((c) => ({
-          id: c.id,
-          akun: c.nama || c.username || 'Akun',
-          keterangan: `@${c.username || '-'} · ${c.email || 'tanpa email'}`,
-          jumlah: null,
-          tanggal: iso(c.createdAt),
-          status: c.status === 'aktif' ? 'terdaftar' : c.status,
-        })),
+        ...penggunaRows
+          .filter((u) => !hiddenMemberIds.has(u.id))
+          .map((u) => ({
+            id: u.id,
+            akun: u.namaLengkap || u.username || 'Akun',
+            keterangan: `@${u.username || '-'} · ${u.email || 'tanpa email'}`,
+            jumlah: null,
+            tanggal: iso(u.createdAt),
+            status: u.role,
+          })),
+        ...calonRows
+          .filter((c) => !hiddenMemberIds.has(c.id))
+          .map((c) => ({
+            id: c.id,
+            akun: c.nama || c.username || 'Akun',
+            keterangan: `@${c.username || '-'} · ${c.email || 'tanpa email'}`,
+            jumlah: null,
+            tanggal: iso(c.createdAt),
+            status: c.status === 'aktif' ? 'terdaftar' : c.status,
+          })),
       ]
       return NextResponse.json({ type, judul: 'Total Akun Terdaftar', total: rows.length, rows })
     }
 
     // ===== Status langganan: aktif / kedaluwarsa / belum aktif =====
     if (type === 'pelanggan-aktif' || type === 'pelanggan-kedaluwarsa' || type === 'belum-aktif') {
-      const subs = await db.customerSubscription.findMany({
-        include: { plan: { select: { name: true } } },
-      })
-      const target =
+      const [subs, livePenggunaIds, liveCalonIds] = await Promise.all([
+        db.customerSubscription.findMany({
+          include: { plan: { select: { name: true } } },
+        }),
+        // Filter baris langganan YATIM (akun sudah terhapus) — identik dgn
+        // fix di /api/panel-admin/subscription-stats agar angka kartu Beranda
+        // selalu sama dgn jumlah baris popup perinciannya.
+        db.pengguna.findMany({ select: { id: true } }),
+        db.calonPembeli.findMany({ select: { id: true } }),
+      ])
+      const liveAkunSet = new Set([...livePenggunaIds.map((p) => p.id), ...liveCalonIds.map((c) => c.id)])
+      const liveSubs = subs.filter((s) => liveAkunSet.has(s.userId))
+      // Tipa eksplisit string[] — tanpa ini, TS menginfer union of array types
+      // sehingga .includes() menuntut parameter never (error TS2345 lama).
+      const target: string[] =
         type === 'pelanggan-aktif'
           ? [SUB_STATUS.AKTIF]
           : type === 'pelanggan-kedaluwarsa'
             ? [SUB_STATUS.KEDALUWARSA, SUB_STATUS.DITANGGUHKAN]
             : [SUB_STATUS.BELUM_AKTIF]
-      const filtered = subs.filter((s) => target.includes(derivedSubscriptionStatus(s)))
+      const filtered = liveSubs.filter((s) => target.includes(derivedSubscriptionStatus(s)))
       const akunMap = await resolveAkun(filtered.map((s) => s.userId))
       const rows: DetailRow[] = filtered
         .map((s) => ({

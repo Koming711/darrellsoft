@@ -10,13 +10,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, CreditCard, CalendarClock, Info, UserPlus, Settings } from 'lucide-react'
+import { Bell, CreditCard, CalendarClock, Info, ShieldAlert, UserPlus, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { getAuthUser } from '@/lib/auth'
 import { playNotifSound, unlockAudioOnInteraction } from '@/lib/notif-sound'
 import { subscribeRealtime, type RealtimeNotification } from '@/lib/realtime-client'
+import { isSecurityNotifType } from '@/lib/security-notif'
 import {
   Popover,
   PopoverTrigger,
@@ -63,7 +64,8 @@ function typeIcon(type: string) {
     case 'system':
       return <Settings className="w-4 h-4" />
     default:
-      return <Info className="w-4 h-4" />
+      // Keamanan (login 1 perangkat) & lainnya
+      return isSecurityNotifType(type) ? <ShieldAlert className="w-4 h-4" /> : <Info className="w-4 h-4" />
   }
 }
 
@@ -76,6 +78,9 @@ function typeBadgeClass(type: string): string {
     case 'system':
       return 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300'
     default:
+      if (isSecurityNotifType(type)) {
+        return 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+      }
       return 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-slate-300'
   }
 }
@@ -152,11 +157,12 @@ export function CustomerNotificationBell({ role, className }: CustomerNotificati
         if (notif.userId && notif.userId !== user?.id) return
         fetchData()
         if (readyRef.current) {
-          playNotifSound()
+          // Suara alarm khusus untuk peringatan keamanan (login 1 perangkat)
+          playNotifSound(isSecurityNotifType(notif.type) ? 'security' : 'info')
           toast(notif.title, {
             id: notif.id, // dedupe antar komponen/langganan
             description: notif.body || undefined,
-            duration: 6000,
+            duration: isSecurityNotifType(notif.type) ? 10000 : 6000,
           })
         }
       },

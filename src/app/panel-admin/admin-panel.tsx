@@ -81,7 +81,7 @@ const SECTIONS: Record<AdminTab, SectionDef> = {
     title: 'Manajemen Grup',
     desc: 'Seluruh grup perusahaan: owner, anggota, kuota, dan status langganan.',
   },
-  // PERMINTAAN USER: Manajemen Perangkat — sesi "Login 1 Perangkat".
+  // PERMINTAAN USER (dipulihkan): Manajemen Perangkat — sesi "Login 1 Perangkat".
   'manajemen-perangkat': {
     title: 'Manajemen Perangkat',
     desc: 'Perangkat aktif tiap akun (Login 1 Perangkat): cabut sesi, reset perangkat, riwayat login ditolak.',
@@ -153,8 +153,9 @@ function AdminPanelInner() {
         return <RiwayatTransaksiContent />
       case 'grup':
         return <ManajemenGrupContent />
-      // PERMINTAAN USER: Manajemen Perangkat — tabel perangkat aktif + cabut
-      // sesi + reset perangkat + riwayat login ditolak (Login 1 Perangkat).
+      // PERMINTAAN USER (dipulihkan): Manajemen Perangkat — tabel perangkat
+      // aktif + cabut sesi + reset perangkat + riwayat login ditolak
+      // (Login 1 Perangkat).
       case 'manajemen-perangkat':
         return <ManajemenPerangkatContent />
       case 'laporan':

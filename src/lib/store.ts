@@ -350,21 +350,31 @@ export const useDokuproStore = create<DokuproState>((set, get) => ({
       const state = get();
       if (!hasAnyData && state.companyLoaded) return;
 
-      // Build CompanyInfo from settings, only override if value exists
+      // Build CompanyInfo from settings.
+      // SEMUA field (identity + rekening bank): nilai API dipercaya APA ADANYA —
+      // termasuk string kosong "". Dulu field identity memakai
+      // `results[i]?.value || currentCompany.x` sehingga email/nama/telepon yang
+      // SUDAH DIHAPUS di Pengaturan tetap "hidup" lagi dari localStorage lama /
+      // DEFAULT_COMPANY, lalu ikut tertanam ke invoice baru (bug: email phantom
+      // "halo@karyamandiri.co.id" muncul di invoice padahal setting kosong).
       const currentCompany = state.settings.company;
+      const str = (i: number): string => {
+        const v = results[i]?.value;
+        return typeof v === 'string' ? v : '';
+      };
       const company: CompanyInfo = {
-        nama: results[0]?.value || currentCompany.nama,
-        logo: results[1]?.value || currentCompany.logo,
-        alamat: results[2]?.value || currentCompany.alamat,
-        email: results[3]?.value || currentCompany.email,
-        telepon: results[4]?.value || currentCompany.telepon,
-        bankName: results[5]?.value || currentCompany.bankName,
-        bankAccount: results[6]?.value || currentCompany.bankAccount,
-        bankHolder: results[7]?.value || currentCompany.bankHolder,
-        bankName2: results[8]?.value || currentCompany.bankName2,
-        bankAccount2: results[9]?.value || currentCompany.bankAccount2,
-        bankHolder2: results[10]?.value || currentCompany.bankHolder2,
-        npwp: results[11]?.value || currentCompany.npwp,
+        nama: str(0),
+        logo: str(1),
+        alamat: str(2),
+        email: str(3),
+        telepon: str(4),
+        bankName: str(5),
+        bankAccount: str(6),
+        bankHolder: str(7),
+        bankName2: str(8),
+        bankAccount2: str(9),
+        bankHolder2: str(10),
+        npwp: str(11),
         ppn: results[12]?.value ? parseFloat(results[12].value) : currentCompany.ppn,
         website: currentCompany.website,
       };

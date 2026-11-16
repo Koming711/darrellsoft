@@ -112,8 +112,8 @@ function LoginContent() {
 
   }, [isRedirecting])
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setLoginError('')
     setLoginLoading(true)
 
@@ -125,7 +125,11 @@ function LoginContent() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, deviceToken: getOrCreateDeviceToken() }),
+        body: JSON.stringify({
+          username,
+          password,
+          deviceToken: getOrCreateDeviceToken(),
+        }),
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
@@ -135,6 +139,7 @@ function LoginContent() {
       if (!res.ok) {
         // LOGIN 1 PERANGKAT: perangkat kedua ditolak → tampilkan layar
         // peringatan keamanan (bukan sekadar pesan error biasa).
+        // Pemulihan hanya lewat admin (Hubungi Administrator / Panel Admin).
         if (data?.deviceConflict) {
           clearAuthUser() // pastikan tidak ada sesi basi perangkat ini
           setDeviceBlocked({
@@ -144,10 +149,13 @@ function LoginContent() {
           setLoginLoading(false)
           return
         }
+        setDeviceBlocked(null)
         setLoginError(data.error || 'Login gagal')
         setLoginLoading(false)
         return
       }
+
+      setDeviceBlocked(null)
 
       // Save to localStorage (include sessionId for multi-device check)
       setAuthUser({
@@ -461,6 +469,9 @@ function LoginContent() {
               )}
 
               <div className="mt-5 space-y-2.5">
+                {/* Tidak ada pemulihan diri: sesi perangkat hanya bisa dicabut
+                    oleh administrator (Panel Admin — Manajemen Perangkat) atau
+                    user logout manual di perangkat aktif. */}
                 <button
                   type="button"
                   onClick={() => { setDeviceBlocked(null); setPassword(''); setLoginError('') }}

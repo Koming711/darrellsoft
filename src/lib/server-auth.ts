@@ -190,6 +190,9 @@ export const GRUP_MENU_IZIN: { id: string; label: string }[] = [
   { id: 'stock-bahan', label: 'Stock Bahan' },
   // Lainnya
   { id: 'pengaturan', label: 'Pengaturan' },
+  // Pengaturan Notifikasi — bila TIDAK dicentang, menu "Pengaturan Notifikasi"
+  // disembunyikan dari anggota grup (owner & non-grup tetap selalu melihat).
+  { id: 'pengaturan-notifikasi', label: 'Pengaturan Notifikasi' },
   // Langganan — bila TIDAK dicentang, menu Langganan disembunyikan dari
   // anggota grup (owner & non-grup tetap selalu melihat).
   { id: 'langganan-saya', label: 'Langganan' },

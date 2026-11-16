@@ -13,6 +13,7 @@ import { useTheme } from 'next-themes'
 import { persistDarkMode } from '@/contexts/theme-context'
 import { Language, TranslationKey } from '@/lib/i18n'
 import { notifyDataChange } from '@/lib/data-sync'
+import { COMPANY_SETTINGS_UPDATED_EVENT, invalidateLiveBankCache } from '@/lib/use-live-bank'
 
 // Preset color palettes with stabilo (bright neon highlighter) colors
 // Background lightened 17% total, popup lightened 25% total
@@ -421,6 +422,9 @@ export default function PengaturanPage() {
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'bank_holder2', value: bankHolder2 }) }),
         authFetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify({ key: 'npwp', value: npwp }) }),
       ])
+      // Segarkan cache rekening live di semua pratinjau invoice yang terbuka
+      invalidateLiveBankCache()
+      window.dispatchEvent(new Event(COMPANY_SETTINGS_UPDATED_EVENT))
       toast.success(t('setting_saved'))
       notifyDataChange('settings')
     } catch { toast.error(t('setting_error_save')) }

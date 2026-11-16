@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PurchaseOrderData } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
 import { terbilang } from '@/lib/terbilang';
+import { applyLiveBank, useLiveBankFields } from '@/lib/use-live-bank';
 
 interface PurchaseOrderPreviewProps {
   data: PurchaseOrderData;
@@ -20,10 +21,18 @@ const SPACER_BASE_PX = 40 * (96 / 25.4);
 const A5_H_PX = 210 * (96 / 25.4);
 
 export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
+  // Rekening bank + email SELALU live dari Pengaturan (bukan snapshot) —
+  // nilai yang dihapus/kosongkan di Pengaturan tidak boleh muncul di
+  // dokumen lama (pola sama dengan InvoicePreview).
+  const liveBank = useLiveBankFields();
+  const company = useMemo(
+    () => applyLiveBank(data.company, liveBank),
+    [data.company, liveBank]
+  );
   const subtotal = data.items.reduce((sum, item) => sum + item.qty * item.harga, 0);
   const ppnAmount = subtotal * (data.ppn / 100);
   const total = subtotal + ppnAmount;
-  const companyInitials = (data.company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
+  const companyInitials = (company.nama || 'C').split(/\s+/).map(w => w.charAt(0)).join('').toUpperCase().slice(0, 2);
 
   const itemCount = data.items.length;
 
@@ -93,7 +102,7 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
             style={{
               width: '10mm',
               height: '10mm',
-              border: data.company.logo ? 'none' : '2px solid #000',
+              border: company.logo ? 'none' : '2px solid #000',
               borderRadius: '2px',
               display: 'flex',
               alignItems: 'center',
@@ -101,36 +110,36 @@ export function PurchaseOrderPreview({ data }: PurchaseOrderPreviewProps) {
               fontWeight: 'bold',
               fontSize: '9pt',
               flexShrink: 0,
-              color: data.company.logo ? 'inherit' : '#000',
+              color: company.logo ? 'inherit' : '#000',
             }}
           >
-            {data.company.logo ? (
-              <img src={data.company.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            {company.logo ? (
+              <img src={company.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
               <span>{companyInitials}</span>
             )}
           </div>
           <div className="company-info">
             <p className="company-name" style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000', margin: 0 }}>
-              {data.company.nama || ''}
+              {company.nama || ''}
             </p>
-            {data.company.alamat && (
-              <p style={{ fontSize: '9pt', color: '#000', margin: '0.5mm 0 0' }}>{data.company.alamat}</p>
+            {company.alamat && (
+              <p style={{ fontSize: '9pt', color: '#000', margin: '0.5mm 0 0' }}>{company.alamat}</p>
             )}
-            {(data.company.telepon || data.company.email) && (
+            {(company.telepon || company.email) && (
               <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
-                {data.company.telepon && <span>{data.company.telepon}</span>}
-                {data.company.telepon && data.company.email && <span> | </span>}
-                {data.company.email && <span>{data.company.email}</span>}
+                {company.telepon && <span>{company.telepon}</span>}
+                {company.telepon && company.email && <span> | </span>}
+                {company.email && <span>{company.email}</span>}
               </p>
             )}
-            {(data.company.bankName || data.company.bankName2) && (
+            {(company.bankName || company.bankName2) && (
               <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
-                {data.company.bankName && (
-                  <span>{data.company.bankName} {data.company.bankAccount} a.n. {data.company.bankHolder}</span>
+                {company.bankName && (
+                  <span>{company.bankName} {company.bankAccount} a.n. {company.bankHolder}</span>
                 )}
-                {data.company.bankName2 && (
-                  <span style={{ marginLeft: '3mm' }}>{data.company.bankName2} {data.company.bankAccount2} a.n. {data.company.bankHolder2}</span>
+                {company.bankName2 && (
+                  <span style={{ marginLeft: '3mm' }}>{company.bankName2} {company.bankAccount2} a.n. {company.bankHolder2}</span>
                 )}
               </p>
             )}

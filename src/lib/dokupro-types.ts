@@ -104,11 +104,12 @@ export interface SPKData {
 
 export type AnyDocumentData = InvoiceData | SuratJalanData | PurchaseOrderData | SPKData;
 
+// DEFAULT_COMPANY SEMUA field identitas KOSONG — lihat komentar di src/lib/types.ts.
 export const DEFAULT_COMPANY: CompanyInfo = {
-  nama: 'PT Karya Mandiri Sejahtera',
-  telepon: '(021) 555-0199',
-  alamat: 'Jl. Merdeka No. 12, Jakarta Pusat 10110',
-  email: 'halo@karyamandiri.co.id',
+  nama: '',
+  telepon: '',
+  alamat: '',
+  email: '',
   npwp: '',
   website: '',
   ppn: 11,

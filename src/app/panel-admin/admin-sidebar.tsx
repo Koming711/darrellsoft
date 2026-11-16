@@ -49,8 +49,9 @@ const ADMIN_MENU: { tab: AdminTab; label: string; icon: React.ComponentType<{ cl
   { tab: 'paket', label: 'Paket', icon: Crown },
   { tab: 'pembayaran', label: 'Pendaftar Baru', icon: UserPlus },
   { tab: 'grup', label: 'Manajemen Grup', icon: Building2 },
-  // PERMINTAAN USER: menu Manajemen Perangkat — kelola sesi "Login 1 Perangkat"
-  // (perangkat aktif, cabut sesi, reset perangkat, riwayat login ditolak).
+  // PERMINTAAN USER (dipulihkan): menu Manajemen Perangkat — kelola sesi
+  // "Login 1 Perangkat" (perangkat aktif, cabut sesi, reset perangkat,
+  // riwayat login ditolak).
   { tab: 'manajemen-perangkat', label: 'Manajemen Perangkat', icon: Smartphone },
   { tab: 'pengaturan', label: 'Pengaturan', icon: Settings },
   { tab: 'transaksi', label: 'Transaksi', icon: Receipt },

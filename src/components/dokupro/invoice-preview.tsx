@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { InvoiceData } from '@/lib/types';
 import { DEFAULT_COMPANY } from '@/lib/types';
 import { formatRupiah, formatTanggal } from '@/lib/format';
 import { terbilang } from '@/lib/terbilang';
+import { applyLiveBank, useLiveBankFields } from '@/lib/use-live-bank';
 
 interface InvoicePreviewProps {
   data: InvoiceData;
@@ -21,7 +22,13 @@ const A5_H_PX = 210 * (96 / 25.4);
 
 export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: InvoicePreviewProps) {
   // Fallback defensif: data lama/backup lama bisa tanpa key `company`
-  const company = data.company ?? { ...DEFAULT_COMPANY };
+  // Rekening bank SELALU live dari Pengaturan (bukan snapshot) — nomor
+  // rekening yang dihapus di Pengaturan tidak boleh muncul di invoice lama.
+  const liveBank = useLiveBankFields();
+  const company = useMemo(
+    () => applyLiveBank(data.company ?? { ...DEFAULT_COMPANY }, liveBank),
+    [data.company, liveBank]
+  );
   const items = Array.isArray(data.items) ? data.items : [];
   const client = data.client ?? { nama: '', kontak: '', alamat: '' };
   const subtotal = items.reduce((sum, item) => sum + item.qty * item.harga, 0);
@@ -137,16 +144,22 @@ export function InvoicePreview({ data, showPelunasanLabel, dpAmountOverride }: I
                 {company.email && <span>{company.email}</span>}
               </p>
             )}
-            {(company.bankName || company.bankName2) && (
-              <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
-                {company.bankName && (
-                  <span>{company.bankName} {company.bankAccount} a.n. {company.bankHolder}</span>
-                )}
-                {company.bankName2 && (
-                  <span style={{ marginLeft: '3mm' }}>{company.bankName2} {company.bankAccount2} a.n. {company.bankHolder2}</span>
-                )}
-              </p>
-            )}
+            {/* Baris rekening: hanya bagian yang benar-benar terisi yang
+                ditampilkan (rekening kosong di Pengaturan = tak tampil). */}
+            {(() => {
+              const bank1 = [company.bankName, company.bankAccount].filter(Boolean).join(' ');
+              const bank1Full = bank1 + (bank1 && company.bankHolder ? ` a.n. ${company.bankHolder}` : '');
+              const bank2 = [company.bankName2, company.bankAccount2].filter(Boolean).join(' ');
+              const bank2Full = bank2 + (bank2 && company.bankHolder2 ? ` a.n. ${company.bankHolder2}` : '');
+              if (!bank1Full && !bank2Full) return null;
+              return (
+                <p style={{ fontSize: '9pt', color: '#000', margin: '0.3mm 0 0' }}>
+                  {bank1Full && <span>{bank1Full}</span>}
+                  {bank1Full && bank2Full && <span style={{ marginLeft: '3mm' }} />}
+                  {bank2Full && <span>{bank2Full}</span>}
+                </p>
+              );
+            })()}
           </div>
         </div>
 

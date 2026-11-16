@@ -315,8 +315,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       await tx.calonPembeli.updateMany({ where: { userId: id }, data: { userId: null } })
       // Hapus akun
       if (t.source === 'pengguna') {
-        // Hapus Pembeli penaut akun agar tidak jadi baris yatim yang
-        // memblokir nomor HP saat pendaftaran ulang
+        // Hapus juga Pembeli yang menaut ke akun ini — baris hantu (penggunaId
+        // menunjuk Pengguna yang sudah dihapus) akan memblokir nomor WhatsApp
+        // dari pendaftaran ulang selamanya.
         await tx.pembeli.deleteMany({ where: { penggunaId: id } })
         await tx.pengguna.delete({ where: { id } })
       } else {

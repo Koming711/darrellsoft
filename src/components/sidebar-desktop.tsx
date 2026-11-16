@@ -308,6 +308,22 @@ const sectionOrder: { key: string | undefined; labelKey: TranslationKey }[] = [
   { key: 'setting', labelKey: 'section_setting' as TranslationKey },
 ]
 
+// PERMINTAAN USER (RBAC "Grup Saya"): seksi sidebar mengikuti hak akses —
+// bila anggota grup TIDAK punya SALAH SATU izin penentu di bawah, SELURUH
+// seksi (judul + seluruh item di dalamnya, TERMASUK item bypass spt Grup Saya
+// & Beli Paket) disembunyikan dari sidebar:
+// - seksi LANGGANAN hilang bila izin "Langganan" tidak dicentang.
+// - seksi SETTING hilang bila izin "Pengaturan" & "Pengaturan Notifikasi"
+//   tidak ada yang dicentang (seksi kosong → tidak dirender sama sekali).
+// Owner grup & akun non-grup selalu melihat semua seksi.
+const SEKSI_KONTROL_IZIN: Record<string, string[]> = {
+  langganan: ['langganan-saya'],
+  setting: ['pengaturan', 'pengaturan-notifikasi'],
+}
+// Item halaman akun yang tetap boleh lewat cek izin per-item (nama grup di
+// sidebar lama). Blokir level SEKSI tetap berlaku via SEKSI_KONTROL_IZIN.
+const BYPASS_IZIN_ANGGOTA = ['grup-saya', 'pilih-paket']
+
 interface SidebarProps {
   username?: string
   role?: string
@@ -435,8 +451,10 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
     .filter((item) => {
       if (!isAnggotaGrup) return true
       // Anggota grup: hanya lihat menu yang diizinkan Owner + halaman akun.
-      // 'langganan-saya' TIDAK bypass — mengikuti izin Owner (RBAC Langganan).
-      if (['grup-saya', 'pilih-paket', 'pengaturan', 'pengaturan-notifikasi'].includes(item.featureId)) return true
+      // 'langganan-saya', 'pengaturan' & 'pengaturan-notifikasi' TIDAK bypass —
+      // mengikuti centangan RBAC Owner (kotak Hak Akses Menu halaman Grup Saya;
+      // judul seksi ikut disembunyikan bila seksi jadi kosong).
+      if (BYPASS_IZIN_ANGGOTA.includes(item.featureId)) return true
       return grupInfo!.izin.includes(item.featureId)
     })
 
@@ -493,10 +511,23 @@ export function Sidebar({ username, role, onLogout, permVersion: _permVersion }:
         {sectionOrder.map((section) => {
           const sectionItems = menuWithAccess.filter((item) => item.section === section.key)
           if (sectionItems.length === 0) return null
+          // PERMINTAAN USER (RBAC "Grup Saya"): seluruh seksi disembunyikan bila
+          // anggota grup tidak punya izin penentu seksi (mis. "Langganan" tidak
+          // dicentang → seksi LANGGANAN hilang seluruhnya, termasuk Grup Saya
+          // & Beli Paket).
+          const izinKontrolSeksi = section.key ? SEKSI_KONTROL_IZIN[section.key] : undefined
+          if (
+            izinKontrolSeksi &&
+            isAnggotaGrup &&
+            !izinKontrolSeksi.some((id) => grupInfo!.izin.includes(id))
+          ) {
+            return null
+          }
 
           return (
             <div key={section.key ?? 'main'} className="mb-1">
-              {/* Collapsed: divider saja. Expanded: label section uppercase terang */}
+              {/* Collapsed: divider saja. Expanded: label section uppercase terang.
+                  Seksi yang disembunyikan RBAC sudah return null di atas. */}
               {section.key && (
                 <>
                   <div

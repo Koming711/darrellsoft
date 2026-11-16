@@ -65,11 +65,13 @@ export function getSubPermissions(roleId: string, featureId: string): Record<str
 export function hasFeatureAccess(roleId: string, featureId: string): boolean {
   // RBAC GRUP PERUSAHAAN: anggota grup (admin/staf) hanya dapat mengakses
   // menu yang diizinkan Owner (izin disimpan di localStorage 'grup_info'),
-  // KECUALI halaman akun: 'grup-saya', 'pilih-paket' & 'pengaturan-notifikasi'
-  // selalu tersedia (perilaku lama). 'panel-admin' tidak pernah untuk anggota.
+  // KECUALI halaman akun 'grup-saya' & 'pilih-paket' yang selalu tersedia.
+  // 'pengaturan-notifikasi' TIDAK bypass — mengikuti centangan "Pengaturan
+  // Notifikasi" di kotak Hak Akses Menu (RBAC) halaman Grup Saya.
+  // 'panel-admin' tidak pernah untuk anggota.
   const grup = getGrupInfo()
   if (grup && grup.peran !== 'owner') {
-    if (featureId === 'grup-saya' || featureId === 'pilih-paket' || featureId === 'pengaturan-notifikasi') return true
+    if (featureId === 'grup-saya' || featureId === 'pilih-paket') return true
     if (featureId === 'panel-admin') return false
     return grup.izin.includes(featureId)
   }

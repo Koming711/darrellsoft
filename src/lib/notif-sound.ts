@@ -5,6 +5,8 @@
  * Suara berbeda per jenis notifikasi:
  *  - 'registration' : dua nada naik (C6 → G5) — pendaftaran akun baru
  *  - 'subscription' : tiga nada turun lembut (E5 → C5 → G4) — pengingat langganan
+ *  - 'security'     : alarm ganda cepat (B5 ↔ G5) — peringatan keamanan
+ *                     (percobaan login perangkat lain, sesi dicabut, dll)
  *  - 'info'         : dua nada naik (default, kompatibel versi lama)
  *
  * Browser autoplay policy: AudioContext must be resumed after a user gesture.
@@ -13,7 +15,7 @@
 
 let audioCtx: AudioContext | null = null
 
-export type NotifSoundKind = 'registration' | 'subscription' | 'info'
+export type NotifSoundKind = 'registration' | 'subscription' | 'security' | 'info'
 
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
@@ -82,6 +84,22 @@ export function playNotifSound(kind: NotifSoundKind = 'info'): void {
           { freq: 392.0, start: 0.44, dur: 0.45, peak: 0.45 }, // G4
         ],
         1.05
+      )
+      return
+    }
+
+    if (kind === 'security') {
+      // Peringatan keamanan: alarm ganda cepat B5 ↔ G5 — terdengar tegas,
+      // jelas berbeda dari notifikasi biasa agar langsung diperhatikan.
+      playTones(
+        ctx,
+        [
+          { freq: 987.77, start: 0.0, dur: 0.16, peak: 0.6 }, // B5
+          { freq: 783.99, start: 0.18, dur: 0.16, peak: 0.55 }, // G5
+          { freq: 987.77, start: 0.36, dur: 0.16, peak: 0.6 }, // B5
+          { freq: 783.99, start: 0.54, dur: 0.3, peak: 0.5 }, // G5 (panjang penutup)
+        ],
+        0.95
       )
       return
     }

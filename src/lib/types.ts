@@ -124,11 +124,17 @@ export interface SPKData {
 
 export type AnyDocumentData = InvoiceData | SuratJalanData | PurchaseOrderData | SPKData;
 
+// DEFAULT_COMPANY SEMUA field identitas KOSONG (""), BUKAN contoh perusahaan.
+// Dulu berisi data dummy ("PT Karya Mandiri Sejahtera" / "halo@karyamandiri.co.id")
+// yang "zombie": muncul di invoice padahal user mengosongkan field di Pengaturan,
+// karena banyak merge memakai `parsed.company?.email || DEFAULT_COMPANY.email`.
+// Kosong = belum dikonfigurasi → Pengaturan → Data Perusahaan adalah satu-satunya
+// sumber kebenaran. ppn tetap 11 sebagai default pajak dokumen baru.
 export const DEFAULT_COMPANY: CompanyInfo = {
-  nama: 'PT Karya Mandiri Sejahtera',
-  telepon: '(021) 555-0199',
-  alamat: 'Jl. Merdeka No. 12, Jakarta Pusat 10110',
-  email: 'halo@karyamandiri.co.id',
+  nama: '',
+  telepon: '',
+  alamat: '',
+  email: '',
   npwp: '',
   website: '',
   ppn: 11,

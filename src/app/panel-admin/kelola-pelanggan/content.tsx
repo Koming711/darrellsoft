@@ -11,7 +11,7 @@
 // Aksi langganan (Aktifkan / Tangguhkan / Aktifkan Kembali) tetap ada —
 // dipindah ke dalam popup detail agar daftar tetap bersih seperti referensi.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -55,6 +55,7 @@ import {
   Calendar,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Loader2,
   Mail,
@@ -62,6 +63,7 @@ import {
   RefreshCcw,
   ShieldCheck,
   Trash2,
+  Users,
   XCircle,
 } from 'lucide-react'
 
@@ -115,7 +117,40 @@ interface Row {
   } | null
   openInvoices: { id: string; invoiceNumber: string; planName: string; amount: number; status: string; dueDate: string }[]
   hasPendingPayment: boolean
+  // Keterangan grup perusahaan (owner/anggota grup): "Grup {nama}" + peran.
+  grup: { id: string; nama: string; peran: string; ownerNama: string } | null
+  // Hanya baris OWNER grup — seluruh anggota + tanggal langganan grup.
+  grupDetail: GrupDetail | null
 }
+
+/** Detail grup pada baris owner — tampil saat baris owner diklik. */
+interface GrupDetail {
+  id: string
+  nama: string
+  kode: string
+  status: string
+  planName: string | null
+  tanggalGabung: string | null
+  tanggalExpired: string | null
+  durasiLabel: string | null
+  anggota: Row[]
+}
+
+// Label peran di grup utk keterangan daftar pelanggan
+const peranGrupLabel = (peran: string) =>
+  peran === 'owner' ? 'Owner' : peran === 'admin' ? 'Admin' : 'Staf'
+/** Teks keterangan grup — "Grup william · Owner" */
+const grupKeterangan = (g: Row['grup']) => (g ? `Grup ${g.nama} · ${peranGrupLabel(g.peran)}` : null)
+
+/** Kolom Tanggal Expired utk baris owner grup = akhir langganan grup
+ * (mis. 15 Des), bukan validUntil akun (bisa beda). */
+const expiredTampil = (r: Row) =>
+  r.grupDetail ? (r.subscription?.endDate ?? r.expiredAt) : r.expiredAt
+
+const badgePeranKelas = (peran: string) =>
+  peran === 'owner'
+    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+    : 'bg-muted text-muted-foreground'
 
 /** Inisial avatar — 2 kata pertama (pola referensi PenggunaTab). */
 const initials = (name: string) =>
@@ -147,10 +182,100 @@ function matchesStatusFilter(r: Row, f: StatusFilterKey): boolean {
   return (r.subscription?.status ?? 'belum_aktif') === f
 }
 
+/** Panel grup — muncul saat baris OWNER diklik: info langganan grup
+ * (paket, bergabung, expired, durasi) + daftar anggota yang bisa diklik. */
+function GrupPanel({ d, onOpenMember }: { d: GrupDetail; onOpenMember: (m: Row) => void }) {
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Users className="size-4 shrink-0 text-emerald-600" />
+        <span className="text-sm font-bold">Grup {d.nama}</span>
+        <Badge variant="outline" className="font-mono text-[10px]">
+          {d.kode}
+        </Badge>
+        <Badge
+          className={
+            d.status === 'aktif'
+              ? STATUS_META.aktif.className
+              : STATUS_META.ditangguhkan.className
+          }
+        >
+          {d.status === 'aktif' ? 'Aktif' : 'Dinonaktifkan'}
+        </Badge>
+      </div>
+
+      {/* Tanggal langganan grup: bergabung → expired (+ durasi) */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+        <span className="text-muted-foreground">
+          Paket: <span className="font-semibold text-foreground">{d.planName ?? '-'}</span>
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <Calendar className="size-3 shrink-0" /> Bergabung:{' '}
+          <span className="font-semibold text-foreground">{fmtDate(d.tanggalGabung)}</span>
+        </span>
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <CalendarClock className="size-3 shrink-0" /> Expired:{' '}
+          <span className={cn('font-semibold', expiryInfo(d.tanggalExpired).className)}>
+            {expiryInfo(d.tanggalExpired).text}
+          </span>
+        </span>
+        {d.durasiLabel && (
+          <span className="text-muted-foreground">
+            Durasi: <span className="font-semibold text-foreground">{d.durasiLabel}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Daftar anggota — klik utk detail & aksi */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <p className="border-b border-border bg-secondary/50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Anggota grup ({d.anggota.length})
+        </p>
+        {d.anggota.map((m) => (
+          <div
+            key={m.userId}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenMember(m)}
+            onKeyDown={(e) => e.key === 'Enter' && onOpenMember(m)}
+            aria-label={`Detail ${m.namaLengkap || m.username}`}
+            className="flex cursor-pointer items-center gap-2.5 border-b border-border px-3 py-2.5 last:border-0 hover:bg-accent/30"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+              {initials(m.namaLengkap || m.username)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <span className="text-xs font-semibold">{m.namaLengkap || m.username}</span>
+              <span className="ml-1.5 text-[10px] text-muted-foreground">@{m.username}</span>
+            </div>
+            <Badge className={badgePeranKelas(m.grup?.peran ?? 'staf')}>
+              {peranGrupLabel(m.grup?.peran ?? 'staf')}
+            </Badge>
+            {(() => {
+              const st = m.subscription?.status ?? 'belum_aktif'
+              const meta = STATUS_META[st] ?? STATUS_META.belum_aktif
+              return <Badge className={meta.className}>{meta.label}</Badge>
+            })()}
+            <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:block">
+              {fmtDate(m.registeredAt)}
+            </span>
+            <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground">
+        Klik anggota untuk melihat detail lengkap, langganan, dan aksi.
+      </p>
+    </div>
+  )
+}
+
 export function KelolaPelangganContent() {
   const [rows, setRows] = useState<Row[] | null>(null)
   // Tab status aktif (default: Semua)
   const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('semua')
+  // Baris owner grup yg dibuka (userId owner) — grup + anggotanya tampil inline.
+  const [expandedOwner, setExpandedOwner] = useState<string | null>(null)
   const [previewUser, setPreviewUser] = useState<Row | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
@@ -208,8 +333,23 @@ export function KelolaPelangganContent() {
   )
   const activeFilterLabel = STATUS_FILTERS.find((t) => t.key === statusFilter)?.label ?? 'Semua'
 
+  // Jumlah akun terdaftar sesungguhnya: baris tampil (owner/non-grup) +
+  // anggota grup yang tersembunyi di dalam baris owner-nya.
+  const totalTerdaftar = useMemo(
+    () =>
+      (rows ?? []).reduce((n, r) => n + (r.grupDetail ? r.grupDetail.anggota.length : 1), 0),
+    [rows],
+  )
+  const adaGrup = (rows ?? []).some((r) => r.grupDetail)
+
   const isAdminRow = (r: Row) => r.role === 'admin' || r.role === 'superadmin'
   const subStatusOf = (r: Row) => r.subscription?.status ?? 'belum_aktif'
+
+  // Buka popup anggota dr panel grup — bila anggota belum membawa grupDetail
+  // (entri di daftar anggota), tempelkan grupDetail grup induk agar popup
+  // menampilkan info langganan grup + daftar anggota juga.
+  const openMemberPopup = (m: Row, d: GrupDetail) =>
+    setPreviewUser(m.grupDetail ? m : { ...m, grupDetail: d })
 
   // ---- HAPUS pengguna permanen (pola referensi: AlertDialog konfirmasi) ----
   const confirmDelete = async () => {
@@ -357,7 +497,8 @@ export function KelolaPelangganContent() {
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Kelola Pengguna</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Klik pengguna untuk melihat detail lengkap, langganan, dan aksi.
+            Klik baris owner untuk membuka grup &amp; anggotanya; klik anggota untuk detail
+            lengkap, langganan, dan aksi.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => load()} className="gap-1.5">
@@ -374,11 +515,18 @@ export function KelolaPelangganContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          <h2 className="text-base font-bold">
-            {statusFilter === 'semua'
-              ? `${rows.length} pengguna terdaftar`
-              : `${filteredRows.length} pengguna — ${activeFilterLabel}`}
-          </h2>
+          <div>
+            <h2 className="text-base font-bold">
+              {statusFilter === 'semua'
+                ? `${totalTerdaftar} pengguna terdaftar`
+                : `${filteredRows.length} pengguna — ${activeFilterLabel}`}
+            </h2>
+            {statusFilter === 'semua' && adaGrup && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Tampil per pemilik grup — anggota grup ada di dalam baris owner-nya.
+              </p>
+            )}
+          </div>
 
           {/* Tab status (permintaan user) — pill + hitungan per status */}
           <div role="tablist" aria-label="Filter status pengguna" className="flex flex-wrap items-center gap-2">
@@ -414,29 +562,65 @@ export function KelolaPelangganContent() {
 
           {/* ===== MOBILE: daftar kartu — hanya nama + HP, klik utk detail (pola referensi) ===== */}
           <div className="space-y-2 sm:hidden">
-            {filteredRows.map((u) => (
-              <div
-                key={u.userId}
-                onClick={() => setPreviewUser(u)}
-                className="cursor-pointer rounded-xl border border-border bg-card p-3 transition hover:bg-accent/30 active:bg-accent/50"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold">{u.namaLengkap || u.username}</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Phone className="size-3 shrink-0" /> {u.nomorHP || '-'}
-                    </p>
-                    {u.expiredAt && (
-                      <p className="mt-0.5 flex items-center gap-1 text-xs">
-                        <CalendarClock className="size-3 shrink-0 text-muted-foreground" />
-                        <span className={expiryInfo(u.expiredAt).className}>{expiryInfo(u.expiredAt).text}</span>
-                      </p>
-                    )}
+            {filteredRows.map((u) => {
+              const expanded = expandedOwner === u.userId
+              const grupDetail = u.grupDetail
+              return (
+                <div
+                  key={u.userId}
+                  className={cn(
+                    'rounded-xl border border-border bg-card transition',
+                    expanded && 'border-emerald-600/40',
+                  )}
+                >
+                  <div
+                    onClick={() =>
+                      u.grupDetail ? setExpandedOwner(expanded ? null : u.userId) : setPreviewUser(u)
+                    }
+                    aria-expanded={u.grupDetail ? expanded : undefined}
+                    className="cursor-pointer p-3 transition hover:bg-accent/30 active:bg-accent/50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold">{u.namaLengkap || u.username}</p>
+                        {u.grup && (
+                          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                            <Users className="size-3 shrink-0" /> {grupKeterangan(u.grup)}
+                            {u.grupDetail ? ` · ${u.grupDetail.anggota.length} akun` : ''}
+                          </p>
+                        )}
+                        <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Phone className="size-3 shrink-0" /> {u.nomorHP || '-'}
+                        </p>
+                        {expiredTampil(u) && (
+                          <p className="mt-0.5 flex items-center gap-1 text-xs">
+                            <CalendarClock className="size-3 shrink-0 text-muted-foreground" />
+                            <span className={expiryInfo(expiredTampil(u)).className}>
+                              {expiryInfo(expiredTampil(u)).text}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                      {u.grupDetail ? (
+                        <ChevronDown
+                          className={cn(
+                            'size-4 shrink-0 text-muted-foreground transition-transform',
+                            expanded && 'rotate-180',
+                          )}
+                        />
+                      ) : (
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                  {grupDetail && expanded && (
+                    <div className="border-t border-border">
+                      <GrupPanel d={grupDetail} onOpenMember={(m) => openMemberPopup(m, grupDetail)} />
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {filteredRows.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 {statusFilter === 'semua'
@@ -462,50 +646,86 @@ export function KelolaPelangganContent() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((u) => (
-                  <tr
-                    key={u.userId}
-                    onClick={() => setPreviewUser(u)}
-                    className="cursor-pointer border-b border-border hover:bg-accent/30"
-                  >
-                    <td className="p-2">
-                      <div className="flex items-center gap-2">
-                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                          {initials(u.namaLengkap || u.username)}
-                        </span>
-                        <span className="text-xs font-medium">{u.namaLengkap || u.username}</span>
-                      </div>
-                    </td>
-                    <td className="p-2 text-xs text-muted-foreground">{u.email || '-'}</td>
-                    <td className="p-2 text-xs">{u.nomorHP || '-'}</td>
-                    <td className="p-2 text-xs">{u.companyName || '-'}</td>
-                    <td className="p-2">
-                      <Badge className={isAdminRow(u) ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-muted text-muted-foreground'}>
-                        {u.role}
-                      </Badge>
-                    </td>
-                    <td className="p-2 text-xs text-muted-foreground">{fmtDate(u.registeredAt)}</td>
-                    <td className={cn('p-2 text-xs', expiryInfo(u.expiredAt).className)}>{expiryInfo(u.expiredAt).text}</td>
-                    <td className="p-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-center">
-                        <button
-                          onClick={() => !isAdminRow(u) && setDeleteTarget(u)}
-                          disabled={isAdminRow(u) || deleteBusy}
-                          className={cn(
-                            'grid size-7 place-items-center rounded transition',
-                            isAdminRow(u)
-                              ? 'cursor-not-allowed bg-muted text-muted-foreground/40'
-                              : 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70',
-                          )}
-                          title={isAdminRow(u) ? 'Akun admin tidak dapat dihapus' : 'Hapus pengguna'}
-                          aria-label={`Hapus pengguna ${u.namaLengkap || u.username}`}
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredRows.map((u) => {
+                  const expanded = expandedOwner === u.userId
+                  const grupDetail = u.grupDetail
+                  return (
+                    <Fragment key={u.userId}>
+                      <tr
+                        onClick={() =>
+                          u.grupDetail ? setExpandedOwner(expanded ? null : u.userId) : setPreviewUser(u)
+                        }
+                        aria-expanded={u.grupDetail ? expanded : undefined}
+                        className="cursor-pointer border-b border-border hover:bg-accent/30"
+                      >
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            {u.grupDetail ? (
+                              <ChevronDown
+                                className={cn(
+                                  'size-4 shrink-0 text-muted-foreground transition-transform',
+                                  expanded && 'rotate-180',
+                                )}
+                              />
+                            ) : (
+                              <span className="size-4 shrink-0" />
+                            )}
+                            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {initials(u.namaLengkap || u.username)}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-medium">{u.namaLengkap || u.username}</span>
+                              {u.grup && (
+                                <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                  <Users className="size-3 shrink-0" /> {grupKeterangan(u.grup)}
+                                  {u.grupDetail ? ` · ${u.grupDetail.anggota.length} akun` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-2 text-xs text-muted-foreground">{u.email || '-'}</td>
+                        <td className="p-2 text-xs">{u.nomorHP || '-'}</td>
+                        <td className="p-2 text-xs">{u.companyName || '-'}</td>
+                        <td className="p-2">
+                          <Badge className={isAdminRow(u) ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-muted text-muted-foreground'}>
+                            {u.role}
+                          </Badge>
+                        </td>
+                        <td className="p-2 text-xs text-muted-foreground">{fmtDate(u.registeredAt)}</td>
+                        <td className={cn('p-2 text-xs', expiryInfo(expiredTampil(u)).className)}>
+                          {expiryInfo(expiredTampil(u)).text}
+                        </td>
+                        <td className="p-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-center">
+                            <button
+                              onClick={() => !isAdminRow(u) && setDeleteTarget(u)}
+                              disabled={isAdminRow(u) || deleteBusy}
+                              className={cn(
+                                'grid size-7 place-items-center rounded transition',
+                                isAdminRow(u)
+                                  ? 'cursor-not-allowed bg-muted text-muted-foreground/40'
+                                  : 'bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-950/40 dark:text-red-400 dark:hover:bg-red-950/70',
+                              )}
+                              title={isAdminRow(u) ? 'Akun admin tidak dapat dihapus' : 'Hapus pengguna'}
+                              aria-label={`Hapus pengguna ${u.namaLengkap || u.username}`}
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Baris owner diklik → grup + anggota tampil di bawahnya */}
+                      {grupDetail && expanded && (
+                        <tr className="border-b border-border bg-muted/30">
+                          <td colSpan={8} className="p-0">
+                            <GrupPanel d={grupDetail} onOpenMember={(m) => openMemberPopup(m, grupDetail)} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
             {filteredRows.length === 0 && (
@@ -581,6 +801,15 @@ export function KelolaPelangganContent() {
                   <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Building2 className="size-3.5" /> Perusahaan</span>
                   <span className="truncate font-medium">{previewUser.companyName || '-'}</span>
                 </div>
+                {previewUser.grup && (
+                  <>
+                    <Separator className="bg-border" />
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Users className="size-3.5" /> Grup</span>
+                      <span className="truncate font-medium">{grupKeterangan(previewUser.grup)}</span>
+                    </div>
+                  </>
+                )}
                 <Separator className="bg-border" />
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><Calendar className="size-3.5" /> Bergabung</span>
@@ -589,9 +818,9 @@ export function KelolaPelangganContent() {
                 <Separator className="bg-border" />
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground"><CalendarClock className="size-3.5" /> Tanggal Expired</span>
-                  {previewUser.expiredAt ? (
-                    <span className={cn('font-medium', expiryInfo(previewUser.expiredAt).className)}>
-                      {expiryInfo(previewUser.expiredAt).text}
+                  {expiredTampil(previewUser) ? (
+                    <span className={cn('font-medium', expiryInfo(expiredTampil(previewUser)).className)}>
+                      {expiryInfo(expiredTampil(previewUser)).text}
                     </span>
                   ) : (
                     <span className="text-xs italic text-muted-foreground">Tanpa batas waktu</span>
@@ -645,6 +874,43 @@ export function KelolaPelangganContent() {
                   </div>
                 )
               })()}
+
+              {/* grup — baris owner: langganan grup + daftar anggota */}
+              {previewUser.grupDetail && (
+                <div className="space-y-2 rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground">
+                      <Users className="size-3.5" /> Grup {previewUser.grupDetail.nama}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">{previewUser.grupDetail.kode}</span>
+                  </div>
+                  <Separator className="bg-border" />
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="shrink-0 text-muted-foreground">Langganan grup</span>
+                    <span className="text-right text-xs font-medium">
+                      {fmtDate(previewUser.grupDetail.tanggalGabung)} – {expiryInfo(previewUser.grupDetail.tanggalExpired).text}
+                      {previewUser.grupDetail.durasiLabel ? ` · ${previewUser.grupDetail.durasiLabel}` : ''}
+                    </span>
+                  </div>
+                  <Separator className="bg-border" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Anggota ({previewUser.grupDetail.anggota.length})
+                  </p>
+                  {previewUser.grupDetail.anggota.map((m) => (
+                    <div key={m.userId} className="flex items-center gap-2">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                        {initials(m.namaLengkap || m.username)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                        {m.namaLengkap || m.username}
+                      </span>
+                      <Badge className={badgePeranKelas(m.grup?.peran ?? 'staf')}>
+                        {peranGrupLabel(m.grup?.peran ?? 'staf')}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* aksi langganan */}
               {(() => {

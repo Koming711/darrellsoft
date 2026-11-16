@@ -13,7 +13,11 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password, deviceToken } = await request.json()
+    // forceTakeover = pengambilalihan sesi eksplisit (kredensial sudah
+    // terverifikasi di handler ini). Tombol "Gunakan Perangkat Ini" pada layar
+    // peringatan KEAMANAN telah DIHAPUS — pemulihan perangkat kini hanya lewat
+    // administrator. Field ini tetap didukung untuk keperluan internal/admin.
+    const { username, password, deviceToken, forceTakeover } = await request.json()
 
     // Auto-seed global data (users, settings) if not yet seeded
     await ensureSeedData(null)
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return await buildLoginResponse(request, pengguna.id, pengguna.username, pengguna.namaLengkap, pengguna.role, pengguna.validUntil, username, deviceToken)
+      return await buildLoginResponse(request, pengguna.id, pengguna.username, pengguna.namaLengkap, pengguna.role, pengguna.validUntil, username, deviceToken, forceTakeover)
     }
 
     // 2. Tidak cocok di Pengguna -> cek kandidat CalonPembeli (owner grup /
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
       // Status "baru" atau "aktif" -> langsung izinkan login
       // Pakai CalonPembeli ID sebagai userId, role = demo
       const role = calon.role || 'demo'
-      return await buildLoginResponse(request, calon.id, calon.username || username, calon.nama, role, calon.expiredDate, calon.username || username, deviceToken)
+      return await buildLoginResponse(request, calon.id, calon.username || username, calon.nama, role, calon.expiredDate, calon.username || username, deviceToken, forceTakeover)
     }
 
     // 3. Tidak ditemukan di mana pun
@@ -147,7 +151,8 @@ async function buildLoginResponse(
   role: string,
   validUntil: Date | null,
   usernameForSession: string,
-  deviceToken?: string | null
+  deviceToken?: string | null,
+  forceTakeover?: boolean
 ): Promise<NextResponse> {
   const sessionId = randomUUID()
 
@@ -158,35 +163,43 @@ async function buildLoginResponse(
   // Berlaku untuk SEMUA role (superadmin, admin, owner, anggota grup, user, demo).
   const singleDevice = await isSingleDeviceEnabled()
   if (deviceToken) {
-    const reg = await registerDeviceSession({
-      userId,
-      username: usernameForSession,
-      role,
-      deviceToken,
-      userAgent: request.headers.get('user-agent') || '',
-      enforce: singleDevice,
-    })
-    if (!reg.ok && reg.conflict) {
-      const customMessage = await getSingleDeviceMessage()
-      return NextResponse.json(
-        {
-          deviceConflict: true,
-          error:
-            'PERINGATAN KEAMANAN! Akun Darrellsoft ini sedang digunakan pada perangkat lain. ' +
-            'Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat. ' +
-            'Login dari perangkat ini tidak diizinkan.',
-          warningMessage: customMessage,
-          activeDevice: {
-            deviceName: reg.conflict.deviceName,
-            deviceType: reg.conflict.deviceType,
-            browser: reg.conflict.browser,
-            os: reg.conflict.os,
-            loginAt: reg.conflict.loginAt,
-            lastActivityAt: reg.conflict.lastActivityAt,
+    try {
+      const reg = await registerDeviceSession({
+        userId,
+        username: usernameForSession,
+        role,
+        deviceToken,
+        userAgent: request.headers.get('user-agent') || '',
+        enforce: singleDevice,
+        force: Boolean(forceTakeover),
+      })
+      if (!reg.ok && reg.conflict) {
+        const customMessage = await getSingleDeviceMessage()
+        return NextResponse.json(
+          {
+            deviceConflict: true,
+            error:
+              'PERINGATAN KEAMANAN! Akun Darrellsoft ini sedang digunakan pada perangkat lain. ' +
+              'Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat. ' +
+              'Login dari perangkat ini tidak diizinkan.',
+            warningMessage: customMessage,
+            activeDevice: {
+              deviceName: reg.conflict.deviceName,
+              deviceType: reg.conflict.deviceType,
+              browser: reg.conflict.browser,
+              os: reg.conflict.os,
+              loginAt: reg.conflict.loginAt,
+              lastActivityAt: reg.conflict.lastActivityAt,
+            },
           },
-        },
-        { status: 403, headers: { 'Cache-Control': 'no-store, max-age=0' } }
-      )
+          { status: 403, headers: { 'Cache-Control': 'no-store, max-age=0' } }
+        )
+      }
+    } catch (deviceErr) {
+      // FAIL-OPEN: kegagalan DB sesi perangkat (mis. tabel belum ada di
+      // produksi / pool transaksi) TIDAK BOLEH menggagalkan login —
+      // login diteruskan tanpa pendaftaran perangkat.
+      console.error('registerDeviceSession error (fail-open):', deviceErr)
     }
   }
 
