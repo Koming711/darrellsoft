@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
           const customMessage = await getSingleDeviceMessage()
           const message =
             deviceCheck.kind === 'session_revoked'
-              ? 'Sesi perangkat Anda telah dicabut oleh administrator. Silakan login kembali dari perangkat ini untuk mengaktifkan perangkat.'
+              ? 'Sesi perangkat ini telah berakhir — sesi dicabut oleh administrator atau dipindahkan ke perangkat lain. Silakan login kembali dari perangkat ini.'
               : (customMessage || 'Akun Anda sedang digunakan pada perangkat lain. Demi keamanan akun, satu akun hanya dapat digunakan pada satu perangkat.')
           return NextResponse.json({
             valid: false as const,

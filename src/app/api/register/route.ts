@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { seedUserData } from '@/lib/auto-seed'
 import { sanitizeError } from '@/lib/api-error'
 import { normalizePhone, phoneVariants } from '@/lib/phone'
+import { splitPembeliByPhone, deleteOrphanPembeli } from '@/lib/pembeli-orphans'
 import { hashPassword } from '@/lib/password'
 import { fanoutNotification } from '@/lib/notify-fanout'
 import { formatDate } from '@/lib/subscription'
@@ -119,8 +120,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingPembeliPhone = await db.pembeli.findFirst({ where: { nomorHP: { in: phoneVariantList } } })
-    if (existingPembeliPhone) {
+    // Pembeli yatim (penggunaId → Pengguna sudah dihapus) tidak memblokir & dibersihkan
+    const { registered: registeredPembeliPhone } = await splitPembeliByPhone(phoneVariantList)
+    await deleteOrphanPembeli(phoneVariantList)
+    if (registeredPembeliPhone.length > 0) {
       return NextResponse.json(
         { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
         { status: 409 }

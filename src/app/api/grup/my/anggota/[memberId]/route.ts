@@ -272,6 +272,9 @@ export async function DELETE(request: NextRequest, { params }: RouteCtx) {
       //    CalonPembeli); fallback — cabut akses via validUntil.
       const referenced = await tx.calonPembeli.count({ where: { userId: member.userId } })
       if (referenced === 0) {
+        // Hapus Pembeli penaut akun agar tidak jadi baris yatim yang
+        // memblokir nomor HP saat pendaftaran ulang
+        await tx.pembeli.deleteMany({ where: { penggunaId: member.userId } })
         await tx.pengguna.delete({ where: { id: member.userId } }).catch(() => {
           /* FK lain — biarkan akun, akses sudah dicabut lewat keanggotaan */
         })

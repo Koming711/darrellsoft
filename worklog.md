@@ -17579,3 +17579,22 @@ Work Log:
 Stage Summary:
 - Popup "Tambah Barang" di halaman invoice (Buat Invoice & Pelunasan) kini PERSIS sama dengan popup di halaman Tambah Harga Customer (pelanggan di atas + dropdown semua barang + opsi barang baru); Purchase Order & Surat Jalan tidak diubah
 - Commit lokal; BELUM dideploy ke www.darrellsoft.com (instruksi "jangan deploy" masih berlaku)
+
+---
+Task ID: 15
+Agent: Main
+Task: Kirim OTP daftar ke 085888082208 + PEMULIHAN kode lokal pasca workspace restore (Task 13+14)
+
+Work Log:
+- Permintaan user: "ganti kirim otp whatsapp daftar akun dengan nomor 085888082208" → POST /api/auth/otp/send production → 200 OK "Kode OTP telah dikirim ke WhatsApp 085888082208" (berlaku 5 menit; nomor bersih, tidak terblokir)
+- TEMUAN PENTING: workspace lokal ter-RESTORE ke snapshot berbeda di tengah sesi — kode Task 13 (pembeli-orphans) & Task 14 (template OTP baru) HILANG dari lokal (src + worklog), padahal production masih menjalankan versi baru (deploy darrellsoft-j20x8va4p persisten — OTP tadi tetap sukses dgn template baru)
+- PEMULIHAN Task 13 di lokal: (1) src/lib/pembeli-orphans.ts dibuat ulang — splitPembeliByPhone (yatim = penggunaId menunjuk Pengguna hilang → tidak memblokir; kosong/hidup → memblokir) + deleteOrphanPembeli; (2) 4 endpoint cek nomor disambung: auth/otp/send, register/send-otp, auth/register, register; (3) 3 jalur hapus akun kini menghapus Pembeli penaut dulu: calon-pembeli, panel-admin/subscriptions/customers/[id], grup/my/anggota/[memberId]
+- PEMULIHAN Task 14 di lokal: template OTP baru (kode di baris 1 + "Kode verifikasi whatsapp" + "Kode berlaku 5 menit" + "Jangan bagikan kode ini" + "Kepada siapapun" + footer "darrellsoft.com") di 3 endpoint: auth/otp/send, register/send-otp, forgot-password
+- PEMULIHAN Task 12 (teks): verify-session session_revoked → "Sesi perangkat ini telah berakhir — sesi dicabut oleh administrator atau dipindahkan ke perangkat lain..." (restored snapshot masih teks lama)
+- Verifikasi: eslint 10 file bersih; skrip uji dev (otp_dev_mode=true): Pembeli yatim → POST otp/send 200 + baris hantu TERHAPUS otomatis ✓; Pembeli hidup → 409 WHATSAPP_TAKEN & baris utuh ✓ (SEMUA PASS); fixture dev dibersihkan; dev server direstart bersih (snapshot baru), dev.log sehat
+- GAP LOKAL vs PRODUCTION (production AMAN, semua sudah deploy): Task 7 (grup-akun.ts / total akun beranda) & Task 8/9 (use-live-bank.ts, rekening+email live di invoice) TIDAK ADA di lokal — spesifikasi lengkap ada di worklog Task 7/8/9
+- PERINGATAN: JANGAN deploy dari workspace ini sebelum parity dipulihkan (Task 7/8/9 belum direkonstruksi; versi SW/APP_VERSION lokal lebih tua dr production) — deploy sekarang akan me-regress production
+
+Stage Summary:
+- OTP daftar terkirim sukses ke 085888082208 (200 OK) — production tetap aman
+- Kode lokal Task 13+14+teks Task 12 dipulihkan & terverifikasi; gap tersisa Task 7/8/9 (perlu rekonstruksi sebelum deploy berikutnya)

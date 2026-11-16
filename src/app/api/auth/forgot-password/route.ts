@@ -230,14 +230,13 @@ export async function POST(request: NextRequest) {
       }
 
       // Kirim via Fonnte (WhatsApp)
-      const companySetting = await db.setting.findUnique({ where: { key: 'company_name' } })
-      const appName = companySetting?.value?.trim() || 'Darrell Soft'
       const message =
-        `*${appName}*\n\n` +
-        `Kode reset password Anda:\n` +
-        `*${code}*\n\n` +
-        `Kode berlaku 5 menit.\n` +
-        `Jangan bagikan kode ini kepada siapa pun.`
+        `${code}\n` +
+        `Kode verifikasi whatsapp\n\n` +
+        `Kode berlaku 5 menit\n` +
+        `Jangan bagikan kode ini\n` +
+        `Kepada siapapun\n\n` +
+        `darrellsoft.com`
 
       const result = await sendWhatsAppMessage(account.nomorHP, message)
       if (!result.success) {

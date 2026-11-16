@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendWhatsAppMessage } from '@/lib/whatsapp'
 import { normalizePhone, phoneVariants } from '@/lib/phone'
 import { sanitizeError } from '@/lib/api-error'
+import { splitPembeliByPhone, deleteOrphanPembeli } from '@/lib/pembeli-orphans'
 
 const PHONE_REGEX = /^(\+62|62|0)[0-9]{8,13}$/
 const OTP_TTL_SECONDS = 5 * 60          // code valid for 5 minutes
@@ -34,12 +35,15 @@ export async function POST(request: NextRequest) {
     const variants = phoneVariants(rawPhone)
 
     // Nomor sudah dipakai? (CalonPembeli / Pembeli / Pengguna)
-    const [existingCalon, existingPembeli, existingPengguna] = await Promise.all([
+    // Pembeli YATIM (penggunaId → Pengguna sudah dihapus) tidak memblokir —
+    // data hantu dibersihkan agar nomor bisa mendaftar ulang.
+    const [existingCalon, existingPengguna] = await Promise.all([
       db.calonPembeli.findFirst({ where: { nomorHP: { in: variants } } }),
-      db.pembeli.findFirst({ where: { nomorHP: { in: variants } } }),
       db.pengguna.findFirst({ where: { nomorHP: { in: variants } } }),
     ])
-    if (existingCalon || existingPembeli || existingPengguna) {
+    const { registered: registeredPembeli } = await splitPembeliByPhone(variants)
+    await deleteOrphanPembeli(variants)
+    if (existingCalon || existingPengguna || registeredPembeli.length > 0) {
       return NextResponse.json(
         { error: 'Nomor handphone sudah digunakan. Silakan gunakan nomor lain.', code: 'PHONE_EXISTS' },
         { status: 409 }
@@ -99,14 +103,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Kirim via Fonnte (WhatsApp)
-    const companySetting = await db.setting.findUnique({ where: { key: 'company_name' } })
-    const appName = companySetting?.value?.trim() || 'Darrell Soft'
     const message =
-      `*${appName}*\n\n` +
-      `Kode verifikasi WhatsApp Anda:\n` +
-      `*${code}*\n\n` +
-      `Kode berlaku 5 menit.\n` +
-      `Jangan bagikan kode ini kepada siapa pun.`
+      `${code}\n` +
+      `Kode verifikasi whatsapp\n\n` +
+      `Kode berlaku 5 menit\n` +
+      `Jangan bagikan kode ini\n` +
+      `Kepada siapapun\n\n` +
+      `darrellsoft.com`
 
     const result = await sendWhatsAppMessage(normalized, message)
     if (!result.success) {

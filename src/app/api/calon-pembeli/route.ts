@@ -129,6 +129,9 @@ export async function DELETE(request: NextRequest) {
             where: { userId: linkedPengguna.id },
             data: { userId: null }
           })
+          // Hapus juga Pembeli penaut agar tidak jadi baris yatim yang
+          // memblokir nomor HP saat pendaftaran ulang
+          await db.pembeli.deleteMany({ where: { penggunaId: linkedPengguna.id } })
           await db.pengguna.delete({ where: { id: linkedPengguna.id } })
         }
       } catch (err) {

@@ -7,6 +7,7 @@ import { phoneVariants } from '@/lib/phone'
 import { fanoutNotification } from '@/lib/notify-fanout'
 import { formatDate } from '@/lib/subscription'
 import { registerSchema, zodFieldErrors, displayPhone } from '@/lib/register-schema'
+import { splitPembeliByPhone, deleteOrphanPembeli } from '@/lib/pembeli-orphans'
 import { hashPassword } from '@/lib/password'
 import {
   buildDefaultPermissions,
@@ -127,9 +128,11 @@ export async function POST(request: NextRequest) {
 
     const variants = phoneVariants(d.whatsapp)
     const existingCalonPhone = await db.calonPembeli.findFirst({ where: { nomorHP: { in: variants } } })
-    const existingPembeliPhone = await db.pembeli.findFirst({ where: { nomorHP: { in: variants } } })
     const existingPenggunaPhone = await db.pengguna.findFirst({ where: { nomorHP: { in: variants } } })
-    if (existingCalonPhone || existingPembeliPhone) {
+    // Pembeli yatim (penggunaId → Pengguna sudah dihapus) tidak memblokir & dibersihkan
+    const { registered: registeredPembeli } = await splitPembeliByPhone(variants)
+    await deleteOrphanPembeli(variants)
+    if (existingCalonPhone || registeredPembeli.length > 0) {
       fieldErrors.whatsapp = 'Nomor WhatsApp sudah terdaftar'
     } else if (existingPenggunaPhone) {
       if (existingPenggunaPhone.role !== 'admin' && existingPenggunaPhone.role !== 'superadmin') {
