@@ -156,8 +156,8 @@ function extractDevices(json: unknown): Array<{ name: string; number: string; st
       return ''
     }
     const name = pick('device', 'name', 'nama')
-    const number = pick('number', 'nomor', 'phone', 'msisdn')
-    const status = pick('status', 'state')
+    const number = pick('number', 'nomor', 'phone', 'msisdn', 'device')
+    const status = pick('status', 'state', 'device_status')
     const quota = pick('quota', 'kuota')
     const expired = pick('expired', 'expiry', 'masa_aktif')
     if (name || number) out.push({ name, number, status, quota, expired })
@@ -180,7 +180,21 @@ function extractDevices(json: unknown): Array<{ name: string; number: string; st
     } else if (data && typeof data === 'object') {
       pushRow(data as Record<string, unknown>)
     } else if (obj.status !== undefined || obj.device || obj.nomor || obj.number) {
-      pushRow(obj)
+      // Respons FLAT 1 perangkat dari Fonnte /device:
+      // { status:true, device:"08..", device_status:"connect", name, quota, expired }
+      // Di bentuk ini `device` = NOMOR perangkat (bukan nama), dan `status` =
+      // status REQUEST (bukan status perangkat — status perangkat ada di `device_status`).
+      if (typeof obj.device === 'string' && obj.device.trim() !== '') {
+        pushRow({
+          number: obj.device,
+          name: obj.name,
+          status: obj.device_status !== undefined && obj.device_status !== null ? obj.device_status : obj.status,
+          quota: obj.quota,
+          expired: obj.expired,
+        })
+      } else {
+        pushRow(obj)
+      }
     }
   }
   return out
