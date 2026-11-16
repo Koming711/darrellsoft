@@ -1,0 +1,6 @@
+$ bun --hot index.ts
+✅ notif-service (socket.io) running on port 3003
+✅ notif-service internal emit API on 127.0.0.1:3005
+$ bun --hot index.ts
+✅ notif-service (socket.io) running on port 3003
+✅ notif-service internal emit API on 127.0.0.1:3005
