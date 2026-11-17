@@ -112,7 +112,10 @@ function LoginContent() {
 
   }, [isRedirecting])
 
-  const handleLogin = async (e?: React.FormEvent) => {
+  // opts.forceTakeover = tombol "Gunakan Perangkat Ini" pada peringatan
+  // keamanan: kredensial sudah terverifikasi benar → sesi perangkat lama
+  // dicabut otomatis (revokedBy='takeover') dan perangkat ini diaktifkan.
+  const handleLogin = async (e?: React.FormEvent, opts?: { forceTakeover?: boolean }) => {
     e?.preventDefault()
     setLoginError('')
     setLoginLoading(true)
@@ -129,6 +132,7 @@ function LoginContent() {
           username,
           password,
           deviceToken: getOrCreateDeviceToken(),
+          forceTakeover: opts?.forceTakeover === true,
         }),
         signal: controller.signal,
       })
@@ -139,7 +143,8 @@ function LoginContent() {
       if (!res.ok) {
         // LOGIN 1 PERANGKAT: perangkat kedua ditolak → tampilkan layar
         // peringatan keamanan (bukan sekadar pesan error biasa).
-        // Pemulihan hanya lewat admin (Hubungi Administrator / Panel Admin).
+        // Pemulihan diri: tombol "Gunakan Perangkat Ini" (takeover), atau
+        // lewat admin (Hubungi Administrator / Panel Admin).
         if (data?.deviceConflict) {
           clearAuthUser() // pastikan tidak ada sesi basi perangkat ini
           setDeviceBlocked({
@@ -469,9 +474,25 @@ function LoginContent() {
               )}
 
               <div className="mt-5 space-y-2.5">
-                {/* Tidak ada pemulihan diri: sesi perangkat hanya bisa dicabut
-                    oleh administrator (Panel Admin — Manajemen Perangkat) atau
-                    user logout manual di perangkat aktif. */}
+                {/* Pemulihan diri: password sudah terverifikasi benar saat
+                    deviceConflict, jadi aman menawarkan takeover — sesi
+                    perangkat lama dicabut otomatis (revokedBy='takeover'). */}
+                <button
+                  type="button"
+                  onClick={() => handleLogin(undefined, { forceTakeover: true })}
+                  disabled={loginLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                >
+                  {loginLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Memproses...
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="w-4 h-4" /> Gunakan Perangkat Ini
+                    </>
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={() => { setDeviceBlocked(null); setPassword(''); setLoginError('') }}

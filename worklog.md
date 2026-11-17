@@ -17812,3 +17812,33 @@ Work Log:
 Stage Summary:
 - Spesifikasi "1 Akun 1 Perangkat" kini TERSAMBUNGKAN penuh di server: login ditolak dgn peringatan, perangkat kedua tak bisa mengambil alih (login & jalur pemulihan sama-sama tertutup), pencabutan admin efektif seketika di seluruh API, setiap pelanggaran & tindakan admin tercatat (Login Ditolak + Log Admin + AuditLog), notifikasi keamanan popup+riwayat, reset perangkat dgn konfirmasi — semua tombol terhubung backend nyata
 - Production Supabase sudah diberi partial unique index (aditif); kode baru (proxy gate + anti-hijack + audit tab) menunggu perintah deploy
+
+---
+Task ID: 25
+Agent: Main
+Task: Munculkan kembali tombol "Gunakan Perangkat Ini" di popup peringatan keamanan
+
+Work Log:
+- User request: "di popup peringatan keamanan, munculkan kembali tombol gunakan perangkat ini. fix" (pengembalian kemampuan self-service Task 22 yg dicabut di Task 23, label baru "Gunakan Perangkat Ini")
+- Backend SUDAH siap sejak Task 22 (tak pernah dicabut): api/auth/login membaca body.forceTakeover → registerDeviceSession(force) → sesi lama status='revoked' revokedBy='takeover' + notifikasi device_takeover ("Sesi Dipindahkan ke Perangkat Baru") ke owner + broadcast admin
+- Perubahan HANYA di src/app/login/page.tsx:
+  1. handleLogin signature: (e?, opts?: { forceTakeover?: boolean }) — form submit biasa tak terpengaruh
+  2. Fetch body login kini mengirim forceTakeover: opts?.forceTakeover === true
+  3. Tombol "Gunakan Perangkat Ini" ditambahkan di layar PERINGATAN KEAMANAN (posisi pertama, amber-500, ikon Smartphone, spinner "Memproses..." saat loading, disabled selama request)
+  4. Komentar usang diperbarui ("Pemulihan diri: password sudah terverifikasi benar saat deviceConflict...")
+- Urutan tombol layar peringatan: [Gunakan Perangkat Ini (amber)] → [Kembali ke Halaman Login (biru)] → [Hubungi Administrator (outline merah)]
+- E2E terverifikasi penuh (akun uji sementara 'e2etakeover' role admin, dihapus bersih setelahnya; sesi admin milik user di dev TIDAK disentuh — user logout sendiri di tengah testing, revokedBy=''):
+  1. Perangkat 1 login → sukses → /pembukaan
+  2. Perangkat 2 (device token beda) login → 403 deviceConflict → layar PERINGATAN KEAMANAN dgn 3 tombol + info perangkat aktif
+  3. Bonus: ubah token device di tengah sesi → verify-session langsung menampilkan dialog kick "PERINGATAN KEAMANAN! OK, Logout" (validasi Task 24)
+  4. Klik "Gunakan Perangkat Ini" → login sukses → /pembukaan
+  5. DB: sesi perangkat 1 [revoked] revokedBy='takeover' logoutAt tepat saat takeover; sesi perangkat 2 [active] hash cocok sha256('ds_device_v1:'+token)
+  6. Notifikasi device_registered + device_takeover tercatat (owner + admin broadcast)
+  7. Mobile 390x844: layar peringatan + tombol render sempurna; takeover mobile juga sukses
+- Keamanan: takeover hanya mungkin SETELAH password benar (API menolak force tanpa kredensial valid); sesi lama dicabut server-side; notifikasi keamanan otomatis
+- Cleanup: akun uji + 2 sesi + 10 notifikasi + 2 login attempt dihapus bersih; eslint src/app/login/page.tsx bersih (lint full-project terkena SIGKILL limit sandbox — target file lolos); 0 page error; dev 200
+- Deploy: BELUM diminta — menunggu instruksi user
+
+Stage Summary:
+- Tombol "Gunakan Perangkat Ini" kembali di layar peringatan keamanan: perangkat kedua yg login dgn password benar kini bisa mengambil alih sesi secara mandiri (perangkat lama otomatis logout dgn revokedBy='takeover' + notifikasi keamanan), tanpa menunggu admin — selain jalur lama (Kembali ke Login / Hubungi Administrator)
+- Perilaku inti 1 akun 1 perangkat tak berubah: tanpa takeover, login perangkat kedua tetap DITOLAK
