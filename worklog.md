@@ -17842,3 +17842,27 @@ Work Log:
 Stage Summary:
 - Tombol "Gunakan Perangkat Ini" kembali di layar peringatan keamanan: perangkat kedua yg login dgn password benar kini bisa mengambil alih sesi secara mandiri (perangkat lama otomatis logout dgn revokedBy='takeover' + notifikasi keamanan), tanpa menunggu admin — selain jalur lama (Kembali ke Login / Hubungi Administrator)
 - Perilaku inti 1 akun 1 perangkat tak berubah: tanpa takeover, login perangkat kedua tetap DITOLAK
+
+---
+Task ID: 26
+Agent: Main
+Task: (a) Tombol Delete di Panel Admin — Manajemen Perangkat; (b) QRIS pembayaran diklik → popup besar utk scan (fit mobile)
+
+Work Log:
+- Request user: "di halaman panel admin manajemen perangkat tambahkan tombol delete" + "di halaman pembayaran daftar akun baru di gambar qris, apabila di klik gambar qris, maka muncul popup besar untuk di scan. di tampilan mobile juga muncul perbesar fit to mobile phone"
+
+A. DELETE Manajemen Perangkat (src/app/api/admin/device-sessions/route.ts + src/app/panel-admin/manajemen-perangkat/content.tsx):
+- API: method DELETE baru — body { type: 'session'|'attempt', id }. session: HANYA status non-active boleh dihapus (aktif harus lewat Cabut Sesi/Reset dulu — menghindari perilaku tak konsisten lazy re-register/kick); attempt: hapus bebas. Keduanya membungkus delete + AuditLog dalam $transaction (aksi 'device_session_delete'/'device_attempt_delete') + invalidateDeviceGateCache. Filter view=audit diperluas dgn 2 aksi baru.
+- UI: tab "Riwayat Sesi" & "Login Ditolak" kini punya kolom Aksi dgn tombol Delete (merah outline, ikon Trash2) + AlertDialog konfirmasi ("DIHAPUS PERMANEN... sesi aktif tidak terpengaruh"). Tab Perangkat Aktif sengaja TIDAK diberi Delete (fungsi logout sudah benar lewat Cabut Sesi/Reset). Log Admin: badge merah "Hapus Riwayat Sesi" / "Hapus Catatan Ditolak".
+
+B. QRIS zoom popup (src/app/langganan/pembayaran/[invoiceId]/page.tsx — halaman pembayaran alur daftar akun baru pilih-paket → invoice):
+- Gambar QRIS (h-48) dibungkus button cursor-zoom-in dgn overlay ikon ZoomIn saat hover + hint "Ketuk gambar QR untuk memperbesar".
+- Klik/ketuk → Dialog (shadcn) "QRIS Pembayaran Diperbesar": gambar besar object-contain, mobile w=min(94vw,560px) & img max-w calc(100vw-4rem) (fit to mobile phone), desktop 480-560px; tampilkan Penerima + Nominal (kode unik) utk konfirmasi sebelum scan; tutup via X / klik luar / Esc.
+- E2E terverifikasi (login admin dev; invoice SUB-2611-JHBX status ditolak): klik gambar → dialog terbuka; screenshot desktop (QR besar dgn NMID terbaca, Penerima+Nominal) & mobile 390x844 (dialog 367px/390 vw, img 326px — jauh lebih besar dr thumbnail 192px); Esc menutup (dialog=null).
+- E2E delete: buat data uji sendiri (session revoked 'superadmin-e2e' + attempt) → Riwayat Sesi: Delete → konfirmasi → toast sukses + baris hilang + DB findUnique=false + AuditLog device_session_delete; Login Ditolak: sama (toast + DB=false); Log Admin: badge "Hapus Riwayat Sesi" & "Hapus Catatan Ditolak" tampil.
+- Keamanan data: hanya mencatat/menghapus data uji buatan sendiri; data riwayat/asli user TIDAK disentuh; sesi admin buatan E2E dihapus bersih (user login ulang di preview bila sesi berakhir); eslint 3 file bersih; 0 page/console error.
+- Deploy: BELUM diminta
+
+Stage Summary:
+- Manajemen Perangkat: riwayat sesi & catatan login ditolak kini bisa dihapus per baris (dgn konfirmasi + audit log); sesi aktif tetap hanya lewat Cabut Sesi/Reset — alur "kick dulu, hapus kemudian" konsisten.
+- Halaman pembayaran (QRIS): gambar QR kini bisa diklik/ditekan utk popup besar — mobile memenuhi layar HP — memudahkan scan langsung dr layar; nominal + penerima tampil di popup.

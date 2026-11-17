@@ -7,12 +7,15 @@ import { invalidateDeviceGateCache } from '@/lib/device-gate-cache'
 /**
  * API Manajemen Perangkat (Panel Admin — Login 1 Perangkat).
  *
- * GET  : daftar sesi perangkat aktif + riwayat sesi + riwayat login ditolak
- *        + statistik ringkas.
- * POST : cabut sesi perangkat (action: 'revoke' | 'reset') — setelah dicabut,
- *        akun otomatis dapat login kembali di perangkat mana pun (akses
- *        terbuka). Setiap tindakan admin tercatat di AuditLog + notifikasi
- *        keamanan ke pemilik akun dan broadcast admin.
+ * GET    : daftar sesi perangkat aktif + riwayat sesi + riwayat login ditolak
+ *          + statistik ringkas.
+ * POST   : cabut sesi perangkat (action: 'revoke' | 'reset') — setelah dicabut,
+ *          akun otomatis dapat login kembali di perangkat mana pun (akses
+ *          terbuka). Setiap tindakan admin tercatat di AuditLog + notifikasi
+ *          keamanan ke pemilik akun dan broadcast admin.
+ * DELETE : hapus CATATAN (riwayat sesi non-aktif / catatan login ditolak) dari
+ *          daftar — pembersihan data, TIDAK mengubah sesi aktif. Setiap hapus
+ *          juga tercatat di AuditLog.
  */
 
 function serializeSession(s: {
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
     const view = request.nextUrl.searchParams.get('view')
     if (view === 'audit') {
       const logs = await db.auditLog.findMany({
-        where: { aksi: { in: ['device_revoke', 'device_reset', 'device_takeover'] } },
+        where: { aksi: { in: ['device_revoke', 'device_reset', 'device_takeover', 'device_session_delete', 'device_attempt_delete'] } },
         orderBy: { createdAt: 'desc' },
         take: 200,
       })
@@ -227,5 +230,84 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('POST device-sessions error:', error)
     return NextResponse.json({ error: 'Gagal mencabut sesi perangkat' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const admin = getServerUser(request)
+    if (!admin || !isAdmin(admin.role)) {
+      return NextResponse.json({ error: 'Akses ditolak. Hanya admin yang dapat menghapus catatan perangkat.' }, { status: 403 })
+    }
+
+    const { type, id } = await request.json()
+    if ((type !== 'session' && type !== 'attempt') || !id) {
+      return NextResponse.json({ error: 'Data tidak lengkap. Diperlukan type (session/attempt) dan id.' }, { status: 400 })
+    }
+
+    if (type === 'session') {
+      // HANYA sesi non-aktif yang boleh dihapus — sesi aktif harus lewat
+      // Cabut Sesi / Reset dulu (menghindari perilaku tak konsisten: device
+      // bisa re-register lazy / ter-kick tergantung riwayat akun).
+      const session = await db.deviceSession.findUnique({ where: { id } })
+      if (!session) {
+        return NextResponse.json({ error: 'Catatan sesi tidak ditemukan.' }, { status: 404 })
+      }
+      if (session.status === 'active') {
+        return NextResponse.json({ error: 'Sesi masih AKTIF. Gunakan "Cabut Sesi" atau "Reset" terlebih dahulu.' }, { status: 400 })
+      }
+
+      await db.$transaction([
+        db.deviceSession.delete({ where: { id: session.id } }),
+        db.auditLog.create({
+          data: {
+            grupId: null,
+            aktorId: admin.id,
+            aktorNama: admin.id,
+            aksi: 'device_session_delete',
+            detail: JSON.stringify({
+              sessionId: session.id,
+              targetUserId: session.userId,
+              targetUsername: session.username,
+              deviceName: session.deviceName,
+              deviceType: session.deviceType,
+              loginAt: session.loginAt,
+              logoutAt: session.logoutAt,
+              status: session.status,
+            }),
+          },
+        }),
+      ])
+      invalidateDeviceGateCache(session.userId)
+      return NextResponse.json({ success: true, message: 'Catatan sesi perangkat berhasil dihapus dari riwayat.' })
+    }
+
+    // type === 'attempt' — hapus catatan percobaan login ditolak.
+    const attempt = await db.deviceLoginAttempt.findUnique({ where: { id } })
+    if (!attempt) {
+      return NextResponse.json({ error: 'Catatan login ditolak tidak ditemukan.' }, { status: 404 })
+    }
+    await db.$transaction([
+      db.deviceLoginAttempt.delete({ where: { id: attempt.id } }),
+      db.auditLog.create({
+        data: {
+          grupId: null,
+          aktorId: admin.id,
+          aktorNama: admin.id,
+          aksi: 'device_attempt_delete',
+          detail: JSON.stringify({
+            attemptId: attempt.id,
+            targetUsername: attempt.username,
+            deviceName: attempt.deviceName,
+            reason: attempt.reason,
+            createdAt: attempt.createdAt,
+          }),
+        },
+      }),
+    ])
+    return NextResponse.json({ success: true, message: 'Catatan login ditolak berhasil dihapus.' })
+  } catch (error) {
+    console.error('DELETE device-sessions error:', error)
+    return NextResponse.json({ error: 'Gagal menghapus catatan perangkat' }, { status: 500 })
   }
 }

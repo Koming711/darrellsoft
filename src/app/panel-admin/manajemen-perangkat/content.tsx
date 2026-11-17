@@ -45,6 +45,7 @@ import {
   History,
   Ban,
   ScrollText,
+  Trash2,
 } from 'lucide-react'
 
 interface DeviceSessionRow {
@@ -146,6 +147,11 @@ export function ManajemenPerangkatContent() {
   const [confirmTarget, setConfirmTarget] = useState<{ session: DeviceSessionRow; action: 'revoke' | 'reset' } | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
 
+  // Konfirmasi HAPUS catatan (riwayat sesi non-aktif / login ditolak) —
+  // pembersihan daftar; sesi AKTIF tidak bisa dihapus (harus Cabut/Reset dulu).
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'session' | 'attempt'; id: string; label: string } | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true)
     try {
@@ -211,6 +217,32 @@ export function ManajemenPerangkatContent() {
       toast.error('Gagal terhubung ke server')
     } finally {
       setConfirmBusy(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteBusy(true)
+    try {
+      const res = await authFetch('/api/admin/device-sessions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: target.kind, id: target.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal menghapus catatan')
+        return
+      }
+      toast.success(json.message || 'Catatan berhasil dihapus.')
+      setDeleteTarget(null)
+      // Riwayat sesi & catatan ditolak keduanya berasal dari payload utama.
+      await load({ silent: true })
+    } catch {
+      toast.error('Gagal terhubung ke server')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -385,12 +417,13 @@ export function ManajemenPerangkatContent() {
                   <TableHead className="hidden sm:table-cell">Login</TableHead>
                   <TableHead>Berakhir</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data?.history ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
                       Belum ada riwayat sesi yang berakhir.
                     </TableCell>
                   </TableRow>
@@ -424,6 +457,16 @@ export function ManajemenPerangkatContent() {
                         ) : (
                           <Badge variant="outline" className="text-[10px] capitalize">{s.status}</Badge>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950"
+                          onClick={() => setDeleteTarget({ kind: 'session', id: s.id, label: `${s.akunNama || s.username} — ${s.deviceName} (${fmtDateTime(s.logoutAt)})` })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -470,10 +513,20 @@ export function ManajemenPerangkatContent() {
                           className={`text-[10px] ${
                             l.aksi === 'device_reset'
                               ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-                              : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                              : l.aksi === 'device_session_delete' || l.aksi === 'device_attempt_delete'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
+                                : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
-                          {l.aksi === 'device_reset' ? 'Reset Perangkat' : l.aksi === 'device_takeover' ? 'Pindah Perangkat' : 'Cabut Sesi'}
+                          {l.aksi === 'device_reset'
+                            ? 'Reset Perangkat'
+                            : l.aksi === 'device_takeover'
+                              ? 'Pindah Perangkat'
+                              : l.aksi === 'device_session_delete'
+                                ? 'Hapus Riwayat Sesi'
+                                : l.aksi === 'device_attempt_delete'
+                                  ? 'Hapus Catatan Ditolak'
+                                  : 'Cabut Sesi'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -500,12 +553,13 @@ export function ManajemenPerangkatContent() {
                   <TableHead className="hidden md:table-cell">Browser / OS</TableHead>
                   <TableHead>Waktu</TableHead>
                   <TableHead>Alasan</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data?.attempts ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
                       Belum ada percobaan login yang ditolak.
                     </TableCell>
                   </TableRow>
@@ -532,6 +586,16 @@ export function ManajemenPerangkatContent() {
                               ? 'Sesi Dicabut Admin'
                               : a.reason}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950"
+                          onClick={() => setDeleteTarget({ kind: 'attempt', id: a.id, label: `${a.username || '-'} — ${a.deviceName} (${fmtDateTime(a.createdAt)})` })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -574,6 +638,36 @@ export function ManajemenPerangkatContent() {
               className="bg-red-600 hover:bg-red-700"
             >
               {confirmBusy ? 'Memproses…' : confirmTarget?.action === 'reset' ? 'Ya, Reset Perangkat' : 'Ya, Cabut Sesi'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Konfirmasi HAPUS catatan (riwayat sesi / login ditolak) */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !deleteBusy) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus catatan ini?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p className="rounded-lg border bg-muted/40 p-2 text-xs font-medium break-words">
+                  {deleteTarget?.label}
+                </p>
+                <p>
+                  Catatan akan DIHAPUS PERMANEN dari daftar dan tidak bisa dikembalikan. Tindakan ini tetap
+                  tercatat di Log Admin. Sesi perangkat aktif tidak terpengaruh.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void handleDelete() }}
+              disabled={deleteBusy}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteBusy ? 'Menghapus…' : 'Ya, Hapus'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

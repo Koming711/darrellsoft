@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StepIndicator } from '@/components/darrellsoft/step-indicator'
 import { SiteFooter } from '@/components/darrellsoft/site-footer'
 import { getAuthHeaders } from '@/lib/auth-fetch'
@@ -62,6 +63,7 @@ import {
   User,
   X,
   XCircle,
+  ZoomIn,
 } from 'lucide-react'
 
 /** Bukti pembayaran hanya menerima file JPG/PNG sesuai permintaan. */
@@ -139,6 +141,10 @@ function PembayaranContent() {
   const [proofDataUrl, setProofDataUrl] = useState('')
   const proofInputRef = useRef<HTMLInputElement>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Perbesar QRIS: klik/ketuk gambar QR → popup besar agar mudah discan
+  // (mobile: gambar memenuhi lebar layar HP — "fit to mobile phone").
+  const [qrisZoom, setQrisZoom] = useState(false)
 
   const loadInvoice = useCallback(async () => {
     try {
@@ -512,16 +518,30 @@ function PembayaranContent() {
                       {settings.qrisImageUrl && (
                         <TabsContent value="qris" className="pt-4">
                           <div className="flex flex-col items-center gap-3 rounded-lg border p-5 sm:flex-row sm:items-start sm:gap-6">
-                            <img
-                              src={settings.qrisImageUrl}
-                              alt="Kode QRIS pembayaran Darrellsoft"
-                              className="h-48 w-48 rounded-lg border bg-white p-2"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setQrisZoom(true)}
+                              aria-label="Perbesar gambar QRIS"
+                              title="Ketuk untuk memperbesar QRIS"
+                              className="group relative shrink-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-zoom-in"
+                            >
+                              <img
+                                src={settings.qrisImageUrl}
+                                alt="Kode QRIS pembayaran Darrellsoft"
+                                className="h-48 w-48 rounded-lg border bg-white p-2 transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
+                              />
+                              <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100 rounded-lg bg-black/30">
+                                <ZoomIn className="h-8 w-8 text-white drop-shadow" />
+                              </span>
+                            </button>
                             <div className="space-y-2 text-sm">
                               <p className="font-medium">Scan QRIS dengan aplikasi pembayaran apa pun</p>
                               <p className="text-muted-foreground">
                                 GoPay, OVO, DANA, ShopeePay, LinkAja, dan mobile banking yang
                                 mendukung QRIS.
+                              </p>
+                              <p className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2.5 py-1 text-xs text-muted-foreground">
+                                <ZoomIn className="h-3.5 w-3.5" /> Ketuk gambar QR untuk memperbesar
                               </p>
                               {settings.qrisReceiverName && (
                                 <p className="text-muted-foreground">
@@ -765,6 +785,48 @@ function PembayaranContent() {
           </div>
         )}
       </main>
+
+      {/* Popup QRIS diperbesar — klik/ketuk gambar QR untuk memudahkan scan.
+          Mobile: gambar memenuhi lebar layar HP (fit to mobile phone);
+          desktop: kotak besar di tengah layar. */}
+      <Dialog open={qrisZoom} onOpenChange={setQrisZoom}>
+        <DialogContent
+          className="max-w-[calc(100vw-1.5rem)] w-[min(94vw,560px)] gap-3 rounded-2xl p-4 sm:p-6 [&>button]:h-9 [&>button]:w-9 [&>button]:top-2.5 [&>button]:right-2.5"
+          style={{ maxWidth: 'min(94vw, 560px)' }}
+        >
+          <DialogHeader className="space-y-1 text-left">
+            <DialogTitle className="text-base sm:text-lg">QRIS Pembayaran Diperbesar</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Scan kode di bawah dengan aplikasi pembayaran apa pun (GoPay, OVO, DANA, ShopeePay,
+              LinkAja, mobile banking).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3">
+            {settings?.qrisImageUrl && (
+              <img
+                src={settings.qrisImageUrl}
+                alt="Kode QRIS pembayaran Darrellsoft diperbesar"
+                className="w-full max-w-[calc(100vw-4rem)] rounded-xl border bg-white object-contain shadow-sm sm:max-w-[480px]"
+                style={{ maxHeight: 'min(70vh, 480px)' }}
+              />
+            )}
+            {settings?.qrisReceiverName && (
+              <p className="text-xs text-muted-foreground sm:text-sm">
+                Penerima: <strong className="text-foreground">{settings.qrisReceiverName}</strong>
+                {invoice && (
+                  <>
+                    {' '}• Nominal:{' '}
+                    <strong className="font-mono text-foreground">{formatRupiah(invoice.amount)}</strong>
+                  </>
+                )}
+              </p>
+            )}
+            <p className="text-[11px] text-muted-foreground sm:text-xs">
+              Ketuk di luar gambar atau tombol X untuk menutup
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <SiteFooter />
     </div>
