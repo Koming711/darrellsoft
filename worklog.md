@@ -17672,3 +17672,30 @@ Work Log:
 Stage Summary:
 - Popup "Lengkapi Data Perusahaan" kini selalu bisa diketik: dialog "Aplikasi Belum Dapat Digunakan" (menunggu verifikasi admin) menunda dirinya selagi popup wajib-data terbuka dan muncul otomatis setelah data disimpan — tidak ada lagi dua modal Radix bertumpuk yang saling meng-inert
 - BELUM dideploy ke www.darrellsoft.com (menunggu perintah deploy dari user)
+
+---
+Task ID: 19
+Agent: Main
+Task: Tampilan mobile — popup "Lengkapi Data Perusahaan" diperkecil lagi (fix)
+
+Work Log:
+- Laporan user: "ditampilan mobile. popup lengkapi data perusahaan diperkecil lagi. fix"
+- Target file: src/components/company-data-popup.tsx (popup wajib-data dipasang global di dashboard-layout.tsx) — modifikasi murni Tailwind responsive classes, logika & field tidak disentuh
+- Perubahan mobile-first (semua memakai breakpoint sm: agar desktop tetap sama):
+  1. Dialog max-w-lg → max-w-xs (320px) di mobile, sm:max-w-lg tetap 512px di desktop; rounded-xl sm:rounded-2xl
+  2. Overlay padding px-3 py-4 (sm: px-4 py-6)
+  3. Header p-4 sm:p-6, gap-2.5 sm:gap-3; ikon 36px (w-9 h-9) sm: 44px; judul text-base sm:text-lg; deskripsi text-xs sm:text-sm
+  4. Body p-4 sm:p-6, max-h-[50vh] sm:max-h-[60vh], space-y-3 sm:space-y-4; label text-xs sm:text-sm
+  5. Footer p-4 sm:p-6; tombol h-10 text-[13px] di mobile (sm: h-9 text-sm, min-w-[220px] tetap)
+- Verifikasi agent-browser multi-viewport (trigger via localStorage companyDataRequired=true, login admin):
+  * Mobile 390x844: dialog 320x545 — lebih kecil dr sebelumnya (sebelumnya full-width 358-366px dgn padding besar), margin background terlihat jelas
+  * iPhone SE 320x568: dialog 296px, terlihat penuh (top 34 → bottom 534 < 568), body scroll internal, tidak ada overflow
+  * Desktop 1280x800: dialog 512x506 — layout lama utuh (p-6, ikon 44px, telepon+email 2 kolom, tombol min-w-220)
+  * Typing diuji di mobile: cp-nama/cp-alamat/cp-telepon semua value terdaftar ✓ (fix Task 18 tidak terpengaruh)
+  * Data uji TIDAK disimpan (tanpa klik Simpan) — settings dev bersih
+- Insiden: dev server mati mendadak saat pengujian (proses hilang tanpa trace di log, diduga OOM/sandbox) — direstart bersih via setsid nohup, /login 200 stabil
+- eslint company-data-popup.tsx bersih; dev.log hijau
+
+Stage Summary:
+- Popup "Lengkapi Data Perusahaan" di mobile kini jauh lebih ringkas (320px, padding/ikon/label/tombol mengecil), iPhone SE kecil pun muat tanpa overflow; desktop tidak berubah
+- Task 18 (fix tidak-bisa-diketik) + Task 19 (perkecil mobile) keduanya BELUM dideploy ke www.darrellsoft.com — menunggu perintah deploy dari user

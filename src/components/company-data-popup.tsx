@@ -137,37 +137,37 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-6 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 py-4 sm:px-4 sm:py-6 overflow-y-auto">
       <div
-        className="relative bg-card rounded-2xl shadow-2xl border border-border max-w-lg w-full my-auto animate-in fade-in zoom-in duration-200"
+        className="relative bg-card rounded-xl sm:rounded-2xl shadow-2xl border border-border max-w-xs sm:max-w-lg w-full my-auto animate-in fade-in zoom-in duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="company-popup-title"
       >
         {/* Header */}
-        <div className="flex items-start gap-3 p-5 sm:p-6 border-b border-border">
-          <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-white" />
+        <div className="flex items-start gap-2.5 sm:gap-3 p-4 sm:p-6 border-b border-border">
+          <div className="flex-shrink-0 w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+            <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 id="company-popup-title" className="text-lg font-bold text-foreground flex items-center gap-2">
+            <h2 id="company-popup-title" className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
               Lengkapi Data Perusahaan
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 uppercase">
                 <Sparkles className="w-3 h-3" /> Penting
               </span>
             </h2>
-            <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
               Data perusahaan akan dipakai pada invoice, surat jalan, dan dokumen cetakan lainnya. Mohon dilengkapi.
             </p>
           </div>
         </div>
 
         {/* Body — form */}
-        <div className="p-5 sm:p-6 max-h-[60vh] overflow-y-auto">
-          <div className="space-y-4">
+        <div className="p-4 sm:p-6 max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3 sm:space-y-4">
             {/* Nama Perusahaan * */}
             <div className="space-y-1.5">
-              <Label htmlFor="cp-nama" className="text-sm font-medium flex items-center gap-1.5">
+              <Label htmlFor="cp-nama" className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
                 Nama Perusahaan <span className="text-red-500">*</span>
               </Label>
@@ -182,7 +182,7 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
 
             {/* Alamat * */}
             <div className="space-y-1.5">
-              <Label htmlFor="cp-alamat" className="text-sm font-medium flex items-center gap-1.5">
+              <Label htmlFor="cp-alamat" className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                 Alamat <span className="text-red-500">*</span>
               </Label>
@@ -196,9 +196,9 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
             </div>
 
             {/* Telepon * + Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="cp-telepon" className="text-sm font-medium flex items-center gap-1.5">
+                <Label htmlFor="cp-telepon" className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-muted-foreground" />
                   Telepon <span className="text-red-500">*</span>
                 </Label>
@@ -210,7 +210,7 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cp-email" className="text-sm font-medium flex items-center gap-1.5">
+                <Label htmlFor="cp-email" className="text-xs sm:text-sm font-medium flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                   Email
                 </Label>
@@ -227,11 +227,11 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
         </div>
 
         {/* Footer */}
-        <div className="p-5 sm:p-6 border-t border-border flex justify-center sm:justify-end gap-2 sm:items-center">
+        <div className="p-4 sm:p-6 border-t border-border flex justify-center sm:justify-end gap-2 sm:items-center">
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-semibold w-full sm:w-auto sm:min-w-[220px]"
+            className="h-10 sm:h-9 text-[13px] sm:text-sm bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-semibold w-full sm:w-auto sm:min-w-[220px]"
           >
             {loading ? (
               <>
