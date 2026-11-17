@@ -17918,3 +17918,23 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com kini menjalankan Tasks 24+25+26+27: gate perangkat server-wide (proxy), tombol "Gunakan Perangkat Ini" di peringatan keamanan, delete riwayat Manajemen Perangkat, popup QRIS besar fit-mobile, footer 1 baris mobile, dan alur verifikasi otomatis setelah kirim konfirmasi pembayaran
+
+---
+Task ID: 29
+Agent: Main
+Task: Hapus kilasan teks "Pengguna" di beranda sebelum nama akun tampil
+
+Work Log:
+- Request user: "apabila masuk ke halaman beranda, kenapa muncul pengguna dulu selama 1 detik, baru masuk nama akun. delete tulisan pengguna. fix"
+- Penyebab: src/app/pembukaan/page.tsx — judul sapaan memakai fallback (s?.user?.name || 'Pengguna') sehingga ±1 detik pertama (sebelum /api/beranda selesai) tampil "Selamat pagi, Pengguna 👋" lalu berubah ke nama akun.
+- Fix: fallback 'Pengguna' DIHAPUS dari kode. Sekarang: (a) data sudah ada → ", NamaDepan"; (b) masih loading → skeleton pulse kecil (h-6/h-7, animate-pulse) sebagai penanda nama, tanpa teks palsu; (c) gagal muat/nama kosong → sapaan polos tanpa nama. Kunjungan berikutnya instan via smart cache (IndexedDB) sehingga skeleton jarang terlihat.
+- E2E terverifikasi (akun uji sementara 'e2e-task29' nama "Budi E2E Veranda", dihapus bersih):
+  1. Load normal (login → /pembukaan): h1 = "Selamat sore, Budi 👋" — nama asli, body TIDAK mengandung kata "Pengguna".
+  2. Simulasi muat lambat/gagal (network route abort /api/beranda + clear IndexedDB & localStorage): h1 = "Selamat sore 👋" — TANPA teks "Pengguna" (fallback hilang total; skeleton hanya muncul bila request masih in-flight).
+  3. Setelah unroute + reload: kembali "Selamat sore, Budi 👋" (cache hidup kembali).
+  4. eslint src/app/pembukaan/page.tsx bersih; dev.log tanpa error; dev 200.
+- CATATAN kebersihan data (ulang pelajaran Task 27): sweep broadcast notifikasi dgn jendela 30 menit ikut menghapus 2 notifikasi dev milik user sendiri (1 device_registered + 1 login_attempt) — diluar buatan E2E. Selanjutnya: JANGAN pernah sweep broadcast per-waktu; hanya hapus notifikasi yang ter-scope ke entri/entitas uji.
+- Deploy: BELUM diminta
+
+Stage Summary:
+- Beranda tidak lagi menampilkan teks "Pengguna" saat data dimuat: sapaan tampil dengan nama akun begitu data siap, skeleton halus mengisi jeda ±1 detik, dan bila data gagal dimuat sapaan tampil polos tanpa nama palsu.

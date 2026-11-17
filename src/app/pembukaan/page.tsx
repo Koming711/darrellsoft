@@ -380,7 +380,18 @@ export default function PembukaanPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
                 {greeting}
-                {`, ${(s?.user?.name || 'Pengguna').split(' ')[0]}`} 👋
+                {s?.user?.name ? (
+                  `, ${s.user.name.split(' ')[0]}`
+                ) : loading ? (
+                  // Selagi data beranda dimuat: skeleton alih-alih teks "Pengguna" —
+                  // menghindari kilasan nama palsu ±1 detik sebelum nama akun tampil
+                  // (permintaan owner: hapus tulisan "Pengguna").
+                  <span
+                    aria-hidden="true"
+                    className="ml-1 inline-block h-6 w-28 animate-pulse rounded-md bg-stone-200 align-middle md:h-7 dark:bg-zinc-800"
+                  />
+                ) : null}
+                {' 👋'}
               </h1>
               {s?.user?.role && (
                 <Badge
