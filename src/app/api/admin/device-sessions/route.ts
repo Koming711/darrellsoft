@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUser, isAdmin } from '@/lib/server-auth'
 import { sendSecurityNotifications } from '@/lib/device-session'
+import { invalidateDeviceGateCache } from '@/lib/device-gate-cache'
 
 /**
  * API Manajemen Perangkat (Panel Admin — Login 1 Perangkat).
@@ -51,6 +52,46 @@ export async function GET(request: NextRequest) {
     const user = getServerUser(request)
     if (!user || !isAdmin(user.role)) {
       return NextResponse.json({ error: 'Akses ditolak. Hanya admin yang dapat mengakses.' }, { status: 403 })
+    }
+
+    // Spec §6: riwayat pergantian perangkat + audit setiap tindakan admin.
+    // view=audit → baris AuditLog utk aksi perangkat (device_revoke/device_reset).
+    const view = request.nextUrl.searchParams.get('view')
+    if (view === 'audit') {
+      const logs = await db.auditLog.findMany({
+        where: { aksi: { in: ['device_revoke', 'device_reset', 'device_takeover'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+      })
+      const userIds = Array.from(new Set(logs.map((l) => JSON.parse(l.detail || '{}').targetUserId).filter(Boolean)))
+      const [penggunas, calons] = await Promise.all([
+        db.pengguna.findMany({ where: { id: { in: userIds } }, select: { id: true, namaLengkap: true } }),
+        db.calonPembeli.findMany({ where: { id: { in: userIds } }, select: { id: true, nama: true } }),
+      ])
+      const namaMap = new Map<string, string>()
+      for (const p of penggunas) namaMap.set(p.id, p.namaLengkap)
+      for (const c of calons) if (!namaMap.has(c.id)) namaMap.set(c.id, c.nama)
+      return NextResponse.json(
+        {
+          audit: logs.map((l) => {
+            let detail: Record<string, unknown> = {}
+            try {
+              detail = JSON.parse(l.detail || '{}')
+            } catch {}
+            const targetUserId = typeof detail.targetUserId === 'string' ? detail.targetUserId : ''
+            return {
+              id: l.id,
+              aksi: l.aksi,
+              aktorNama: l.aktorNama,
+              createdAt: l.createdAt,
+              targetUsername: typeof detail.targetUsername === 'string' ? detail.targetUsername : '',
+              akunNama: namaMap.get(targetUserId) || '',
+              deviceName: typeof detail.deviceName === 'string' ? detail.deviceName : '',
+            }
+          }),
+        },
+        { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      )
     }
 
     const [active, history, attempts, revoked24h] = await Promise.all([
@@ -177,6 +218,10 @@ export async function POST(request: NextRequest) {
         `Akses login kini terbuka — silakan login kembali dari perangkat Anda. ` +
         `Jika ini bukan Anda, segera hubungi administrator.`,
     })
+
+    // Spec §4/§5: pencabutan efektif SEKETIKA di lapisan API — buang verdict
+    // cache device-gate utk akun terkait (tanpa menunggu TTL 30 detik).
+    invalidateDeviceGateCache(session.userId)
 
     return NextResponse.json({ success: true, message: 'Sesi perangkat berhasil dicabut. Akun dapat login kembali di perangkat lain.' })
   } catch (error) {

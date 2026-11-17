@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revokeDeviceSessionByUser } from '@/lib/device-session'
+import { invalidateDeviceGateCache } from '@/lib/device-gate-cache'
 
 /**
  * POST /api/auth/logout — cabut sesi perangkat saat pengguna logout manual.
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
 
     if (userId) {
       await revokeDeviceSessionByUser(userId, deviceToken)
+      // Buang verdict cache device-gate agar status terbaru langsung berlaku.
+      invalidateDeviceGateCache(userId)
     }
 
     return NextResponse.json({ success: true })

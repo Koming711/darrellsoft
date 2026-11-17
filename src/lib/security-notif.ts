@@ -15,6 +15,7 @@ export const SECURITY_NOTIF_TYPES = [
   'device_registered',
   'device_revoked',
   'device_reset',
+  'device_takeover',
 ] as const
 
 export function isSecurityNotifType(type: string): boolean {

@@ -44,6 +44,7 @@ import {
   ShieldCheck,
   History,
   Ban,
+  ScrollText,
 } from 'lucide-react'
 
 interface DeviceSessionRow {
@@ -73,6 +74,17 @@ interface AttemptRow {
   os: string
   reason: string
   createdAt: string
+}
+
+/** Baris audit log tindakan admin perangkat (spesifikasi §6). */
+interface AuditRow {
+  id: string
+  aksi: string
+  aktorNama: string
+  createdAt: string
+  targetUsername: string
+  akunNama: string
+  deviceName: string
 }
 
 interface Payload {
@@ -126,7 +138,9 @@ function RoleBadge({ role }: { role: string }) {
 export function ManajemenPerangkatContent() {
   const [data, setData] = useState<Payload | null>(null)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'aktif' | 'riwayat' | 'ditolak'>('aktif')
+  const [view, setView] = useState<'aktif' | 'riwayat' | 'ditolak' | 'audit'>('aktif')
+  const [audit, setAudit] = useState<AuditRow[]>([])
+  const [auditLoading, setAuditLoading] = useState(false)
 
   // Konfirmasi aksi admin
   const [confirmTarget, setConfirmTarget] = useState<{ session: DeviceSessionRow; action: 'revoke' | 'reset' } | null>(null)
@@ -156,6 +170,21 @@ export function ManajemenPerangkatContent() {
     const iv = setInterval(() => void load({ silent: true }), 30_000)
     return () => clearInterval(iv)
   }, [load])
+
+  // Muat audit log saat tab "Log Admin" dibuka (dan tiap kali dibuka ulang).
+  const loadAudit = useCallback(async () => {
+    setAuditLoading(true)
+    try {
+      const res = await authFetch('/api/admin/device-sessions?view=audit')
+      const json = await res.json()
+      if (res.ok && Array.isArray(json.audit)) setAudit(json.audit as AuditRow[])
+    } catch {}
+    setAuditLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (view === 'audit') void loadAudit()
+  }, [view, loadAudit])
 
   const handleConfirm = async () => {
     if (!confirmTarget) return
@@ -240,6 +269,7 @@ export function ManajemenPerangkatContent() {
           { key: 'aktif', label: 'Perangkat Aktif', icon: ShieldCheck },
           { key: 'riwayat', label: 'Riwayat Sesi', icon: History },
           { key: 'ditolak', label: 'Login Ditolak', icon: Ban },
+          { key: 'audit', label: 'Log Admin', icon: ScrollText },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -402,6 +432,63 @@ export function ManajemenPerangkatContent() {
             </Table>
           </div>
         </div>
+      ) : view === 'audit' ? (
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Waktu</TableHead>
+                  <TableHead>Aksi</TableHead>
+                  <TableHead>Akun Target</TableHead>
+                  <TableHead className="hidden md:table-cell">Perangkat</TableHead>
+                  <TableHead className="hidden sm:table-cell">Admin</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {auditLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      Memuat log…
+                    </TableCell>
+                  </TableRow>
+                ) : audit.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                      Belum ada tindakan admin tercatat. Setiap Cabut Sesi / Reset Perangkat otomatis tercatat di sini.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  audit.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="text-xs">
+                        <p>{fmtDateTime(l.createdAt)}</p>
+                        <p className="text-[10px] text-muted-foreground">{fmtRelative(l.createdAt)}</p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={`text-[10px] ${
+                            l.aksi === 'device_reset'
+                              ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                              : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                        >
+                          {l.aksi === 'device_reset' ? 'Reset Perangkat' : l.aksi === 'device_takeover' ? 'Pindah Perangkat' : 'Cabut Sesi'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm font-medium">{l.akunNama || l.targetUsername || '-'}</p>
+                        <p className="text-xs text-muted-foreground">{l.targetUsername}</p>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">{l.deviceName || '-'}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs">{l.aktorNama || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       ) : (
         <div className="rounded-xl border bg-card overflow-hidden">
           <div className="max-h-96 overflow-y-auto">
@@ -439,7 +526,11 @@ export function ManajemenPerangkatContent() {
                       <TableCell className="text-xs">{fmtDateTime(a.createdAt)}</TableCell>
                       <TableCell>
                         <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 text-[10px]">
-                          {a.reason === 'device_conflict' ? 'Perangkat Lain Aktif' : a.reason}
+                          {a.reason === 'device_conflict'
+                            ? 'Perangkat Lain Aktif'
+                            : a.reason === 'session_revoked'
+                              ? 'Sesi Dicabut Admin'
+                              : a.reason}
                         </Badge>
                       </TableCell>
                     </TableRow>

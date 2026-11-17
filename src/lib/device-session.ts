@@ -112,7 +112,43 @@ export async function ensureDeviceTables(): Promise<void> {
   for (const stmt of DEVICE_TABLE_DDL) {
     await db.$executeRawUnsafe(stmt)
   }
+  // Kunci level DB: SATU baris 'active' per userId (partial unique index).
+  // Gagal aman: dedupe dulu, bila tetap gagal cukup warn (fitur tetap jalan
+  // via logika aplikasi).
+  await ensureSingleActiveIndex().catch((e) => console.warn('ensureSingleActiveIndex warn:', e))
   deviceTablesReady = true
+}
+
+/**
+ * Partial unique index — jangkar konkurensi fitur 1-perangkat:
+ * dua perangkat yang login BERSAMAAN tidak mungkin sama-sama menciptakan
+ * sesi 'active' utk akun yang sama (DB menolak INSERT/UPDATE kedua).
+ * Sintaks partial index kompatibel SQLite (3.8+) & PostgreSQL.
+ */
+async function ensureSingleActiveIndex(): Promise<void> {
+  const IDX = 'DeviceSession_one_active_per_user'
+  const createIdx = `CREATE UNIQUE INDEX IF NOT EXISTS "${IDX}" ON "DeviceSession"("userId") WHERE status = 'active'`
+  try {
+    await db.$executeRawUnsafe(createIdx)
+    return
+  } catch {
+    // Index gagal → kemungkinan ada data lama dgn >1 active per user.
+    // Dedupe portable (SQLite & PG): pertahankan SATU baris terbaru
+    // (urut loginAt, tie-break id) per user; sisanya dicabut.
+    const dedupe = `UPDATE "DeviceSession" SET status = 'revoked', "logoutAt" = CURRENT_TIMESTAMP, "revokedBy" = ''
+WHERE status = 'active'
+AND id NOT IN (
+  SELECT ds.id FROM "DeviceSession" ds
+  WHERE ds.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM "DeviceSession" newer
+    WHERE newer."userId" = ds."userId" AND newer.status = 'active'
+    AND (newer."loginAt" > ds."loginAt" OR (newer."loginAt" = ds."loginAt" AND newer.id > ds.id))
+  )
+)`
+    await db.$executeRawUnsafe(dedupe)
+    await db.$executeRawUnsafe(createIdx)
+  }
 }
 
 /**
@@ -277,6 +313,43 @@ async function registerLogic(
   return { rejected: false, isNew: !existingHashRow, tookOver, tookOverFrom, activeId: sessionId, conflict: null }
 }
 
+/** True bila error = pelanggaran unique constraint (Prisma P2002 / raw SQL). */
+function isUniqueViolation(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code
+  if (code === 'P2002') return true
+  return /UNIQUE constraint failed|duplicate key value violates unique constraint/i.test(String(e ?? ''))
+}
+
+/**
+ * Penyelesai race concurrent-login: partial unique index menolak pendaftar
+ * kedua. Baca ulang pemenang race — bila perangkat KITA yang menang, sesi
+ * sah; bila perangkat lain, laporkan sebagai konflik (403 login).
+ */
+async function resolveRaceOutcome(userId: string, tokenHash: string): Promise<RegisterTxResult> {
+  const active = await db.deviceSession.findFirst({
+    where: { userId, status: 'active' },
+    orderBy: { loginAt: 'desc' },
+  })
+  if (active && active.deviceTokenHash === tokenHash) {
+    return { rejected: false, isNew: false, tookOver: false, tookOverFrom: '', activeId: active.id, conflict: null }
+  }
+  return {
+    rejected: true,
+    isNew: false,
+    tookOver: false,
+    tookOverFrom: '',
+    activeId: active?.id || '',
+    conflict: {
+      deviceName: active?.deviceName || 'Perangkat lain',
+      deviceType: active?.deviceType || '',
+      browser: active?.browser || '',
+      os: active?.os || '',
+      loginAt: active?.loginAt || new Date(),
+      lastActivityAt: active?.lastActivityAt || new Date(),
+    },
+  }
+}
+
 export async function registerDeviceSession(params: {
   userId: string
   username: string
@@ -298,6 +371,8 @@ export async function registerDeviceSession(params: {
 
   const tokenHash = hashDeviceToken(deviceToken)
   const ctx = { userId, username, role, tokenHash, info, now, enforce, force }
+  // Tabel + partial unique index siap sebelum logika (sekali per proses).
+  await ensureDeviceTables().catch((e) => console.error('ensureDeviceTables error:', e))
   const runTx = () => db.$transaction((tx) => registerLogic(tx, ctx))
 
   let result: RegisterTxResult
@@ -311,12 +386,26 @@ export async function registerDeviceSession(params: {
     }
     try {
       result = await runTx()
-    } catch {
-      // Transaksi interaktif dapat gagal di connection pool tertentu
-      // (mis. PgBouncer transaction mode Supabase) → jalankan TANPA
-      // transaksi. Risiko race sangat kecil dan invarian "maksimal 1 sesi
-      // aktif" tetap terjaga pada login/polling berikutnya.
-      result = await registerLogic(db as unknown as Prisma.TransactionClient, ctx)
+    } catch (txErr) {
+      if (isUniqueViolation(txErr)) {
+        // Kunci level DB (partial unique index) menolak pendaftar kedua —
+        // dua login bersamaan TIDAK mungkin sama-sama aktif. Spec §4 terpenuhi.
+        result = await resolveRaceOutcome(userId, tokenHash)
+      } else {
+        // Transaksi interaktif dapat gagal di connection pool tertentu
+        // (mis. PgBouncer transaction mode Supabase) → jalankan TANPA
+        // transaksi. Invarian "maksimal 1 sesi aktif" kini dijamin partial
+        // unique index di level DB — race fallback pun tetap tertutup.
+        try {
+          result = await registerLogic(db as unknown as Prisma.TransactionClient, ctx)
+        } catch (fbErr) {
+          if (isUniqueViolation(fbErr)) {
+            result = await resolveRaceOutcome(userId, tokenHash)
+          } else {
+            throw fbErr
+          }
+        }
+      }
     }
   }
 
@@ -382,6 +471,40 @@ export async function registerDeviceSession(params: {
 }
 
 /**
+ * Catat percobaan akses dari perangkat yang DITOLAK saat aplikasi berjalan
+ * (polling verify-session / gate API) — bukan hanya di endpoint login.
+ * Dedupe 5 menit per user+reason agar polling 10 detik tidak membanjiri
+ * riwayat "Login Ditolak" di Panel Admin.
+ */
+async function recordDeviceAttempt(params: {
+  userId: string
+  username: string
+  userAgent: string
+  reason: 'device_conflict' | 'session_revoked'
+}): Promise<void> {
+  const { userId, username, userAgent, reason } = params
+  if (!userId) return
+  try {
+    const since = new Date(Date.now() - 5 * 60 * 1000)
+    const dup = await db.deviceLoginAttempt.findFirst({
+      where: { userId, reason, createdAt: { gte: since } },
+      select: { id: true },
+    })
+    if (dup) return
+    const info = parseUserAgent(userAgent)
+    await db.deviceLoginAttempt.create({
+      data: {
+        userId, username, reason,
+        deviceName: info.deviceName, deviceType: info.deviceType,
+        browser: info.browser, os: info.os,
+      },
+    })
+  } catch (e) {
+    console.error('recordDeviceAttempt error:', e)
+  }
+}
+
+/**
  * Validasi sesi perangkat untuk request yang sudah login (verify-session,
  * /api/auth/me). Mengembalikan:
  * - 'skip'    : guard tidak berjalan (toggle mati / tanpa token) → fail-open
@@ -406,6 +529,10 @@ export async function validateDeviceSession(params: {
   if (!(await isSingleDeviceEnabled())) return { status: 'skip' }
   if (!deviceToken) return { status: 'skip' } // klien lama → fail-open
 
+  // Pastikan tabel + partial unique index siap (sekali per proses — dipanggil
+  // di sini & registerDeviceSession karena alur normal tidak pernah miss tabel).
+  await ensureDeviceTables().catch((e) => console.error('ensureDeviceTables error:', e))
+
   const tokenHash = hashDeviceToken(deviceToken)
   const now = new Date()
 
@@ -428,10 +555,24 @@ export async function validateDeviceSession(params: {
         orderBy: { loginAt: 'desc' },
       })
       if (lastForToken && lastForToken.status === 'revoked' && lastForToken.revokedBy) {
+        await recordDeviceAttempt({ userId, username, userAgent, reason: 'session_revoked' })
         return { status: 'conflict', kind: 'session_revoked' }
       }
-      // Belum pernah terdaftar / logout normal / expired → daftarkan perangkat
-      // ini secara lazim (pemulihan sesi setelah browser dibuka kembali).
+
+      // SPEK §1 (perangkat kedua TIDAK boleh mengambil alih sesi otomatis):
+      // akun yang PERNAH memiliki sesi perangkat tidak boleh di-claim oleh
+      // token yang belum pernah terdaftar lewat jalur pemulihan sesi — itu
+      // celah pembajakan (auth localStorage dicuri + token perangkat beda).
+      // Token asing pada akun berriwayat → TOLAK, wajib login ulang sah.
+      const anyHistory = await db.deviceSession.count({ where: { userId } })
+      if (anyHistory > 0) {
+        await recordDeviceAttempt({ userId, username, userAgent, reason: 'device_conflict' })
+        return { status: 'conflict', kind: 'device_conflict' }
+      }
+
+      // Akun BENAR-BENAR baru (belum pernah punya baris sesi apa pun, mis.
+      // login via alur register/checkout yang tidak lewat endpoint login) →
+      // daftarkan perangkat ini secara lazim.
       const reg = await registerDeviceSession({ userId, username, role, deviceToken, userAgent, enforce: true })
       return reg.ok ? { status: 'ok' } : { status: 'conflict', kind: 'device_conflict', conflict: reg.conflict || undefined }
     }
@@ -446,6 +587,7 @@ export async function validateDeviceSession(params: {
     }
 
     // Sesi aktif milik perangkat lain → tolak perangkat ini.
+    await recordDeviceAttempt({ userId, username, userAgent, reason: 'device_conflict' })
     return {
       status: 'conflict',
       kind: 'device_conflict',

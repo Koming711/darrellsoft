@@ -17,6 +17,7 @@
 
 import { isQueueableWrite, queueAndSynthesize } from './offline-queue'
 import { smartGet } from './smart-fetch'
+import { clearAuthUser } from './auth'
 
 export function getAuthHeaders(): Record<string, string> {
   try {
@@ -43,6 +44,37 @@ export function getAuthHeaders(): Record<string, string> {
  * tidak pernah di-cache — tetap network langsung. Pakai `?nocache` di URL
  * untuk melewati cache.
  */
+/**
+ * DEVICE GATE CLIENT (spesifikasi §4): respons 403 deviceConflict dr
+ * middleware perangkat → bersihkan sesi lokal & paksa kembali ke /login.
+ * Anti-loop: redirect dilewati bila sudah di /login atau kick baru saja
+ * terjadi (< 5 detik). Sesi server tetap sumber kebenaran — ini hanya
+ * sinkronisasi UI agar pengguna langsung melihat keadaan dicabutnya sesi.
+ */
+async function handleDeviceConflict(res: Response): Promise<void> {
+  if (res.status !== 403 || typeof window === 'undefined') return
+  let conflict = false
+  try {
+    const data = await res.clone().json()
+    conflict = !!(data as { deviceConflict?: boolean })?.deviceConflict
+  } catch {
+    conflict = false
+  }
+  if (!conflict) return
+  try {
+    sessionStorage.setItem('deviceConflictKickAt', String(Date.now()))
+  } catch {}
+  try {
+    clearAuthUser()
+  } catch {}
+  try {
+    const last = Number(sessionStorage.getItem('deviceConflictKickAt') || 0)
+    const onLogin = window.location.pathname.startsWith('/login')
+    if (!onLogin && Date.now() - last >= 0 && last > 0 && Date.now() - last < 5000) return
+    if (!onLogin) window.location.replace('/login')
+  } catch {}
+}
+
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const authHeaders = getAuthHeaders()
   const mergedHeaders = {
@@ -63,7 +95,9 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   // (melempar error network bila benar-benar gagal & tak ada cache offline —
   // perilaku error sama seperti jalur lama, tanpa fetch dobel)
   if (isGet) {
-    return await smartGet(url, { headers: mergedHeaders as Record<string, string> })
+    const res = await smartGet(url, { headers: mergedHeaders as Record<string, string> })
+    await handleDeviceConflict(res)
+    return res
   }
 
   const method = (options.method ?? 'GET').toUpperCase()
@@ -75,11 +109,13 @@ export async function authFetch(url: string, options: RequestInit = {}): Promise
   }
 
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...options,
       headers: mergedHeaders,
       cache: cacheOption,
     })
+    await handleDeviceConflict(res)
+    return res
   } catch (err) {
     // Jaringan gagal saat mengirim tulisan → simpan ke antrian, bukan error.
     if (canQueue) {
