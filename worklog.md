@@ -17897,3 +17897,24 @@ E2E terverifikasi (akun uji sementara 'e2e-task27' role admin + tagihan Basic Rp
 Stage Summary:
 - Mobile: tombol Beranda / Paket Langganan / Masuk di footer seluruh halaman alur daftar kini selalu 1 baris di layar HP (390/360/320px terverifikasi).
 - Pembayaran: setelah "Kirim Konfirmasi Pembayaran" halaman langsung berpindah ke tampilan langkah Verifikasi (indikator naik ke 4, banner menunggu verifikasi, auto-scroll ke atas) — bukan lagi tinggal di langkah Pembayaran; saat disetujui indikator naik ke Selesai.
+
+---
+Task ID: 28
+Agent: Main
+Task: Deploy Tasks 24+25+26+27 ke www.darrellsoft.com
+
+Work Log:
+- Perintah user: "deploy ke www.darrellsoft.com" + token Vercel
+- Pra-deploy: .vercel/project.json hilang (sandbox restore) → dibangun ulang via `npx vercel link --yes --project darrellsoft` → prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB (cocok)
+- `bash scripts/deploy.sh` (VERCEL_TOKEN di-export): swap schema→postgres, prisma generate, build sukses, `npx vercel --prod --yes` → Ready 2m → Aliased https://www.darrellsoft.com; schema revert ke sqlite + regenerate client (dev tetap SQLite)
+- Catatan: Step 3 (prisma db push ke Supabase) SKIPPED — build-push-url.js tidak menemukan DATABASE_URL di env (non-fatal). Diverifikasi langsung ke Supabase (pg, read-only): SEMUA tabel ada (DeviceSession+revokedBy, DeviceLoginAttempt, Notification, Subscription*, AuditLog...), partial unique index "DeviceSession_one_active_per_user" aktif — schema produksi sudah sinkron, push memang tidak dibutuhkan. Data produksi (11 sesi, 10 login attempt) tidak disentuh.
+- Verifikasi produksi pasca-deploy:
+  1. HTTP 200: /, /daftar, /login, /api/public-settings
+  2. Task 27a LIVE: footer /daftar di mobile 390px — Beranda/Paket Langganan/Masuk 1 baris, muat viewport (via browser)
+  3. Task 25 LIVE: string "Gunakan Perangkat Ini" ditemukan di chunk produksi (ce53dc45c52974ed.js)
+  4. Task 26b LIVE: string "QRIS Pembayaran Diperbesar" di chunk halaman pembayaran (f4599632bf7be9d1.js)
+  5. Task 26a/24: satu build dari tree yang sama (backend route DELETE device-sessions + proxy gate ikut ter-deploy); tabel & index produksi terverifikasi ada
+  6. Dev lokal tetap sehat setelah revert (200)
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan Tasks 24+25+26+27: gate perangkat server-wide (proxy), tombol "Gunakan Perangkat Ini" di peringatan keamanan, delete riwayat Manajemen Perangkat, popup QRIS besar fit-mobile, footer 1 baris mobile, dan alur verifikasi otomatis setelah kirim konfirmasi pembayaran
