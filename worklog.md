@@ -17938,3 +17938,24 @@ Work Log:
 
 Stage Summary:
 - Beranda tidak lagi menampilkan teks "Pengguna" saat data dimuat: sapaan tampil dengan nama akun begitu data siap, skeleton halus mengisi jeda ±1 detik, dan bila data gagal dimuat sapaan tampil polos tanpa nama palsu.
+
+---
+Task ID: 30
+Agent: Main
+Task: Sapaan beranda tampil serentak — "Selamat malam" + nama akun sebagai satu teks
+
+Work Log:
+- Request user: "di halaman beranda. tulisan selamat malam, administrator muncul bersamaan. fix"
+- Konteks: lanjutan Task 29. Setelah kilasan "Pengguna" dihapus, sapaan "Selamat malam" masih tampil instan (dihitung dari jam lokal) sedangkan nama akun baru muncul ±1 detik kemudian setelah /api/beranda selesai — sehingga sapaan & nama muncul TIDAK bersamaan.
+- Fix (src/app/pembukaan/page.tsx, blok header): sapaan + nama kini SATU template literal — `${greeting}, ${s.user.name.split(' ')[0]}` — React tak mungkin merender keduanya terpisah. Saat data belum ada & masih loading → skeleton penuh (h-6 w-52 / md:h-7 md:w-72, animate-pulse, aria-hidden) TANPA teks apa pun; bila loading selesai tanpa nama (gagal muat) → sapaan polos tanpa nama palsu.
+- Verifikasi E2E (admin, force takeover "Gunakan Perangkat Ini"):
+  1. Hard-load: SSR HTML /pembukaan (curl dgn cookie sesi) mengandung 0× "Selamat" & 0× "Pengguna" — first paint bersih.
+  2. Client-nav test: MutationObserver + poller h1 per-16ms (beranda→Invoice→beranda): transisi langsung "Riwayat Invoice" → "Selamat sore, Administrator 👋" — TIDAK ada state perantara (tanpa "Selamat sore" sendirian, tanpa "Pengguna").
+  3. Live-DOM scan: 0 text node "Pengguna" di seluruh body.
+  4. Final: h1 = "Selamat sore, Administrator 👋" + badge role muncul bersamaan; desktop & mobile 390px screenshot OK; console/error bersih.
+- Catatan lingkungan uji: dialog countdown "PERINGATAN KEAMANAN ... auto logout 10 detik" muncul akibat race takeover sesi lama saat pengujian (klik "OK, Logout" → login ulang → stabil); popup konsentasi notifikasi menutupi tombol dialog → klik via JS eval. Bukan bug produk.
+- eslint src/app/pembukaan/page.tsx bersih; dev.log tanpa error; dev 200.
+- Deploy: BELUM diminta (menunggu instruksi; produksi saat ini = Tasks 24-27)
+
+Stage Summary:
+- Sapaan beranda kini atomik: "Selamat malam, Administrator 👋" tampil sekali jadi saat data siap; selama memuat hanya skeleton tanpa teks; tidak ada lagi teks yang muncul duluan baik "Pengguna" maupun sapaan tanpa nama.

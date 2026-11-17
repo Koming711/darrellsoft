@@ -379,18 +379,20 @@ export default function PembukaanPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-stone-900 dark:text-zinc-100">
-                {greeting}
                 {s?.user?.name ? (
-                  `, ${s.user.name.split(' ')[0]}`
+                  // Sapaan + nama akun tampil BERSAMAAN sebagai satu teks —
+                  // selagi data dimuat hanya ada skeleton (tanpa teks apa pun),
+                  // sehingga tidak ada tulisan yang muncul lebih dulu
+                  // (permintaan owner: "selamat malam, administrator" muncul bersamaan).
+                  `${greeting}, ${s.user.name.split(' ')[0]}`
                 ) : loading ? (
-                  // Selagi data beranda dimuat: skeleton alih-alih teks "Pengguna" —
-                  // menghindari kilasan nama palsu ±1 detik sebelum nama akun tampil
-                  // (permintaan owner: hapus tulisan "Pengguna").
                   <span
                     aria-hidden="true"
-                    className="ml-1 inline-block h-6 w-28 animate-pulse rounded-md bg-stone-200 align-middle md:h-7 dark:bg-zinc-800"
+                    className="inline-block h-6 w-52 animate-pulse rounded-md bg-stone-200 align-middle md:h-7 md:w-72 dark:bg-zinc-800"
                   />
-                ) : null}
+                ) : (
+                  greeting
+                )}
                 {' 👋'}
               </h1>
               {s?.user?.role && (
