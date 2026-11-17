@@ -17771,3 +17771,23 @@ Work Log:
 Stage Summary:
 - Layar "PERINGATAN KEAMANAN" kini punya jalan keluar mandiri: tombol "Logout Akun di Perangkat Lain" (dgn konfirmasi) langsung logout akun di perangkat lain & memindahkan sesi ke perangkat saat ini — tidak perlu lagi hubungi admin/cabut manual via Panel Admin
 - Sesi lama dicabut rapi (revokedBy='takeover', terekam utk audit di Manajemen Perangkat)
+
+---
+Task ID: 23
+Agent: Main
+Task: CANCEL perintah terakhir — batalkan Task 22 (tombol "Logout Akun di Perangkat Lain")
+
+Work Log:
+- Perintah user: "cancel perintah terakhir" → Task 22 (munculkan kembali tombol self-service takeover di layar PERINGATAN KEAMANAN) dibatalkan
+- Task 22 BELUM PERNAH dideploy → production tidak terpengaruh; cukup revert kode lokal
+- Revert lengkap src/app/login/page.tsx (inverse exact dari Task 22):
+  1. Tombol "Logout Akun di Perangkat Lain" + window.confirm + spinner dihapus
+  2. handleLogin kembali ke signature lama (tanpa opts forceTakeover); body fetch login kembali tanpa forceTakeover
+  3. Import LogOut dihapus; komentar "Tidak ada pemulihan diri..." dikembalikan
+  4. Layar peringatan kembali persis kondisi sebelumnya: hanya "Kembali ke Halaman Login" + "Hubungi Administrator"
+- Verifikasi: grep 0 residu (marker Task 22 hilang semua); eslint bersih; /login render normal di browser (dialog v233 + form login, 0 page error); dev server 200
+- Backend tidak disentuh (endpoint forceTakeover tetap ada di API — hanya tidak dipakai UI, sama seperti kondisi pra-Task 22)
+
+Stage Summary:
+- Pembatalan Task 22 selesai bersih: layar PERINGATAN KEAMANAN kembali tanpa tombol self-service; satu-satunya jalan pemulihan kembali seperti semula (admin cabut perangkat via Panel Admin → Manajemen Perangkat, atau logout manual di perangkat aktif)
+- Production tidak berubah (Task 22 tak pernah dideploy); dev = kondisi pasca-Task 21

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Eye, EyeOff, Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft, KeyRound, X, MessageCircle, ShieldAlert, Smartphone, LogOut } from 'lucide-react'
+import { Eye, EyeOff, Mail, Loader2, AlertCircle, CheckCircle, ArrowLeft, KeyRound, X, MessageCircle, ShieldAlert, Smartphone } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getAuthUser, setAuthUser, clearAuthUser } from '@/lib/auth'
 import { getOrCreateDeviceToken } from '@/lib/device'
@@ -112,7 +112,7 @@ function LoginContent() {
 
   }, [isRedirecting])
 
-  const handleLogin = async (e?: React.FormEvent, opts?: { forceTakeover?: boolean }) => {
+  const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault()
     setLoginError('')
     setLoginLoading(true)
@@ -129,10 +129,6 @@ function LoginContent() {
           username,
           password,
           deviceToken: getOrCreateDeviceToken(),
-          // PERMINTAAN USER (Task 22): tombol self-service di layar peringatan
-          // keamanan kembali tersedia — logout sesi perangkat lain (akun
-          // double) & pindahkan sesi ke perangkat ini.
-          forceTakeover: Boolean(opts?.forceTakeover),
         }),
         signal: controller.signal,
       })
@@ -473,47 +469,20 @@ function LoginContent() {
               )}
 
               <div className="mt-5 space-y-2.5">
-                {/* PERMINTAAN USER (Task 22): tombol self-service kembali —
-                    logout akun di perangkat lain (akun double) & pindahkan
-                    sesi ke perangkat ini. forceTakeover divalidasi server
-                    (kredensial sudah lolos verifikasi saat konflik muncul). */}
+                {/* Tidak ada pemulihan diri: sesi perangkat hanya bisa dicabut
+                    oleh administrator (Panel Admin — Manajemen Perangkat) atau
+                    user logout manual di perangkat aktif. */}
                 <button
                   type="button"
-                  disabled={loginLoading}
-                  onClick={() => {
-                    const deviceName = deviceBlocked?.activeDevice?.deviceName
-                    const ok = window.confirm(
-                      'Akun pada perangkat lain' +
-                        (deviceName ? ` (${deviceName})` : '') +
-                        ' akan otomatis LOGOUT dan sesi dipindahkan ke perangkat ini.\n\nLanjutkan?'
-                    )
-                    if (ok) handleLogin(undefined, { forceTakeover: true })
-                  }}
-                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors"
-                >
-                  {loginLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Memproses...
-                    </>
-                  ) : (
-                    <>
-                      <LogOut className="w-4 h-4" /> Logout Akun di Perangkat Lain
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={loginLoading}
                   onClick={() => { setDeviceBlocked(null); setPassword(''); setLoginError('') }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-xl transition-colors"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
                 >
                   Kembali ke Halaman Login
                 </button>
                 <button
                   type="button"
-                  disabled={loginLoading}
                   onClick={() => setShowContactAdmin(true)}
-                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-60 font-semibold py-2.5 rounded-xl transition-colors"
+                  className="w-full flex items-center justify-center gap-2 border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold py-2.5 rounded-xl transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" /> Hubungi Administrator
                 </button>
