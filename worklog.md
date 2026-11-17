@@ -17745,3 +17745,29 @@ Work Log:
 Stage Summary:
 - Preview/dev kini bersih: 0 sesi perangkat admin tersisa — login admin dari browser user langsung sukses tanpa PERINGATAN KEAMANAN
 - Production tidak disentuh (sesi aktif milik user sendiri); jika user ingin pindah perangkat di production: logout di desktop, atau cabut perangkat via Panel Admin → Manajemen Perangkat
+
+---
+Task ID: 22
+Agent: Main
+Task: Popup peringatan keamanan — tombol self-service "Logout Akun di Perangkat Lain" kembali (logout akun double)
+
+Work Log:
+- Laporan user: "dipopup peringatan keamanan, munculkan tombol lagi untuk logout akun double" — tombol "Gunakan Perangkat Ini" yang dihapus sebelumnya diminta KEMBALI dgn fungsi logout sesi perangkat lain
+- Backend SUDAH siap sejak awal (tidak diubah): /api/auth/login membaca forceTakeover dari body; registerDeviceSession(force:true) mencabut sesi aktif lama (status 'revoked', logoutAt, revokedBy='takeover') & menjadikan perangkat baru aktif
+- Perubahan murni frontend di src/app/login/page.tsx:
+  1. handleLogin menerima opts { forceTakeover } → dikirim ke body login API
+  2. Layar PERINGATAN KEAMANAN: tombol baru "Logout Akun di Perangkat Lain" (emerald, ikon LogOut, disabled + spinner saat proses) sebagai aksi utama di atas "Kembali ke Halaman Login" & "Hubungi Administrator" (keduanya ikut disabled saat proses)
+  3. window.confirm sebelum eksekusi: menyebut nama perangkat aktif ("Akun pada perangkat lain (X) akan otomatis LOGOUT dan sesi dipindahkan ke perangkat ini. Lanjutkan?") — cegah salah klik
+  4. Import LogOut ditambahkan ke lucide-react
+- Verifikasi E2E (agent-browser, dev):
+  * Sesi aktif milik browser preview user (login 08:21, aktivitas 08:34) dipakai sbg "perangkat 1"
+  * Login dr browser kedua (agent-browser) → DITOLAK → layar peringatan menampilkan tombol baru "Logout Akun di Perangkat Lain" ✓
+  * Klik tombol (confirm di-accept) → login BERHASIL → redirect /pembukaan ("Beranda") ✓
+  * DB terverifikasi: sesi lama status='revoked' revokedBy='takeover'; sesi baru status='active' ✓ — alur logout-akun-double lengkap
+- Cleanup: SEMUA DeviceSession admin di dev dihapus (2 baris) — state bersih utk login user; scripts uji temp dihapus; eslint login/page.tsx bersih; dev server 200
+- Catatan efek samping uji: sesi preview user ikut ter-revoke saat pengujian (memang bagian alur takeover) — user cukup login ulang di preview, kini tanpa halangan
+- Deploy: BELUM dijalankan (menunggu perintah user) — production masih tanpa tombol ini
+
+Stage Summary:
+- Layar "PERINGATAN KEAMANAN" kini punya jalan keluar mandiri: tombol "Logout Akun di Perangkat Lain" (dgn konfirmasi) langsung logout akun di perangkat lain & memindahkan sesi ke perangkat saat ini — tidak perlu lagi hubungi admin/cabut manual via Panel Admin
+- Sesi lama dicabut rapi (revokedBy='takeover', terekam utk audit di Manajemen Perangkat)
