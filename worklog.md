@@ -17653,3 +17653,22 @@ Work Log:
 Stage Summary:
 - Seluruh konten workspace kini = isi arsip upload (v233 lengkap: Task 4-14 + Task 16 verifikasi perangkat Fonnte); dependency di-install ulang, dev server hijau, semua fitur kunci terverifikasi
 - Parity lokal-production pulih penuh — landmine regresi deploy dari task sebelumnya RESMI dihilangkan
+
+---
+Task ID: 18
+Agent: Main
+Task: Popup "Lengkapi Data Perusahaan" tidak bisa diketik setelah daftar (check and fix)
+
+Work Log:
+- Laporan user: "di popup lengkapi data perusahaan setelah daftar akun berhasil tidak bisa diketik. check and fix"
+- Reproduksi E2E di dev (agent-browser): daftar akun demo baru (OTP dev mode) → pilih paket trial → buat tagihan → kirim konfirmasi pembayaran (bukti PNG) → status MENUNGGU VERIFIKASI → Beranda (/pembukaan) → popup "Lengkapi Data Perusahaan" muncul BERSAMAAN dgn dialog "Aplikasi Belum Dapat Digunakan" (SubscriptionWaitingPopup)
+- AKAR MASALAH: SubscriptionWaitingPopup adalah Radix Dialog MODAL (shadcn Dialog). Radix men-set pointer-events:none pada SEMUA konten di luar dialognya — CompanyDataPopup (custom div z-[200], di luar dialog Radix) ikut di-inert: terlihat, tapi TIDAK BISA diklik/diketik (diverifikasi: root popup pointerEvents=none, input tetap topmost di elementsFromPoint, fokus tidak dicuri — murni pointer-events)
+- Bukan bug komponen popup-nya: typing NORMAL saat popup dibuka tanpa dialog Radix (uji admin: value terisi, focus bertahan)
+- Fix (jadwalkan dialog modal): (1) company-data-popup.tsx — broadcast event 'company-popup-open' (detail: open) tiap state open berubah; (2) dashboard-layout.tsx — state companyPopupOpen mendengarkan event tsb; efek auto-muncul SubscriptionWaitingPopup kini `subWaitingVerification && onPembukaan && !companyPopupOpen` + guard render `open={subPopupOpen && !companyPopupOpen}` → dialog verifikasi DITUNDA selagi popup wajib-data terbuka, muncul OTOMATIS tepat setelah data perusahaan disimpan
+- Verifikasi pasca-fix (E2E sama persis): popup pointerEvents=auto ✓; dialog verifikasi TIDAK terbuka selagi popup aktif ✓; ketik "Toko Uji Popup"/"Jl. Mawar No. 10, Bandung"/"081999000777" → semua value terdaftar ✓; Simpan → toast "Data perusahaan berhasil disimpan!" + flag companyDataRequired cleared + popup tertutup + dialog "Aplikasi Belum Dapat Digunakan" muncul otomatis setelahnya ✓; eslint 2 file bersih
+- Cleanup: akun uji demo tmpopupfix1 (CalonPembeli + UserSetting + notif registrasi) dihapus dr dev DB; bukti.png sementara dihapus
+- Catatan: tidak diperlukan perubahan backend; fix murni urutan z/prioritas dua modal di dashboard-layout
+
+Stage Summary:
+- Popup "Lengkapi Data Perusahaan" kini selalu bisa diketik: dialog "Aplikasi Belum Dapat Digunakan" (menunggu verifikasi admin) menunda dirinya selagi popup wajib-data terbuka dan muncul otomatis setelah data disimpan — tidak ada lagi dua modal Radix bertumpuk yang saling meng-inert
+- BELUM dideploy ke www.darrellsoft.com (menunggu perintah deploy dari user)

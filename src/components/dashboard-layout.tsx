@@ -288,11 +288,23 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
   // di rute modul lain tetap layar gate penuh — modul tidak bisa dipakai.
   const subWaitingVerification = subBlocked && subInfo?.reason === 'menunggu_verifikasi'
   const onPembukaan = pathname === '/pembukaan'
+  // Popup wajib-data perusahaan terbuka? (broadcast dr CompanyDataPopup)
+  // Selagi terbuka, dialog modal Radix lain (popup menunggu verifikasi) HARUS
+  // ditunda — Radix meng-inert konten di luarnya (pointer-events:none) sehingga
+  // popup perusahaan jadi tidak bisa diketik bila keduanya terbuka bersamaan.
+  const [companyPopupOpen, setCompanyPopupOpen] = useState(false)
+  useEffect(() => {
+    const handler = (e: Event) => setCompanyPopupOpen(Boolean((e as CustomEvent).detail))
+    window.addEventListener('company-popup-open', handler)
+    return () => window.removeEventListener('company-popup-open', handler)
+  }, [])
   useEffect(() => {
     // Auto-muncul saat mendarat di beranda; tutup saat pindah rute atau
     // saat langganan sudah disetujui (subBlocked false).
-    setSubPopupOpen(subWaitingVerification && onPembukaan)
-  }, [subWaitingVerification, onPembukaan])
+    // DITUNDA selagi popup data perusahaan terbuka — muncul otomatis
+    // setelah data perusahaan disimpan (companyPopupOpen → false).
+    setSubPopupOpen(subWaitingVerification && onPembukaan && !companyPopupOpen)
+  }, [subWaitingVerification, onPembukaan, companyPopupOpen])
 
   // === INITIAL AUTH + SETTINGS LOAD (runs once) ===
   useEffect(() => {
@@ -808,7 +820,7 @@ export function DashboardLayout({ children, title, subtitle }: DashboardLayoutPr
       {/* ===== POPUP: APLIKASI BELUM DAPAT DIGUNAKAN (beranda, menunggu verifikasi admin) ===== */}
       <SubscriptionWaitingPopup
         info={subInfo}
-        open={subPopupOpen}
+        open={subPopupOpen && !companyPopupOpen}
         onOpenChange={setSubPopupOpen}
         rechecking={subRechecking}
         onRecheck={() => { void handleSubscriptionRecheck() }}

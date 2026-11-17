@@ -66,6 +66,16 @@ export function CompanyDataPopup({ forceOpen = false, onClose }: CompanyDataPopu
     }
   }, [forceOpen, pathname, router]);
 
+  // Broadcast status terbuka: dialog modal Radix lain (mis. popup "Aplikasi
+  // Belum Dapat Digunakan" di beranda) HARUS menunda dirinya selagi popup
+  // wajib-data ini terbuka — Radix men-set pointer-events:none pada semua
+  // konten di luar dialognya, yang membuat popup ini TIDAK BISA DIKETIK
+  // bila keduanya terbuka bersamaan.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('company-popup-open', { detail: open }));
+    return () => window.dispatchEvent(new CustomEvent('company-popup-open', { detail: false }));
+  }, [open]);
+
   const handleSave = async () => {
     // Validasi minimal: nama + telepon + alamat
     if (!form.nama.trim()) {
