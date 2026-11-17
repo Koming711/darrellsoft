@@ -59,6 +59,7 @@ import {
   type BarangCustomerOption,
   type BarangFormSavedItem,
 } from '@/components/views/barang-form-dialog'
+import { BarangOptionLabel } from '@/components/views/barang-form-dialog'
 import BackupRestoreButtons from '@/components/views/backup-restore-buttons'
 
 /**
@@ -839,12 +840,22 @@ export default function HargaCustomerPage() {
                 }}
               >
                 <SelectTrigger className="w-full bg-white" aria-label="Pilih barang" data-testid="form-pilih-barang">
-                  <SelectValue placeholder="Pilih barang" />
+                  {/* Trigger tampil nama saja — qty/harga ada di daftar opsi */}
+                  <SelectValue placeholder="Pilih barang">
+                    {selectedBarang?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {barangList.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
-                      {b.name}
+                      {/* Sama dgn popup Tambah: nama + qty + harga agar barang
+                          bernama mirip mudah dibedakan saat memilih */}
+                      <BarangOptionLabel
+                        name={b.name}
+                        unit={b.unit}
+                        standardPrice={b.standardPrice}
+                        qty={b.qty}
+                      />
                     </SelectItem>
                   ))}
                 </SelectContent>

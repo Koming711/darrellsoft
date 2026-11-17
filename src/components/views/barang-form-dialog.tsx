@@ -74,6 +74,37 @@ export interface BarangPickOption {
   qty?: number
 }
 
+/**
+ * Label opsi dropdown "Nama Barang": baris 1 = nama barang, baris 2 = qty
+ * (stok) + harga standar — memudahkan membedakan barang bernama mirip
+ * (permintaan owner: "di dropdown nama barang muncul nama barang, qty dan harga").
+ * Dipakai popup Tambah Harga Customer & dropdown edit di halaman Harga Customer.
+ */
+export function BarangOptionLabel({
+  name,
+  unit,
+  standardPrice,
+  qty,
+}: {
+  name: string
+  unit?: string
+  standardPrice?: number | null
+  qty?: number | null
+}) {
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5 py-0.5">
+      <span className="text-sm leading-tight">{name}</span>
+      <span className="text-[11px] leading-tight text-muted-foreground">
+        {qty != null
+          ? `Qty: ${qty.toLocaleString('id-ID')} ${unit || 'pcs'}`
+          : 'Qty: -'}
+        {' · '}
+        Rp{Number(standardPrice ?? 0).toLocaleString('id-ID')}
+      </span>
+    </span>
+  )
+}
+
 interface ItemFormState {
   name: string
   unit: string
@@ -506,12 +537,21 @@ export function BarangFormDialog({
                     aria-label="Pilih barang"
                     data-testid="barang-pilih-nama"
                   >
-                    <SelectValue placeholder="Pilih barang (dari halaman Barang)" />
+                    <SelectValue placeholder="Pilih barang (dari halaman Barang)">
+                      {/* Trigger tampil NAMA saja — qty/harga cukup di daftar opsi
+                          (sudah otomatis mengisi kolom Qty & Harga Jual di bawah). */}
+                      {pickedBarang?.name}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-72 overflow-y-auto scrollbar-thin">
                     {barangOptions.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
+                      <SelectItem key={b.id} value={b.id} data-testid="barang-opsi">
+                        <BarangOptionLabel
+                          name={b.name}
+                          unit={b.unit}
+                          standardPrice={b.standardPrice}
+                          qty={b.qty}
+                        />
                       </SelectItem>
                     ))}
                     <SelectItem value="__new__">+ Barang baru (ketik manual)</SelectItem>

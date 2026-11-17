@@ -17959,3 +17959,49 @@ Work Log:
 
 Stage Summary:
 - Sapaan beranda kini atomik: "Selamat malam, Administrator 👋" tampil sekali jadi saat data siap; selama memuat hanya skeleton tanpa teks; tidak ada lagi teks yang muncul duluan baik "Pengguna" maupun sapaan tanpa nama.
+
+---
+Task ID: 31
+Agent: Main
+Task: Deploy Task 30 (sapaan beranda serentak) ke www.darrellsoft.com
+
+Work Log:
+- Perintah user: "deploy ke www.darrellsoft.com" + token Vercel
+- Pra-deploy: .vercel/project.json utuh (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB), dev 200, fix terverifikasi di source (skeleton w-52/md:w-72)
+- `bash scripts/deploy.sh` (VERCEL_TOKEN di-export): swap schema→postgres → build sukses → `vercel --prod --yes` → Ready 2m → Aliased https://www.darrellsoft.com → schema revert ke sqlite + regenerate client (dev tetap SQLite). Task 30 tidak mengubah schema DB → tidak perlu db push Supabase.
+- Verifikasi produksi:
+  1. HTTP 200: /, /daftar, /login, /api/public-settings
+  2. Login admin → peringatan keamanan → "Gunakan Perangkat Ini" (Task 25 tetap berfungsi di produksi) → /pembukaan
+  3. Beranda produksi: h1 = "Selamat sore, Administrator 👋" + badge Admin — muncul bersamaan; live-DOM scan 0× text node "Pengguna"
+  4. Client-nav flash test (poller h1 per-16ms, beranda→Invoice→beranda): transisi langsung, TANPA state perantara ("Selamat sore" sendirian / "Pengguna" tidak pernah muncul)
+  5. Bukti build baru LIVE: chunk produksi b383f143388932a7.js berisi marker skeleton BARU "md:w-72" (1×) dan marker kode LAMA "ml-1 inline-block h-6 w-28" SUDAH HILANG
+  6. Mobile 390px: sapaan + nama + badge rapi, layout utuh; console/error bersih
+- Pasca-deploy: lokal kembali 200, schema.prisma provider=sqlite terkonfirmasi
+- Worklog: entri Task 30 (fix) + Task 31 (deploy ini)
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan Tasks 24+25+26+27+30: sapaan beranda tampil serentak ("Selamat malam, Administrator 👋" sekali jadi), tanpa kilasan "Pengguna" maupun sapaan yang muncul duluan; selama memuat hanya skeleton tanpa teks.
+
+---
+Task ID: 32
+Agent: Main
+Task: Dropdown "Nama Barang" di popup Tambah Harga Customer tampil nama + qty + harga
+
+Work Log:
+- Request user: "dihalaman harga customer, apabila di klik tambah maka muncul popup tambah barang. di dropdown nama barang muncul nama barang, qty dan harga. check and fix"
+- Investigasi: kode dropdown selama ini hanya merender {b.name} (dev+prod sama); data produksi (Supabase read-only) berisi barang bernama SANGAT mirip — paperbowl 800ml Selasar/tutup (Rp2.000), Paperbowl 720ml (Rp1.900), manggang 800ml (Rp1.600), Univina 650ml (Rp1.800) — mustahil dibedakan dari nama saja. Kesimpulan: ini permintaan FITUR — opsi dropdown harus menampilkan nama barang + qty (stok) + harga standar.
+- Fix:
+  1. src/components/views/barang-form-dialog.tsx — komponen bersama (dipakai popup Tambah Harga Customer, Buat Invoice, Pelunasan, items-fields): komponen ekspor BARU `BarangOptionLabel` (baris 1 nama; baris 2 kecil redup "Qty: 1.000 pcs · Rp2.000", format id-ID, fallback unit 'pcs' & qty '-') dipakai di tiap <SelectItem> (data-testid barang-opsi); trigger <SelectValue> diberi children eksplisit {pickedBarang?.name} agar tetap tampil NAMA saja saat dipilih.
+  2. src/app/harga-customer/page.tsx — dialog edit harga khusus (dropdown "Barang") ikut memakai BarangOptionLabel + trigger nama saja — konsisten dgn popup tambah di halaman yg sama.
+- Insiden dev saat pengerjaan: percobaan MultiEdit pertama ternyata MENGAPLIKASIKAN edit#1 meski lapor gagal (klaim atomisitas tidak akurat) → duplikat definisi BarangOptionLabel → build error "defined multiple times"; dihapus duplikatnya, kompilasi pulih. Pelajaran: setelah MultiEdit gagal, SELALU verifikasi file dgn rg sebelum mencoba ulang.
+- Verifikasi E2E (dev, admin):
+  1. Popup Tambah Harga Customer: opsi = "ongkir — Qty: 1 pcs · Rp150.000", "paperbowl 800ml — Qty: 1 pcs · Rp1.900", "paperbowl 800ml — Qty: 1 pcs · Rp1.800" (2 barang kembar kini terbedakan harga), "+ Barang baru".
+  2. Pilih item → trigger tampil "paperbowl 800ml" (nama saja) & prefill utuh: Qty=1, Harga Jual=1900, Modal=1200, Profit=700.
+  3. Dialog edit harga: dropdown sama, trigger nama saja.
+  4. Popup Buat Invoice → Tambah Barang: opsi sama (komponen bersama).
+  5. Mobile 390px: opsi 2 baris rapi, popup utuh.
+  6. eslint 2 file bersih; halaman 200; console/error bersih (badge "1 Issue" = sisa error lama yang sudah diperbaiki); tanpa data uji baru (tidak perlu cleanup).
+- Deploy: BELUM diminta
+
+Stage Summary:
+- Dropdown pilih barang kini menampilkan nama + qty (stok) + harga standar di semua popup (Harga Customer, Buat Invoice, Pelunasan) — barang bernama mirip mudah dibedakan; kolom pilihan tetap tampil nama saja & prefill Qty/Harga tidak berubah.
