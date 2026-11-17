@@ -7,14 +7,31 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t bg-muted/40">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row">
-        <nav aria-label="Navigasi footer" className="flex flex-wrap items-center justify-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-11 px-5 sm:h-8 sm:px-3">
+        {/* Mobile: 3 tombol navigasi harus muat 1 baris — padding/font dipadatkan
+            dan teks nowrap agar tidak wrap di layar HP sempit (permintaan owner). */}
+        <nav aria-label="Navigasi footer" className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-11 whitespace-nowrap px-3 text-xs sm:h-8 sm:px-3 sm:text-sm"
+          >
             <Link href="/">Beranda</Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="h-11 px-5 sm:h-8 sm:px-3">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-11 whitespace-nowrap px-3 text-xs sm:h-8 sm:px-3 sm:text-sm"
+          >
             <Link href="/pilih-paket">Paket Langganan</Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="h-11 px-5 sm:h-8 sm:px-3">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="h-11 whitespace-nowrap px-3 text-xs sm:h-8 sm:px-3 sm:text-sm"
+          >
             <Link href="/login">Masuk</Link>
           </Button>
         </nav>

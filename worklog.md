@@ -17866,3 +17866,34 @@ B. QRIS zoom popup (src/app/langganan/pembayaran/[invoiceId]/page.tsx — halama
 Stage Summary:
 - Manajemen Perangkat: riwayat sesi & catatan login ditolak kini bisa dihapus per baris (dgn konfirmasi + audit log); sesi aktif tetap hanya lewat Cabut Sesi/Reset — alur "kick dulu, hapus kemudian" konsisten.
 - Halaman pembayaran (QRIS): gambar QR kini bisa diklik/ditekan utk popup besar — mobile memenuhi layar HP — memudahkan scan langsung dr layar; nominal + penerima tampil di popup.
+
+---
+Task ID: 27
+Agent: Main
+Task: (a) Mobile footer navigasi 1 baris di halaman daftar/pilih paket/pembayaran; (b) Kirim Konfirmasi Pembayaran → langsung menuju halaman Verifikasi
+
+Work Log:
+- Request user: "di tampilan mobile, dihalaman daftar akun, pilih paket, pembayaran, tombol beranda, paket langganan dan masuk dibuat 1 baris saja. setelah diklik kirim konfirmasi pembayaran maka langsung menuju halaman verifikasi"
+
+A. Footer 1 baris di mobile (src/components/darrellsoft/site-footer.tsx — komponen bersama ketiga halaman):
+- Penyebab: tombol footer mobile memakai px-5 + teks standar (total ~330px) sehingga di viewport 360px "Masuk" wrap ke baris kedua.
+- Fix: gap-1.5 (mobile), px-3 + text-xs + whitespace-nowrap di mobile, tinggi sentuh h-11 dipertahankan; desktop tak berubah (sm:h-8 sm:px-3 sm:text-sm).
+- Terpakai otomatis di /daftar, /pilih-paket, /langganan/pembayaran/[invoiceId], /konfirmasi-paket (semua memakai SiteFooter).
+
+B. Langsung menuju halaman Verifikasi (src/app/langganan/pembayaran/[invoiceId]/page.tsx):
+- handleSubmitProof: setelah POST sukses + loadInvoice (status → menunggu_verifikasi), window.scrollTo({top:0, smooth}) — pengguna langsung melihat banner verifikasi di atas.
+- Mapping langkah indikator diperlengkap: menunggu_pembayaran/ditolak → 3 (Pembayaran), menunggu_verifikasi → 4 (Verifikasi — BARU), disetujui → 5 (Selesai — semula 4).
+- Tampilan "halaman verifikasi" (status menunggu_verifikasi): indikator langkah 4 aktif (1-3 centang), banner amber "Pembayaran sedang diperiksa admin", badge "Menunggu Verifikasi", kartu "Konfirmasi Pembayaran Terkirim" + bukti; form & kartu cara bayar otomatis tersembunyi.
+
+E2E terverifikasi (akun uji sementara 'e2e-task27' role admin + tagihan Basic Rp119.483 SUB-2611-MLQ2, dihapus bersih setelahnya):
+1. Mobile 390/360/320: footer /daftar & /pilih-paket & /pembayaran — 3 tombol SATU baris, muat viewport (bounding box: tops identik, rightmost ≤ vw).
+2. Alur nyata: konfirmasi paket → tagihan dibuat → unggah bukti PNG via canvas+DataTransfer → klik "Kirim Konfirmasi Pembayaran" → scrollY 1322→0, langkah 4 "Verifikasi" AKTIF, banner verifikasi tampil, form hilang.
+3. Desktop 1440x900: tampilan verifikasi rapi (indikator 4, banner, kartu terkirim + pratinjau bukti); footer tetap 1 baris.
+4. Status disetujui (flip DB utk uji) → langkah 5 "Selesai" aktif + banner "Pembayaran disetujui!".
+5. dev.log bersih (semua 200, tanpa error); eslint 2 file bersih.
+- CATATAN kebersihan data: script cleanup menghapus broadcast Notification dgn filter jendela 2 jam — TERLALU LUAS: selain 3 broadcast buatan E2E, ~27 notifikasi broadcast sisa aktivitas dev user sendiri (device_registered/takeover/login_attempt/payment) ikut terhapus. TIDAK ada data operasional yang tersentuh (invoice/payment/sesi/akun/Pengguna asli aman; hanya riwayat alert in-app dev yang hilang). Pelajaran: cleanup notifikasi harus difilter per-entitas terkait (invoiceId/pesan), bukan per waktu.
+- Deploy: BELUM diminta
+
+Stage Summary:
+- Mobile: tombol Beranda / Paket Langganan / Masuk di footer seluruh halaman alur daftar kini selalu 1 baris di layar HP (390/360/320px terverifikasi).
+- Pembayaran: setelah "Kirim Konfirmasi Pembayaran" halaman langsung berpindah ke tampilan langkah Verifikasi (indikator naik ke 4, banner menunggu verifikasi, auto-scroll ke atas) — bukan lagi tinggal di langkah Pembayaran; saat disetujui indikator naik ke Selesai.

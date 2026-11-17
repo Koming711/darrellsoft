@@ -218,10 +218,15 @@ function PembayaranContent() {
     return () => window.clearInterval(t)
   }, [authReady, invoiceId, invoice?.status, loadInvoice])
 
-  // Langkah indikator: 3 = Pembayaran, 4 = Verifikasi (pembayaran disetujui admin),
-  // 5 = Selesai (langganan aktif & pengguna melanjutkan ke aplikasi).
+  // Langkah indikator: 3 = Pembayaran, 4 = Verifikasi (konfirmasi terkirim,
+  // menunggu persetujuan admin — halaman verifikasi), 5 = Selesai (langganan
+  // aktif & pengguna melanjutkan ke aplikasi).
   const langkahIndikator =
-    invoice?.status === 'disetujui' ? 4 : 3
+    invoice?.status === 'disetujui'
+      ? 5
+      : invoice?.status === 'menunggu_verifikasi'
+        ? 4
+        : 3
 
   const clearProof = useCallback(() => {
     setProofFile(null)
@@ -280,6 +285,10 @@ function PembayaranContent() {
       toast.success('Bukti pembayaran terkirim — menunggu verifikasi admin')
       clearProof()
       await loadInvoice()
+      // Langsung menuju tampilan halaman Verifikasi (langkah 4) — permintaan owner:
+      // setelah konfirmasi terkirim, halaman berpindah ke status verifikasi
+      // (indikator langkah naik ke 4 + banner verifikasi di atas layar).
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal mengirim konfirmasi, coba lagi')
     } finally {
