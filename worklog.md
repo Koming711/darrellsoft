@@ -17724,3 +17724,24 @@ Work Log:
 Stage Summary:
 - www.darrellsoft.com kini menjalankan v233 lengkap + fix Task 18 (popup bisa diketik) + Task 19 (popup mobile diperkecil) — deployment darrellsoft-6brk9kskh
 - Pipeline deploy kini tahan CLI v65 (--yes) dan .vercel link dipulihkan; schema lokal sqlite, production postgres — keduanya sinkron
+
+---
+Task ID: 21
+Agent: Main
+Task: Login admin tidak bisa masuk — PERINGATAN KEAMANAN (check and fix)
+
+Work Log:
+- Laporan user: "login admin tidak bisa masuk. ada peringatan keamanan. check and fix."
+- Konteks: sandbox ter-restore ke snapshot pasca-Task-20 → dev server mati (dipulihkan di turn sebelumnya), dan SNAPSHOT MEMBAWA database dev dgn sisa state uji
+- Inspeksi DB dev: tabel DeviceSession berisi 1 baris status=active utk username 'admin' — "Chrome di Linux (Komputer)", loginAt 02:46 UTC (SESI UJI Task 19 dr agent-browser yang terbawa snapshot)
+- Reproduksi E2E (agent-browser): login admin/268899 di /login dev → layar PERINGATAN KEAMANAN "Akun Darrellsoft ini sedang digunakan pada perangkat lain" — sesuai desain 1-perangkat (tombol takeover "Gunakan Perangkat Ini" memang sudah dihapus atas permintaan user; pemulihan hanya via Panel Admin/Manajemen Perangkat atau logout di perangkat aktif)
+- AKAR MASALAH: sesi uji agent-browser Task 19 tertinggal di db/custom.db dan ikut terbawa snapshot restore — MEMBLOKIR semua login admin di dev/preview, termasuk browser user
+- Fix: deleteMany DeviceSession username='admin' di dev DB (setara admin mencabut perangkat via Panel Admin) → 1 baris terhapus
+- Verifikasi E2E: login admin lagi → SUKSES, redirect /pembukaan ("Beranda") ✓; DeviceSession baru dibuat oleh browser uji → LANGSUNG DIHAPUS lagi (higiene uji: kalau tidak, browser user di preview akan terblokir oleh sesi browser uji lagi); scripts uji temp dihapus
+- Cek production READ-ONLY (tanpa aksi): admin punya 1 sesi active "Chrome di Windows (Komputer)" loginAt 07:44 UTC (browser desktop user sendiri, aktivitas 07:45) + sesi HP lama semua status=revoked (pola logout-manual-→-login-perangkat-baru yang sehat). Production SEHAT — sesi aktif milik user sendiri, TIDAK dicabut (mencabut justru meng-logout desktop user)
+- prisma:error "duplicate column name: kategoriId" di dev.log = seed idempotent startup yang benign (kolom memang sudah ada; seed lanjut normal) — bukan bug baru
+- Catatan desain: dgn tombol takeover dihapus, blokir perangkat kedua adalah perilaku yang diminta user; jalan keluar resmi = Panel Admin → Manajemen Perangkat (ada di dev & production) atau logout manual di perangkat aktif
+
+Stage Summary:
+- Preview/dev kini bersih: 0 sesi perangkat admin tersisa — login admin dari browser user langsung sukses tanpa PERINGATAN KEAMANAN
+- Production tidak disentuh (sesi aktif milik user sendiri); jika user ingin pindah perangkat di production: logout di desktop, atau cabut perangkat via Panel Admin → Manajemen Perangkat
