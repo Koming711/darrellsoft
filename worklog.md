@@ -17699,3 +17699,28 @@ Work Log:
 Stage Summary:
 - Popup "Lengkapi Data Perusahaan" di mobile kini jauh lebih ringkas (320px, padding/ikon/label/tombol mengecil), iPhone SE kecil pun muat tanpa overflow; desktop tidak berubah
 - Task 18 (fix tidak-bisa-diketik) + Task 19 (perkecil mobile) keduanya BELUM dideploy ke www.darrellsoft.com — menunggu perintah deploy dari user
+
+---
+Task ID: 20
+Agent: Main
+Task: Deploy ke www.darrellsoft.com (bawa Task 18 + Task 19)
+
+Work Log:
+- Perintah user: "deploy ke www.darrellsoft.com. vcp_82u6..."
+- Isi deploy: Task 18 (popup Lengkapi Data Perusahaan bisa diketik — SubscriptionWaitingPopup ditunda via broadcast 'company-popup-open') + Task 19 (popup diperkecil di mobile: max-w-xs 320px, p-4, ikon/label/tombol mengecil) + seluruh parity v233
+- Kendala 1: `vercel --prod` (CLI v65.16.0, baru ter-install) menolak tanpa konfirmasi → error "requires confirmation. Use option --yes"
+- Kendala 2: folder .vercel HILANG dari workspace (arsip v233 tidak memuatnya) → tanpa link, deploy bisa salah project. Dipulihkan: npx vercel link --yes --project darrellsoft --token ... → .vercel/project.json (prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB / team_QBdS4SJeRhBe19sMKMlDvqsj)
+- Deploy sukses manual: npx vercel --prod --yes --token $VERCEL_TOKEN → deployment darrellsoft-6brk9kskh-...vercel.app, alias https://www.darrellsoft.com (Ready in 2m)
+- scripts/deploy.sh diperbaiki utk deploy berikutnya: step 4 kini `npx vercel --prod --yes --token` + catatan link .vercel
+- Catatan: vercel link membuat .env.local berisi VERCEL_OIDC_TOKEN saja — tidak mengganggu dev lokal (DATABASE_URL .env sqlite tetap dipakai)
+- Step 3 deploy.sh skip db push (build-push-url.js tidak menemukan .env.production.local/.env.prod-inspect di snapshot) — NON-ISSUE utk deploy ini: Task 18/19 murni frontend, tidak ada perubahan schema; schema production sudah lengkap dari deploy j20x8va4p
+- Pasca-deploy: schema lokal di-revert ke sqlite + prisma generate ulang + dev server restart (setsid) → /login 200
+- Verifikasi production (tanpa login admin — sadar diri: hindari merebut device session 1-perangkat milik user):
+  * /login 200, /daftar 200, /api/public-settings 200 dgn data nyata (company_name "Rajabowl") — DB postgres production hidup
+  * Bundle production digrep: marker Task 19 "max-w-xs sm:max-w-lg" ✓, "h-10 sm:h-9" ✓, "max-h-[50vh]" ✓; marker Task 18 "company-popup-open" ✓ — semua fix SUDAH LIVE
+  * agent-browser mobile 390x844: /daftar render bersih (dialog "Versi Baru! v233" tampil & bisa ditutup), /dashboard tanpa sesi → gerbang "Belum Login" normal, 0 page error
+  * String "Kode verifikasi whatsapp" tidak ada di client bundle — benar, template OTP Task 14 adalah kode server (API), bukan client
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan v233 lengkap + fix Task 18 (popup bisa diketik) + Task 19 (popup mobile diperkecil) — deployment darrellsoft-6brk9kskh
+- Pipeline deploy kini tahan CLI v65 (--yes) dan .vercel link dipulihkan; schema lokal sqlite, production postgres — keduanya sinkron

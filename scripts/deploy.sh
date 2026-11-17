@@ -40,8 +40,11 @@ else
 fi
 
 # Step 4: Deploy to Vercel
+# NOTE: vercel CLI v65+ menuntut --yes (tanpa prompt konfirmasi);
+# .vercel/project.json (link ke project darrellsoft) wajib ada —
+# bila hilang, jalankan dulu: npx vercel link --yes --project darrellsoft
 echo "📦 Step 4: Deploying to Vercel..."
-npx vercel --prod --token "$VERCEL_TOKEN"
+npx vercel --prod --yes --token "$VERCEL_TOKEN"
 
 # Step 5: Revert schema back to sqlite
 echo "📦 Step 5: Reverting schema to sqlite for local dev..."
