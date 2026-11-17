@@ -17634,3 +17634,22 @@ Work Log:
 
 Stage Summary:
 - www.darrellsoft.com = v235/v233: parity Task 4-14 (security-notif, manajemen perangkat, rekening+email live invoice, total akun beranda) dipulihkan penuh dari deployment production + fitur baru Task 16 (verifikasi perangkat Fonnte di Hak Akses). Pengirim OTP production = 085888082208 (token Fonnte baru terpasang di Setting global production). Tidak ada regresi fitur — semua 674 file identik + merge terkontrol.
+
+---
+Task ID: 17
+Agent: Main
+Task: Extract 4-part workspace archive & replace seluruh konten workspace (permintaan user)
+
+Work Log:
+- Permintaan user: "extract file ini. ganti semua konten dengan file ini. fix" — upload/ berisi 4 bagian split archive workspace-4e225f91...tar.001-004 (~200MB gzip stream, asli ~221MB)
+- Ekstraksi: cat 4 bagian | tar -xzf - → /tmp/ws-new; verifikasi praugtiganti: snapshot = kondisi v233 LENGKAP (use-live-bank.ts + grup-akun.ts + pembeli-orphans.ts ada, template OTP baru di 3 endpoint, login tanpa tombol takeover, prisma sqlite, .env DATABASE_URL=db/custom.db)
+- Backup tipis pra-ganti: /tmp/pre-restore-backup (src, prisma, package.json, worklog.md, Caddyfile, .env)
+- Replace: rsync -a --delete /tmp/ws-new/ /home/z/my-project/ --exclude upload (folder upload dgn 4 arsip dipertahankan); node_modules ikut terhapus (tidak ada di arsip) → bun install 985 paket + prisma generate ulang
+- Verifikasi pasca-ganti: dev server restart bersih; /login 200, / 200, /daftar 200; OTP API 400 utk format invalid ✓; uji Pembeli yatim → 200 demoCode + baris hantu terhapus otomatis ✓ (fixture dibersihkan); eslint 6 file kunci bersih; agent-browser /daftar render dialog "Versi Baru! v233 — Verifikasi Perangkat Pengirim OTP WhatsApp (Fonnte)" tanpa page error
+- otp_dev_mode dev di-set true (awalnya false dari snapshot) utk kenyamanan uji lokal; dev DB snapshot: pengguna 2, pembeli 0, calonPembeli 1
+- Catatan: snapshot ini menyatakan production sudah v235/v233 parity Task 4-14 + fitur Task 16 (verifikasi perangkat Fonnte) — lokal kini SENADA dengan production; deploy berikutnya aman. Tidak ada deploy dijalankan (tidak diminta)
+- tmp /tmp/ws-new & listing dibersihkan; disk 3.2G/9.9G sehat
+
+Stage Summary:
+- Seluruh konten workspace kini = isi arsip upload (v233 lengkap: Task 4-14 + Task 16 verifikasi perangkat Fonnte); dependency di-install ulang, dev server hijau, semua fitur kunci terverifikasi
+- Parity lokal-production pulih penuh — landmine regresi deploy dari task sebelumnya RESMI dihilangkan
