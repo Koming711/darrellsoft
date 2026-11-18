@@ -18005,3 +18005,23 @@ Work Log:
 
 Stage Summary:
 - Dropdown pilih barang kini menampilkan nama + qty (stok) + harga standar di semua popup (Harga Customer, Buat Invoice, Pelunasan) — barang bernama mirip mudah dibedakan; kolom pilihan tetap tampil nama saja & prefill Qty/Harga tidak berubah.
+
+---
+Task ID: 33
+Agent: Main
+Task: Deploy Task 32 (dropdown nama barang + qty + harga) ke www.darrellsoft.com
+
+Work Log:
+- Perintah user: "deploy ke www.darrellsoft.com" + token Vercel
+- Pra-deploy: .vercel/project.json HILANG lagi (sandbox restore) → dibangun ulang `npx vercel link --yes --project darrellsoft` → prj_ZoKYf7ej9kCwuU4aizRxdfpnUAsB cocok. `vercel link` ikut membuat .env.local (tanpa DATABASE_URL) — build-push-url.js tetap tidak menemukan URL → Step 3 skip (non-fatal, sesuai desain; Task 32 tidak mengubah schema DB).
+- `bash scripts/deploy.sh`: swap schema→postgres → build sukses → `vercel --prod --yes` (deployment darrellsoft-m1ysn4wfn) → Aliased https://www.darrellsoft.com → revert sqlite + regenerate client.
+- Verifikasi produksi:
+  1. HTTP 200: /, /daftar, /login, /api/public-settings
+  2. Login admin → peringatan keamanan → "Gunakan Perangkat Ini" → /pembukaan (Task 30 sapaan serentak masih LIVE: "Selamat pagi, Administrator 👋")
+  3. Akun admin produksi TIDAK punya barang → popup Tambah Harga Customer tampil mode fallback input (sesuai desain). Untuk E2E dropdown nyata: dibuat 1 barang sementara via popup (nama "E2E Temp Barang", qty 5, harga 15.000, barang umum) → popup dibuka ulang → dropdown muncul dgn opsi "E2E Temp Barang / Qty: 5 pcs · Rp15.000" (nama + qty + harga, screenshot) → dipilih → trigger tampil nama saja + prefill Qty=5, Harga=15000 → fitur LIVE di produksi.
+  4. Cleanup: barang sementara dihapus via UI Master Barang (Hapus → konfirmasi) → hilang dr daftar; audit DB Supabase read-only: 0 row "E2E Temp Barang" tersisa. Data owner (Barang milik cmptzbbqj...) tidak disentuh.
+  5. Local dev tetap 200, schema sqlite terkonfirmasi.
+- Worklog: entri Task 32 (fix) + Task 33 (deploy ini)
+
+Stage Summary:
+- www.darrellsoft.com kini menjalankan Tasks 24+25+26+27+30+32: dropdown pilih barang di popup (Harga Customer/Buat Invoice/Pelunasan) menampilkan nama + qty (stok) + harga standar; trigger tetap nama saja; tanpa jejak data uji di produksi.
