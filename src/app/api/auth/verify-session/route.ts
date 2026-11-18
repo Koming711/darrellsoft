@@ -11,6 +11,19 @@ import {
   getSingleDeviceMessage,
 } from '@/lib/device-session'
 
+/**
+ * OPTIMASI KUOTA SUPABASE (Task 34):
+ * Heartbeat ini berjalan tiap 10 detik di setiap perangkat aktif — query
+ * per poll ditekan tanpa mengubah semantik keamanan:
+ * - pengguna & grupAnggota di-fetch SEKALI dan dipakai lintas blok
+ *   (sebelumnya 2x per poll — duplikat murni).
+ * - setting 'role_permissions' (jarang berubah) di-cache in-memory 60 detik
+ *   per instance → perubahan hak akses admin tetap menyebar ≤60 detik.
+ */
+
+let rolePermsCache: { value: string; at: number } | null = null
+const ROLE_PERMS_TTL_MS = 60_000
+
 export async function POST(request: NextRequest) {
   try {
     const { username, sessionId, role, deviceToken } = await request.json()
@@ -24,14 +37,37 @@ export async function POST(request: NextRequest) {
     // === CHECK ACCOUNT EXPIRY ===
     // Admin and superadmin are exempt from expiry checks
     const isAdminRole = role === 'admin' || role === 'superadmin'
+
+    // Identitas dari cookie/header — dipakai beberapa blok di bawah.
+    const serverUser = getServerUser(request)
+
+    // ---- FETCH SEKALI, PAKAI BERSAMA (hemat query per heartbeat) ----
+    // pengguna: validUntil (cek expiry), id (pembeli/grup), role (fallback device check)
+    const pu = username
+      ? await db.pengguna.findFirst({
+          where: { username },
+          select: { id: true, validUntil: true, role: true },
+        })
+      : null
+    const memberId = pu?.id || serverUser?.id || ''
+    // grupAnggota + status grup: dipakai cek keanggotaan (expiry block) DAN
+    // info RBAC grup untuk klien — sebelumnya dua fetch terpisah per poll.
+    const grupMember = memberId
+      ? await db.grupAnggota.findFirst({
+          where: { memberId, status: { not: 'keluar' } },
+          select: {
+            status: true,
+            grupId: true,
+            peran: true,
+            izin: true,
+            grup: { select: { status: true } },
+          },
+        })
+      : null
+
     if (!isAdminRole) {
       // 1. Check Pengguna.validUntil
-      // findFirst: username kini per-namespace (grup vs pengelola bisa sama)
-      const pengguna = await db.pengguna.findFirst({
-        where: { username },
-        select: { validUntil: true, id: true }
-      })
-      if (pengguna?.validUntil && new Date(pengguna.validUntil) < new Date()) {
+      if (pu?.validUntil && new Date(pu.validUntil) < new Date()) {
         return NextResponse.json({
           valid: false,
           expired: true,
@@ -57,9 +93,9 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. Check Pembeli.expiredDate (if the user is linked to a Pembeli record)
-      if (pengguna?.id) {
+      if (pu?.id) {
         const pembeli = await db.pembeli.findFirst({
-          where: { penggunaId: pengguna.id },
+          where: { penggunaId: pu.id },
           select: { expiredDate: true }
         })
         if (pembeli?.expiredDate && new Date(pembeli.expiredDate) < new Date()) {
@@ -74,30 +110,24 @@ export async function POST(request: NextRequest) {
       }
 
       // 4. GRUP PERUSAHAAN: anggota nonaktif / grup dinonaktifkan → sesi tidak valid
-      if (pengguna?.id) {
-        const grupMember = await db.grupAnggota.findFirst({
-          where: { memberId: pengguna.id, status: { not: 'keluar' } },
-          select: { status: true, grupId: true, peran: true, izin: true, grup: { select: { status: true } } },
-        })
-        if (grupMember) {
-          if (grupMember.status === 'nonaktif') {
-            return NextResponse.json({
-              valid: false,
-              expired: true,
-              warningMessage: 'Akun Anda dinonaktifkan oleh Owner grup.',
-              permissions: { features: {}, subPermissions: {} },
-              securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
-            }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
-          }
-          if (grupMember.grup.status === 'dinonaktifkan') {
-            return NextResponse.json({
-              valid: false,
-              expired: true,
-              warningMessage: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.',
-              permissions: { features: {}, subPermissions: {} },
-              securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
-            }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
-          }
+      if (grupMember) {
+        if (grupMember.status === 'nonaktif') {
+          return NextResponse.json({
+            valid: false,
+            expired: true,
+            warningMessage: 'Akun Anda dinonaktifkan oleh Owner grup.',
+            permissions: { features: {}, subPermissions: {} },
+            securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+          }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
+        }
+        if (grupMember.grup.status === 'dinonaktifkan') {
+          return NextResponse.json({
+            valid: false,
+            expired: true,
+            warningMessage: 'Grup perusahaan dinonaktifkan. Hubungi admin Darrellsoft.',
+            permissions: { features: {}, subPermissions: {} },
+            securitySettings: { auto_logout_min: 0, logout_warning_sec: 0 },
+          }, { headers: { 'Cache-Control': 'no-store, max-age=0' } })
         }
       }
     }
@@ -109,9 +139,18 @@ export async function POST(request: NextRequest) {
     let features = { ...defaultFeatures }
     let subPermissions = JSON.parse(JSON.stringify(defaultSubPermissions))
     try {
-      const customPermsSetting = await db.setting.findUnique({ where: { key: 'role_permissions' } })
-      if (customPermsSetting?.value) {
-        const allPerms = JSON.parse(customPermsSetting.value)
+      // Cache TTL 60 detik: setting ini jarang berubah & heartbeat 10 detik
+      // tidak perlu membacanya setiap kali (hemat kuota, propagasi ≤60 detik).
+      let customPermsValue = ''
+      if (rolePermsCache && Date.now() - rolePermsCache.at < ROLE_PERMS_TTL_MS) {
+        customPermsValue = rolePermsCache.value
+      } else {
+        const customPermsSetting = await db.setting.findUnique({ where: { key: 'role_permissions' } })
+        customPermsValue = customPermsSetting?.value || ''
+        rolePermsCache = { value: customPermsValue, at: Date.now() }
+      }
+      if (customPermsValue) {
+        const allPerms = JSON.parse(customPermsValue)
         if (allPerms[role]) {
           // Merge: custom overrides defaults, but new features from defaults are kept
           if (allPerms[role].features) {
@@ -139,7 +178,6 @@ export async function POST(request: NextRequest) {
     // role 'user' (akun lama / aktivasi manual Admin) tidak pernah diblokir.
     let subscriptionAccess: SubscriptionAccessInfo | null = null
     try {
-      const serverUser = getServerUser(request)
       if (serverUser) {
         const effectiveRole = serverUser.role || role || ''
         const exempt =
@@ -167,23 +205,20 @@ export async function POST(request: NextRequest) {
 
     const cacheHeaders = { 'Cache-Control': 'no-store, max-age=0' }
 
-    // ===== Info grup perusahaan (RBAC menu klien — sinkron tiap poll) =====
+    // ===== Info grup perusahaan (RBAC menu klien — dari fetch bersama di atas) =====
     let grup: { grupId: string; peran: string; status: string; izin: string[] } | null = null
     try {
-      const pu = await db.pengguna.findFirst({ where: { username }, select: { id: true } })
-      const memberId = pu?.id || getServerUser(request)?.id || ''
-      if (memberId) {
-        const gm = await db.grupAnggota.findFirst({
-          where: { memberId, status: { not: 'keluar' } },
-          select: { grupId: true, peran: true, status: true, izin: true },
-        })
-        if (gm) {
-          let izin: string[] = []
-          try {
-            const parsed = JSON.parse(gm.izin || '[]')
-            if (Array.isArray(parsed)) izin = parsed.filter((x: unknown) => typeof x === 'string')
-          } catch {}
-          grup = { grupId: gm.grupId, peran: gm.peran, status: gm.status, izin }
+      if (grupMember) {
+        let izin: string[] = []
+        try {
+          const parsed = JSON.parse(grupMember.izin || '[]')
+          if (Array.isArray(parsed)) izin = parsed.filter((x: unknown) => typeof x === 'string')
+        } catch {}
+        grup = {
+          grupId: grupMember.grupId,
+          peran: grupMember.peran,
+          status: grupMember.status,
+          izin,
         }
       }
     } catch {}
@@ -208,12 +243,11 @@ export async function POST(request: NextRequest) {
     // - Berlaku untuk SEMUA role (termasuk admin/superadmin).
     // - Fail-open: bila pemeriksaan gagal, sesi tetap dianggap valid.
     try {
-      const serverUser = getServerUser(request)
       let userId = serverUser?.id || ''
       const effectiveUsername = username || ''
       if (!userId && username) {
         // Fallback identitas via username (klien tanpa cookie/header).
-        const pu = await db.pengguna.findFirst({ where: { username }, select: { id: true, role: true } })
+        // Reuse pu (fetch bersama di atas) → tanpa query tambahan.
         if (pu) {
           userId = pu.id
         } else {

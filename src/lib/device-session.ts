@@ -154,11 +154,23 @@ AND id NOT IN (
 /**
  * Setting 'single_device' di Halaman Hak Akses (Panel Admin):
  * aktif kecuali eksplisit 'false'. Default AKTIF.
+ *
+ * OPTIMASI KUOTA (Task 34): dipanggil di SETIAP heartbeat 10 detik —
+ * hasil di-cache in-memory 30 detik per instance. Perubahan toggle
+ * menyebap ≤30 detik, query setting turun ~6x.
  */
+let singleDeviceEnabledCache: { value: boolean; at: number } | null = null
+const SINGLE_DEVICE_TTL_MS = 30_000
+
 export async function isSingleDeviceEnabled(): Promise<boolean> {
+  if (singleDeviceEnabledCache && Date.now() - singleDeviceEnabledCache.at < SINGLE_DEVICE_TTL_MS) {
+    return singleDeviceEnabledCache.value
+  }
   try {
     const setting = await db.setting.findUnique({ where: { key: 'single_device' } })
-    return setting?.value !== 'false'
+    const value = setting?.value !== 'false'
+    singleDeviceEnabledCache = { value, at: Date.now() }
+    return value
   } catch {
     return true // fail-safe: bila setting gagal dibaca, tetap batasi
   }
@@ -578,11 +590,20 @@ export async function validateDeviceSession(params: {
     }
 
     if (active.deviceTokenHash === tokenHash) {
-      // Perangkat aktif — perbarui aktivitas terakhir (polling 10 detik).
-      await db.deviceSession.update({
-        where: { id: active.id },
-        data: { lastActivityAt: now, userRole: role },
-      }).catch(() => {})
+      // Perangkat aktif — perbarui aktivitas terakhir.
+      // OPTIMASI KUOTA (Task 34): heartbeat berjalan tiap 10 detik; menulis
+      // lastActivityAt tiap poll = 6 WRITE/menit per perangkat ke Supabase.
+      // Tulis hanya jika data berubah bermakna: ≥60 detik sejak update
+      // terakhir ATAU role berubah. Validasi keamanan (conflict/revoked)
+      // tetap berjalan penuh di SETIAP poll — hanya WRITE yang dikurangi.
+      const lastMs = active.lastActivityAt ? new Date(active.lastActivityAt).getTime() : 0
+      const roleChanged = (active.userRole || '') !== role
+      if (roleChanged || now.getTime() - lastMs >= 60_000) {
+        await db.deviceSession.update({
+          where: { id: active.id },
+          data: { lastActivityAt: now, userRole: role },
+        }).catch(() => {})
+      }
       return { status: 'ok' }
     }
 

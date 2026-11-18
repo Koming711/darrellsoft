@@ -92,3 +92,7 @@ server.log
 /backup-*.xlsx
 /auto-backup-*.json
 /auto-backup-*.xlsx
+
+# Task 34: monitor key & state (RAHASIA — repo public, jangan commit)
+.monitor-key
+.monitor-state.json

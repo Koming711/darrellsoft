@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { authFetch } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
+import { ServerStatusCard } from './server-status-card'
 import {
   Monitor,
   Smartphone,
@@ -250,6 +251,11 @@ export function ManajemenPerangkatContent() {
 
   return (
     <div className="space-y-5">
+      {/* STATUS SERVER (Task 34 — Always-On 24/7): ketersediaan aplikasi,
+          latensi, uptime, region + riwayat gangguan. Endpoint health TIDAK
+          menjalankan query DB — pemantauan tidak membakar kuota Supabase. */}
+      <ServerStatusCard />
+
       {/* Header info */}
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40 p-4 flex items-start gap-3">
         <ShieldCheck className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />

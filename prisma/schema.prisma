@@ -920,6 +920,26 @@ model DeviceLoginAttempt {
   @@index([userId, createdAt])
   @@index([createdAt])
 }
+
+// ====================================================================
+// MONITORING SERVER (Task 34 — Always-On 24/7)
+// Riwayat gangguan ketersediaan aplikasi, dicatat HANYA pada pergantian
+// status (turun → naik) oleh monitor eksternal VIA API dengan secret key.
+// TIDAK ada write berkala — health check harian/periodik TIDAK menulis DB
+// (aturan pemilik: jangan bakar kuota Supabase utk keep-alive).
+// ====================================================================
+model ServerIncident {
+  id          String    @id @default(cuid())
+  startedAt   DateTime // waktu server terdeteksi gangguan
+  recoveredAt DateTime? // waktu server kembali online (null = masih gangguan)
+  source      String    @default("external-monitor") // external-monitor | admin-panel
+  detail      String    @default("") // penyebab/status dari monitor (mis. "HTTP 502")
+  createdAt   DateTime  @default(now())
+
+  @@index([recoveredAt])
+  @@index([startedAt])
+}
+
 // ====================================================================
 // STOCK BAHAN — transaksi terpisah (Stok Masuk / Keluar / Penyesuaian)
 // Setiap transaksi di tabel ini; stok Bahan direplay via recalcBahan().
